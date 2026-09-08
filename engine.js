@@ -27,15 +27,20 @@ export default class Engine {
   }
 
   update(particles, deltaTime = 1) {
+    const expiredParticles = [];
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
 
       if (p.age >= (p.lifetime + p.delay)) {
+        expiredParticles.push(p);
         particles.splice(i, 1);
         continue;
       }
 
       p.age += deltaTime;
+
+      // Delayed particles should exist but stay hidden until their delay elapses.
+      p.isRenderable = p.age >= p.delay;
 
       if (p.age < p.delay) continue;
 
@@ -47,9 +52,10 @@ export default class Engine {
       p.zVelocity += p.zAcceleration * deltaTime;
 
       if (p.mass && p.mass > 0) {
-        p.xVelocity += this.gravity.x * deltaTime;
-        p.yVelocity += this.gravity.y * deltaTime;
-        p.zVelocity += this.gravity.z * deltaTime;
+        const gravityScale = Math.min(1, p.mass);
+        p.xVelocity += this.gravity.x * gravityScale * deltaTime;
+        p.yVelocity += this.gravity.y * gravityScale * deltaTime;
+        p.zVelocity += this.gravity.z * gravityScale * deltaTime;
       }
 
       const totalDrag = Math.max(0, p.drag + this.globalDrag);
@@ -89,5 +95,7 @@ export default class Engine {
         p.alpha = initialAlpha + (p.endAlpha - initialAlpha) * progress;
       }
     }
+
+    return expiredParticles;
   }
 }

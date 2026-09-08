@@ -35,11 +35,26 @@ const particleModeSelect = document.getElementById('particleMode');
 
 createBtn.addEventListener('click', () => {
   const mode = particleModeSelect.value;
-  particles = particleFactory.create(mode, canvas);
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+
+  if (mode === 'projectile' || mode === 'itemReturn') {
+    // Guided launch modes pass an explicit destination.
+    particles = particleFactory.create(mode, centerX, centerY, canvas.width, 0);
+    return;
+  }
+
+  if (mode === 'collision') {
+    const collisionDirection = 'left';
+    particles = particleFactory.create(mode, centerX, centerY, undefined, undefined, collisionDirection);
+    return;
+  }
+
+  particles = particleFactory.create(mode, centerX, centerY);
 });
 
 // Initial load
-particles = particleFactory.create('dust', canvas);
+particles = particleFactory.create('dust', canvas.width / 2, canvas.height / 2);
 
 function handleCollisions(particles) {
   for (let i = 0; i < particles.length; i++) {
@@ -101,10 +116,16 @@ function animate(currentTime) {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  engine.update(particles, 1);
+  const expiredParticles = engine.update(particles, 1);
+  expiredParticles.forEach(p => {
+    if (p.type === 'fireworkTail') {
+      particles.push(...particleFactory.create('fireworkBurst', p.x, p.y));
+    }
+  });
   handleCollisions(particles);
 
   particles.forEach(p => {
+    if (p.isRenderable === false) return;
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
 
