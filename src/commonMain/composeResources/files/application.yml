@@ -1,0 +1,49 @@
+engine:
+  tickTargetPerSec: 60
+  spriteAnimationFramePerSec: 12
+viewport:
+  x: 0
+  y: 768
+  width: 1024
+  height: 768
+map:
+  item:
+    asset:
+      one:
+        width: 64
+        height: 64
+        path: "https://sparrow-assets.pages.dev/greenie-full.png"
+      two:
+        width: 64
+        height: 64
+        path: "https://sparrow-assets.pages.dev/finish-item.png"
+    position:
+        0:
+            x: 100
+            y: 1300
+            type: "collectable"
+            ref: "one"
+particle:
+  player:
+    movement:
+      # noinspection SpringBootApplicationYaml
+      color:
+        r: 230
+        g: 234
+        b: 218
+        a: 255
+    collision:
+      # noinspection SpringBootApplicationYaml
+      color:
+        r: 255
+        g: 255
+        b: 255
+        a: 255
+  enemy:
+    projectile:
+      # noinspection SpringBootApplicationYaml
+      color:
+        r: 255
+        g: 255
+        b: 255
+        a: 255

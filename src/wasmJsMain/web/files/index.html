@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Engine Canvas</title>
+    <link rel="stylesheet" href="main.css">
+</head>
+<body>
+    <div id="loading-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#000; color:#fff; display:flex; justify-content:center; align-items:center; z-index:9999;">
+        <h1>Loading Test Harness...</h1>
+    </div>
+    <canvas id="particleCanvas" width="800" height="600" aria-hidden="true"></canvas>
+    <div id="ComposeTarget"></div>
+    <div class="controls">
+        <select id="particleMode">
+            <option value="dust">Dust</option>
+            <option value="collision">Collision</option>
+            <option value="projectile">Projectile</option>
+            <option value="fireworkBurst">Firework Burst</option>
+            <option value="fireworkTails">Firework Tails</option>
+            <option value="itemReturn">Item Return</option>
+        </select>
+        <button id="createBtn">create</button>
+    </div>
+    <div id="fpsLabel" style="position:absolute;top:10px;left:10px;padding:4px 8px;background:rgba(0,0,0,0.7);color:#00ffcc;font-family:monospace;font-size:14px;border-radius:4px;pointer-events:none;">FPS: --</div>
+    <script src="kotlin-particles-wasm.js"></script>
+</body>
+</html>
