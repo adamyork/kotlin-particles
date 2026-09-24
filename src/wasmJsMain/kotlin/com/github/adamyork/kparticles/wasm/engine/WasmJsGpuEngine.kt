@@ -83,8 +83,8 @@ class WasmJsGpuEngine(
         logger.info { "GPU particle renderer initialized" }
     }
 
-    override fun manageMapParticles(particles: List<Particle>, viewPort: ViewPort) {
-        physics.applyParticlePhysics(particles as ArrayList<Particle>, viewPort, completedParticleResults)
+    override fun manageMapParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
+        physics.applyParticlePhysics(particles, viewPort, completedParticleResults)
 //        val allCollectiblesFound = scoreService.allFound()
 //        gameMap.state = when (gameMap.state) {
 //            GameMapState.COLLECTING if allCollectiblesFound -> GameMapState.COMPLETING
@@ -124,7 +124,7 @@ class WasmJsGpuEngine(
     }
 
     override fun drawParticles(
-        particles: List<Particle>,
+        particles: ArrayList<Particle>,
         viewPort: ViewPort,
         canvas: Canvas,
         mapItemImage: CommonImage?

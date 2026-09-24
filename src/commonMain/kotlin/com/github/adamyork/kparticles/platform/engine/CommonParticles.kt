@@ -12,6 +12,10 @@ import kotlin.random.Random
 @Inject
 class CommonParticles : Particles {
 
+    companion object {
+        const val GPU_COMPUTE_FLOATS_PER_PARTICLE: Int = 16
+    }
+
     private var colorMap: Map<ParticleType, Color> = emptyMap()
 
     override fun populateColorMap(assetService: AssetService) {
@@ -59,6 +63,10 @@ class CommonParticles : Particles {
         return particles
     }
 
+    override fun createGpuParticleComputeBuffer(maxParticles: Int): FloatArray {
+        return FloatArray(maxParticles * GPU_COMPUTE_FLOATS_PER_PARTICLE)
+    }
+
     private fun createDustParticles(centerX: Double, centerY: Double): MutableList<Particle> {
         val particles = mutableListOf<Particle>()
         val puffCount = 16
@@ -85,6 +93,7 @@ class CommonParticles : Particles {
         val length = hypot(deltaX, deltaY).takeIf { it > 0 } ?: 1.0
         val speed = 0.06 + Random.nextDouble() * 0.04
         val dustPuffColor = colorMap[ParticleType.DUST] ?: Color.White
+        val diameter = radius * 2.0
         return Particle(
             id = Random.nextInt().toString(16),
             type = ParticleType.DUST,
@@ -97,8 +106,8 @@ class CommonParticles : Particles {
             endColor = dustPuffColor,
             alpha = 0.85,
             endAlpha = 0.0,
-            width = 0.0,
-            height = 0.0,
+            width = diameter,
+            height = diameter,
             maxWidth = 10.0,
             maxHeight = 10.0,
             radius = radius,
@@ -138,6 +147,7 @@ class CommonParticles : Particles {
         val collisionParticleColor = colorMap[ParticleType.COLLISION] ?: Color.White
         repeat(256) {
             val radius = Random.nextDouble() * 2.5 + 2
+            val diameter = radius * 2.0
             val spread = (Random.nextDouble() - 0.5) * 1.2
             val velocityAngle = explodeAngle + spread
             val speed = Random.nextDouble() * 6 + 4
@@ -153,8 +163,8 @@ class CommonParticles : Particles {
                 endColor = collisionParticleColor,
                 alpha = 0.95,
                 endAlpha = 1.0,
-                width = 0.0,
-                height = 0.0,
+                width = diameter,
+                height = diameter,
                 maxWidth = 10.0,
                 maxHeight = 10.0,
                 radius = radius,
@@ -201,6 +211,8 @@ class CommonParticles : Particles {
         val maxSpeed = 5.25
         val thrust = 0.16
         val projectileParticleColor = colorMap[ParticleType.PROJECTILE] ?: Color.White
+        val radius = 16.0
+        val diameter = radius * 2.0
         return mutableListOf(
             Particle(
                 id = Random.nextInt().toString(16),
@@ -214,11 +226,11 @@ class CommonParticles : Particles {
                 endColor = projectileParticleColor,
                 alpha = 1.0,
                 endAlpha = 1.0,
-                width = 0.0,
-                height = 0.0,
+                width = diameter,
+                height = diameter,
                 maxWidth = 10.0,
                 maxHeight = 10.0,
-                radius = 16.0,
+                radius = radius,
                 maxRadius = 5.0,
                 growthRate = 0.0,
                 mass = 0.15,
@@ -255,6 +267,8 @@ class CommonParticles : Particles {
         repeat(100) {
             val angle = Random.nextDouble() * PI * 2
             val speed = Random.nextDouble() * 6 + 2
+            val radius = 3.0
+            val diameter = radius * 2.0
             particles += Particle(
                 id = Random.nextInt().toString(16),
                 type = ParticleType.FIREWORK_BURST,
@@ -267,11 +281,11 @@ class CommonParticles : Particles {
                 endColor = endColor,
                 alpha = 1.0,
                 endAlpha = 1.0,
-                width = 0.0,
-                height = 0.0,
+                width = diameter,
+                height = diameter,
                 maxWidth = 10.0,
                 maxHeight = 10.0,
-                radius = 3.0,
+                radius = radius,
                 maxRadius = 5.0,
                 growthRate = 0.0,
                 mass = 1.0,
@@ -314,6 +328,7 @@ class CommonParticles : Particles {
             val xPosition = if (tailCount > 1) (i.toDouble() / (tailCount - 1)) * width else centerX
             val randomDestinationY = (height * 0.35) + Random.nextDouble() * (height * 0.3)
             val radius = 8 + Random.nextDouble() * 8
+            val diameter = radius * 2.0
             val delay = max(0.0, round(delayOrder[i] * staggerFrames + (Random.nextDouble() - 0.5) * 20))
             particles += Particle(
                 id = Random.nextInt().toString(16),
@@ -327,8 +342,8 @@ class CommonParticles : Particles {
                 endColor = endColor,
                 alpha = 1.0,
                 endAlpha = 1.0,
-                width = 0.0,
-                height = 0.0,
+                width = diameter,
+                height = diameter,
                 maxWidth = 10.0,
                 maxHeight = 10.0,
                 radius = radius,

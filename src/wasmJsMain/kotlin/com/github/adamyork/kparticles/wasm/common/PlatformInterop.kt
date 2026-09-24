@@ -10,8 +10,6 @@ import org.jetbrains.skiko.wasm.onWasmReady
 import org.khronos.webgl.toInt8Array
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
-import org.w3c.dom.url.URL
-import org.w3c.files.Blob
 
 @AppScope
 @Inject
@@ -47,9 +45,6 @@ class WasmJsInterop : PlatformInterop {
         return createBlobFromInt8Array(bytes.toInt8Array())
     }
 
-    override fun createAudioBlobUri(blob: Any): String {
-        return URL.createObjectURL(blob as Blob)
-    }
 
     override fun isTouchDevice(): Boolean {
         return window.navigator.maxTouchPoints > 0

@@ -36,56 +36,12 @@ abstract class UiDrawLayer(
     ) {
         val screenDimensions = remember { screenDimensionsService.getScreenDimensions() }
         Box(modifier = Modifier.size(width = screenDimensions.width.dp, height = screenDimensions.height.dp)) {
+            ForegroundLayerCanvas(foregroundBitmap)
             OverlayLayer()
         }
 
         LaunchedEffect(isRunning) {
             onFpsLabelChanged(if (isRunning) "FPS: running" else "FPS: paused")
-        }
-    }
-
-    @Composable
-    private fun LayerCanvas(
-        bitmap: ImageBitmap?,
-        screenDimensions: ScreenDimensions,
-        offsetX: Float = 0f,
-        offsetY: Float = 0f,
-        isSplash: Boolean = false
-    ) {
-        Canvas(
-            modifier = Modifier.fillMaxSize()
-                .clip(RectangleShape)
-        ) {
-            bitmap?.let { image ->
-                if (isSplash) {
-                    drawImage(
-                        image = image,
-                        srcOffset = IntOffset.Zero,
-                        srcSize = IntSize(image.width, image.height),
-                        dstOffset = IntOffset.Zero,
-                        dstSize = IntSize(
-                            (screenDimensions.width * density).toInt(),
-                            (screenDimensions.height * density).toInt()
-                        )
-                    )
-                } else {
-                    val viewportWidth = screenDimensions.width.coerceAtMost(image.width)
-                    val viewportHeight = screenDimensions.height.coerceAtMost(image.height)
-                    val maxSrcX = (image.width - viewportWidth).coerceAtLeast(0)
-                    val maxSrcY = (image.height - viewportHeight).coerceAtLeast(0)
-                    val srcX = offsetX.toInt().coerceIn(0, maxSrcX)
-                    val srcY = offsetY.toInt().coerceIn(0, maxSrcY)
-                    val dstWidth = (screenDimensions.width * density).toInt()
-                    val dstHeight = (screenDimensions.height * density).toInt()
-                    drawImage(
-                        image = image,
-                        srcOffset = IntOffset(srcX, srcY),
-                        srcSize = IntSize(viewportWidth, viewportHeight),
-                        dstOffset = IntOffset.Zero,
-                        dstSize = IntSize(dstWidth, dstHeight)
-                    )
-                }
-            }
         }
     }
 

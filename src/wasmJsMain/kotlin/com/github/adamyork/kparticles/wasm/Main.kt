@@ -36,85 +36,12 @@ fun main() {
             }
         }
         component.platformInterop.hidePlatformLoader()
-        val gameLayer = component.testBed
-        val sparrowColorScheme = component.testBedColorScheme
+        val testBed = component.testBed
+        val testbedColorScheme = component.testBedColorScheme
         ComposeViewport(viewportContainerId = "ComposeTarget") {
-            UiScaffold().BuildGui(gameLayer, sparrowColorScheme)
+            UiScaffold().BuildGui(testBed, testbedColorScheme)
         }
     }
-//    val canvas = document.getElementById("particleCanvas") as HTMLCanvasElement
-//    val modeSelect = document.getElementById("particleMode") as HTMLSelectElement
-//    val createButton = document.getElementById("createBtn") as HTMLButtonElement
-//    val fpsLabel = document.getElementById("fpsLabel") as HTMLDivElement
-//
-//    val ctx = canvas.getContext("2d") as CanvasRenderingContext2D
-//    val engine = ParticleEngine(gravity = ParticleVector(0.0, 0.05, 0.0), globalDrag = 0.01)
-//    val factory = ParticleFactory(imageSrc = "image.png")
-//    val image = document.createElement("img") as HTMLImageElement
-//    image.src = "image.png"
-//
-//    var particles = factory.create("dust", canvas.width / 2.0, canvas.height / 2.0)
-//    var frameCount = 0
-//    var lastTime = window.performance.now()
-//
-//    createButton.addEventListener("click", {
-//        val mode = modeSelect.value
-//        val centerX = canvas.width / 2.0
-//        val centerY = canvas.height / 2.0
-//
-//        particles = when (mode) {
-//            "projectile", "itemReturn" -> factory.create(mode, centerX, centerY, canvas.width.toDouble(), 0.0)
-//            "collision" -> factory.create(mode, centerX, centerY, direction = "left")
-//            else -> factory.create(mode, centerX, centerY)
-//        }
-//    })
-//
-//    fun animate(currentTime: Double) {
-//        frameCount++
-//        if (currentTime - lastTime >= 1000) {
-//            val fps = ((frameCount * 1000) / (currentTime - lastTime)).toInt()
-//            fpsLabel.textContent = "FPS: $fps | Particles: ${particles.size}"
-//            frameCount = 0
-//            lastTime = currentTime
-//        }
-//
-//        ctx.clearRect(0.0, 0.0, canvas.width.toDouble(), canvas.height.toDouble())
-//
-//        val expired = engine.update(particles, 1.0)
-//        expired.forEach { p ->
-//            if (p.type == ParticleType.FIREWORK_TAIL) {
-//                particles.addAll(factory.create("fireworkBurst", p.x, p.y))
-//            }
-//        }
-//
-//        handleCollisions(particles)
-//
-//        particles.forEach { p ->
-//            if (!p.isVisible) return@forEach
-//            ctx.save()
-//            ctx.globalAlpha = max(0.0, min(1.0, p.alpha))
-//
-//            if (p.type == ParticleType.ITEM_RETURN && image.complete) {
-//                val w = if (p.width > 0) p.width else p.radius * 2
-//                val h = if (p.height > 0) p.height else p.radius * 2
-//                ctx.drawImage(image, p.x - w / 2, p.y - h / 2, w, h)
-//            } else {
-//                ctx.fillStyle = p.color.toJsString()
-//                if (p.shape == ParticleShape.CIRCLE) {
-//                    ctx.beginPath()
-//                    ctx.arc(p.x, p.y, max(0.0, p.radius), 0.0, PI * 2)
-//                    ctx.fill()
-//                } else {
-//                    ctx.fillRect(p.x - p.width / 2, p.y - p.height / 2, p.width, p.height)
-//                }
-//            }
-//            ctx.restore()
-//        }
-//
-//        window.requestAnimationFrame(::animate)
-//    }
-//
-//    window.requestAnimationFrame(::animate)
 }
 
 private fun handleCollisions(particles: MutableList<Particle>) {

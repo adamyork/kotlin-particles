@@ -7,7 +7,6 @@ import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.gui.UiController
 import com.github.adamyork.kparticles.platform.gui.UiDrawLayer
 import com.github.adamyork.kparticles.platform.gui.UiMain
-import com.github.adamyork.sparrow.wasm.gui.WasmJsUiDrawLayer
 
 class WasmUiMain(
     controller: UiController,

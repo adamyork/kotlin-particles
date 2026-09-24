@@ -60,8 +60,12 @@ open class WasmJsEngine(
         )
     }
 
+    override fun manageMapParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
+        physics.applyParticlePhysics(particles, viewPort, completedParticleResults)
+    }
+
     override fun draw(
-        particles: List<Particle>,
+        particles: ArrayList<Particle>,
         viewPort: ViewPort,
         timestamp: Double
     ): DrawResult {
@@ -77,7 +81,7 @@ open class WasmJsEngine(
     }
 
     protected open fun drawParticles(
-        particles: List<Particle>,
+        particles: ArrayList<Particle>,
         viewPort: ViewPort,
         canvas: Canvas,
         mapItemImage: CommonImage?
@@ -118,7 +122,8 @@ open class WasmJsEngine(
                     val x = particle.x.toFloat() - vpX
                     val y = particle.y.toFloat() - vpY
                     if (particle.shape == ParticleShape.CIRCLE) {
-                        builder.addOval(Rect.makeXYWH(x, y, particle.width.toFloat(), particle.height.toFloat()))
+                        val diameter = (particle.radius * 2.0).toFloat()
+                        builder.addOval(Rect.makeXYWH(x - particle.radius.toFloat(), y - particle.radius.toFloat(), diameter, diameter))
                     } else {
                         builder.addRect(Rect.makeXYWH(x, y, particle.width.toFloat(), particle.height.toFloat()))
                     }

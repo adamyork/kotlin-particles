@@ -15,8 +15,6 @@ interface PlatformInterop {
 
     fun getBlobFromBytes(bytes: ByteArray): Any
 
-    fun createAudioBlobUri(blob: Any): String
-
     fun isTouchDevice(): Boolean
 
     fun isGpuEngineSupported(platformData: Any? = null): Boolean

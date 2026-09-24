@@ -13,8 +13,8 @@ interface Engine {
 
     suspend fun initialize(collectibleAsset: ImageAsset)
 
-    fun manageMap(particles: List<Particle>, viewPort: ViewPort)
+    fun manageMap(particles: ArrayList<Particle>, viewPort: ViewPort)
 
-    fun draw(particles: List<Particle>, viewPort: ViewPort, timestamp: Double): DrawResult
+    fun draw(particles: ArrayList<Particle>, viewPort: ViewPort, timestamp: Double): DrawResult
 
 }

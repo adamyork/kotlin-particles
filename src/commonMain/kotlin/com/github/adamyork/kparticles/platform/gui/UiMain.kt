@@ -1,9 +1,11 @@
 package com.github.adamyork.kparticles.platform.gui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Circle
@@ -15,7 +17,6 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
@@ -23,8 +24,10 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.github.adamyork.kparticles.platform.common.LifeCycleState
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
@@ -55,9 +58,19 @@ abstract class UiMain(
         val screenDimensions = remember { screenDimensionsService.getScreenDimensions() }
         val uiDrawLayer = remember { uiDrawLayer }
         var fpsLabel by remember { mutableStateOf("FPS: --") }
-        var gameStatusLabel by remember { mutableStateOf("Press Start To Begin") }
         var isLoadingChecklistVisible by remember { mutableStateOf(true) }
-        val isTouchDevice = remember { platformInterop.isTouchDevice() }
+        val particleModes = remember {
+            listOf(
+                "dust" to "Dust",
+                "collision" to "Collision",
+                "projectile" to "Projectile",
+                "fireworkBurst" to "Firework Burst",
+                "fireworkTails" to "Firework Tails",
+                "itemReturn" to "Item Return"
+            )
+        }
+        var selectedParticleMode by remember { mutableStateOf(particleModes.first().first) }
+        var isParticleModeMenuExpanded by remember { mutableStateOf(false) }
         val allTasksCompleted = controller.allTasksCompleted()
         val gameLifeCycleState = runtimeService.lifeCycleState
         val focusManager = LocalFocusManager.current
@@ -67,23 +80,17 @@ abstract class UiMain(
                 gameLifeCycleState == LifeCycleState.INITIALIZED ||
                         gameLifeCycleState == LifeCycleState.RUNNING
                 )
-        val showButtons = gameLifeCycleState != LifeCycleState.INITIALIZING
-        val disabledButtonColors = ButtonDefaults.buttonColors(
-            disabledContainerColor = colorScheme.secondaryContainer,
-            disabledContentColor = colorScheme.onSecondaryContainer
-        )
-        val textMainColor = colorScheme.onSurface
         val overlayTextColor = Color.White
-        val hudTopOffset = hudTopInset
-        val hudScale = remember(screenDimensions) {
-            minOf(
-                1f,
-                minOf(
-                    screenDimensions.width / 1024f,
-                    screenDimensions.height / 768f
-                ).coerceAtLeast(0.6f)
-            )
-        }
+        val controlsShape = RoundedCornerShape(8.dp)
+        val createButtonColors = ButtonDefaults.buttonColors(
+            containerColor = colorScheme.primary,
+            contentColor = colorScheme.onPrimary
+        )
+        val dropdownButtonColors = ButtonDefaults.outlinedButtonColors(
+            containerColor = colorScheme.surface,
+            contentColor = colorScheme.onSurface
+        )
+        val dropdownMenuTextColor = colorScheme.primary
         val density = LocalDensity.current
         var viewportTopInRootPx by remember { mutableFloatStateOf(0f) }
 
@@ -148,7 +155,6 @@ abstract class UiMain(
             ) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
                         .wrapContentSize()
                         .onGloballyPositioned { coordinates ->
                             viewportTopInRootPx = coordinates.positionInRoot().y
@@ -163,17 +169,71 @@ abstract class UiMain(
                         }
                     )
                 }
-            }
 
-            if (runtimeService.lifeCycleState == LifeCycleState.RUNNING && isTouchDevice) {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(1f).fillMaxHeight().pointerInput(Unit) {
+                if (gameLifeCycleState != LifeCycleState.INITIALIZING) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .padding(top = 20.dp)
+                            .semantics { contentDescription = "particle-controls" }
+                            .testTag("particle-controls")
+                    ) {
+                        Box {
+                            OutlinedButton(
+                                onClick = { isParticleModeMenuExpanded = true },
+                                colors = dropdownButtonColors,
+                                modifier = Modifier
+                                    .focusProperties { canFocus = false }
+                                    .semantics { contentDescription = "particleMode" }
+                                    .testTag("particleMode")
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = particleModes.first { it.first == selectedParticleMode }.second,
+                                        color = colorScheme.primary
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        tint = colorScheme.primary
+                                    )
+                                }
+                            }
+                            DropdownMenu(
+                                expanded = isParticleModeMenuExpanded,
+                                onDismissRequest = { isParticleModeMenuExpanded = false },
+                                modifier = Modifier
+                                    .border(width = 1.dp, color = Color.White, shape = controlsShape)
+                                    .background(colorScheme.surface, controlsShape)
+                            ) {
+                                particleModes.forEach { mode ->
+                                    DropdownMenuItem(
+                                        text = { Text(mode.second, color = dropdownMenuTextColor) },
+                                        onClick = {
+                                            selectedParticleMode = mode.first
+                                            isParticleModeMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
 
-                    })
-                    Box(modifier = Modifier.weight(1f).fillMaxHeight().pointerInput(Unit) {
-                    })
-                    Box(modifier = Modifier.weight(1f).fillMaxHeight().pointerInput(Unit) {
-                    })
+                        Button(
+                            onClick = {
+                                controller.createParticles(selectedParticleMode)
+                                focusManager.clearFocus(force = true)
+                                platformInterop.requestKeyboardFocus()
+                            },
+                            colors = createButtonColors,
+                            modifier = Modifier
+                                .focusProperties { canFocus = false }
+                                .semantics { contentDescription = "createBtn" }
+                                .testTag("createBtn")
+                        ) {
+                            Text("create")
+                        }
+                    }
                 }
             }
 
@@ -199,33 +259,21 @@ abstract class UiMain(
                 }
 
                 Box(modifier = hudContainerModifier) {
-                    if (showLabels) {
-                        Text(
-                            text = gameStatusLabel,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = overlayTextColor,
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(top = hudTopOffset)
-                                .background(overlayBg, RoundedCornerShape(8.dp))
-                                .padding(horizontal = 12.dp, vertical = 4.dp)
-                                .semantics { contentDescription = "centered-top-label" }
-                                .testTag("centered-top-label")
-                        )
-                    }
 
                     if (showLabels) {
                         Text(
                             text = fpsLabel,
                             style = MaterialTheme.typography.labelLarge,
-                            color = overlayTextColor,
                             modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = hudTopOffset, end = 12.dp)
-                                .background(overlayBg, RoundedCornerShape(8.dp))
+                                .align(Alignment.TopStart)
+                                .padding(top = 10.dp, start = 10.dp)
+                                .background(overlayBg, RoundedCornerShape(4.dp))
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
-                                .semantics { contentDescription = "FPS label" }
-                                .testTag("fps-label")
+                                .semantics { contentDescription = "fpsLabel" }
+                                .testTag("fpsLabel"),
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 14.sp,
+                            color = Color(0xFF00FFCC)
                         )
 
                         Text(
@@ -234,24 +282,12 @@ abstract class UiMain(
                             color = overlayTextColor,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(top = hudTopOffset + 24.dp, end = 12.dp)
+                                .padding(top = 10.dp, end = 12.dp)
                                 .background(overlayBg, RoundedCornerShape(8.dp))
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                                 .semantics { contentDescription = "Screen dimensions label" }
                                 .testTag("screen-dimensions-label")
                         )
-
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(top = hudTopOffset, start = 12.dp)
-                                .background(overlayBg, RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 6.dp)
-                                .semantics { contentDescription = "score-overlay" }
-                                .testTag("score-overlay"),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                        }
                     }
                 }
             }
@@ -260,121 +296,65 @@ abstract class UiMain(
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(vertical = 12.dp)
                         .zIndex(6f)
                 ) {
-                    val availableChecklistHeight = (maxHeight - 24.dp).coerceAtLeast(1.dp)
+                    val viewportTopOffset = with(density) { viewportTopInRootPx.toDp() }
+                    val availableChecklistHeight = screenDimensions.height.dp.coerceAtLeast(1.dp)
                     val estimatedChecklistHeight = (controller.loadingTasks.size * 30).dp + 48.dp
                     val checklistScale = (availableChecklistHeight / estimatedChecklistHeight).coerceIn(0.62f, 1f)
 
-                    Column(
+                    Box(
                         modifier = Modifier
-                            .align(Alignment.Center)
-                            .width(260.dp)
-                            .graphicsLayer(
-                                scaleX = checklistScale,
-                                scaleY = checklistScale,
-                                transformOrigin = TransformOrigin(0.5f, 0.5f)
-                            )
-                            .background(overlayBg, RoundedCornerShape(8.dp))
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.Start,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                            .align(Alignment.TopCenter)
+                            .padding(top = viewportTopOffset)
+                            .width(screenDimensions.width.dp)
+                            .height(screenDimensions.height.dp)
                     ) {
-                        controller.loadingTasks.forEach { task ->
-                            val statusIcon = when (task.status) {
-                                LoadingTaskStatus.COMPLETED -> Icons.Default.CheckCircle
-                                LoadingTaskStatus.FAILED -> Icons.Default.Cancel
-                                LoadingTaskStatus.PENDING -> Icons.Default.Circle
-                            }
-                            val statusColor = when (task.status) {
-                                LoadingTaskStatus.COMPLETED -> Color.Green
-                                LoadingTaskStatus.FAILED -> Color.Red
-                                LoadingTaskStatus.PENDING -> Color.Gray
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(
-                                    imageVector = statusIcon,
-                                    contentDescription = null,
-                                    tint = statusColor,
-                                    modifier = Modifier.size(16.dp)
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .width(260.dp)
+                                .graphicsLayer(
+                                    scaleX = checklistScale,
+                                    scaleY = checklistScale,
+                                    transformOrigin = TransformOrigin(0.5f, 0.5f)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = task.label,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = overlayTextColor
-                                )
+                                .background(overlayBg, RoundedCornerShape(8.dp))
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.Start,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            controller.loadingTasks.forEach { task ->
+                                val statusIcon = when (task.status) {
+                                    LoadingTaskStatus.COMPLETED -> Icons.Default.CheckCircle
+                                    LoadingTaskStatus.FAILED -> Icons.Default.Cancel
+                                    LoadingTaskStatus.PENDING -> Icons.Default.Circle
+                                }
+                                val statusColor = when (task.status) {
+                                    LoadingTaskStatus.COMPLETED -> Color.Green
+                                    LoadingTaskStatus.FAILED -> Color.Red
+                                    LoadingTaskStatus.PENDING -> Color.Gray
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = statusIcon,
+                                        contentDescription = null,
+                                        tint = statusColor,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = task.label,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = overlayTextColor
+                                    )
+                                }
                             }
                         }
                     }
-                }
-            }
-
-            if (showButtons) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 12.dp)
-                        .graphicsLayer(
-                            scaleX = hudScale,
-                            scaleY = hudScale,
-                            transformOrigin = TransformOrigin(0.5f, 1f)
-                        )
-                        .semantics { contentDescription = "start-pause-button-row" }
-                        .testTag("start-pause-button-row")
-                ) {
-
-                    Button(
-                        onClick = {
-                            controller.start()
-                            focusManager.clearFocus(force = true)
-                            platformInterop.requestKeyboardFocus()
-                        },
-                        enabled = gameLifeCycleState != LifeCycleState.RUNNING,
-                        colors = disabledButtonColors,
-                        modifier = Modifier
-                            .focusProperties { canFocus = false }
-                            .semantics { contentDescription = "start-button" }
-                            .testTag("start-button")
-                    ) {
-                        Text("Start", color = textMainColor)
-                    }
-
-                    Button(
-                        onClick = {
-                            focusManager.clearFocus(force = true)
-                        },
-                        enabled = gameLifeCycleState == LifeCycleState.RUNNING,
-                        colors = disabledButtonColors,
-                        modifier = Modifier
-                            .focusProperties { canFocus = false }
-                            .semantics { contentDescription = "pause-button" }
-                            .testTag("pause-button")
-                    ) {
-                        Text("Pause", color = textMainColor)
-                    }
-
-                    Button(
-                        onClick = {
-                            controller.reset()
-                            focusManager.clearFocus(force = true)
-                        },
-                        enabled = gameLifeCycleState == LifeCycleState.RUNNING,
-                        colors = disabledButtonColors,
-                        modifier = Modifier
-                            .focusProperties { canFocus = false }
-                            .semantics { contentDescription = "reset-button" }
-                            .testTag("reset-button")
-                    ) {
-                        Text("Reset", color = textMainColor)
-                    }
-
                 }
             }
         }

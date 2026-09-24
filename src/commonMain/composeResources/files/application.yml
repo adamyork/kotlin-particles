@@ -13,14 +13,10 @@ map:
         width: 64
         height: 64
         path: "https://sparrow-assets.pages.dev/greenie-full.png"
-      two:
-        width: 64
-        height: 64
-        path: "https://sparrow-assets.pages.dev/finish-item.png"
     position:
         0:
-            x: 100
-            y: 1300
+            x: 0
+            y: 0
             type: "collectable"
             ref: "one"
 particle:

@@ -5,11 +5,11 @@ package com.github.adamyork.kparticles.platform.engine.data
  * Copyright (c) Adam York
  */
 data class DrawResult(
-    val foregroundImage: CommonImage?,
+    val foregroundImage: CommonImage?
 ) {
     companion object {
         val EMPTY_DRAW_RESULT = DrawResult(
-            null,
+            null
         )
     }
 }

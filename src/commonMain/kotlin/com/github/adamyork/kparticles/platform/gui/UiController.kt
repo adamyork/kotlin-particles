@@ -34,7 +34,7 @@ class UiController(
     private val viewModel = LoadingViewModel()
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var hasSpawnedCompletionFireworkTailParticles: Boolean = false
-    private var allParticles: List<Particle> = emptyList()
+    private val allParticles: ArrayList<Particle> = arrayListOf()
 
     val stateElements: StateElements = StateElements.emptyStateElements
     val loadingTasks: List<LoadingTask>
@@ -107,10 +107,12 @@ class UiController(
         }
     }
 
-    fun allTasksCompleted(): Boolean = loadingTasks.all { it.isCompleted }
-
-    fun start() {
-        //runtimeService.lifeCycleState = LifeCycleState.RUNNING
+    fun allTasksCompleted(): Boolean {
+        val completed = loadingTasks.all { it.isCompleted }
+        if (completed && runtimeService.lifeCycleState == LifeCycleState.INITIALIZED) {
+            runtimeService.lifeCycleState = LifeCycleState.RUNNING
+        }
+        return completed
     }
 
     fun tick(timestamp: Double): UiState {
@@ -135,11 +137,31 @@ class UiController(
         return uiState
     }
 
-    fun reset() {
-        hasSpawnedCompletionFireworkTailParticles = false
-        stateElements.viewPort = createInitialViewPort(screenDimensionsService.getScreenDimensions())
-        runtimeService.reset()
-        runtimeService.lifeCycleState = LifeCycleState.RUNNING
+
+    fun createParticles(mode: String) {
+        val viewPort = stateElements.viewPort
+        logger.info { "createParticles: mode=$mode, viewport: x=${viewPort.x} y=${viewPort.y} w=${viewPort.width} h=${viewPort.height}" }
+        val centerX = viewPort.x + (viewPort.width / 2.0)
+        val centerY = viewPort.y + (viewPort.height / 2.0)
+        val destinationX = viewPort.x + (viewPort.width * 0.75)
+        val destinationY = viewPort.y + (viewPort.height * 0.25)
+        val direction = if (centerX < destinationX) "right" else "left"
+        val createdParticles = particles.create(
+            mode = mode,
+            x = centerX,
+            y = centerY,
+            destinationX = destinationX,
+            destinationY = destinationY,
+            direction = direction
+        )
+        logger.info { "createParticles: created ${createdParticles.size} particles at ($centerX, $centerY)" }
+        createdParticles.forEach { p ->
+            logger.info { "  created particle: type=${p.type} x=${p.x} y=${p.y} w=${p.width} h=${p.height} age=${p.age} lifetime=${p.lifetime}" }
+        }
+        allParticles.addAll(createdParticles)
+        if (runtimeService.lifeCycleState != LifeCycleState.RUNNING) {
+            runtimeService.lifeCycleState = LifeCycleState.RUNNING
+        }
     }
 
     private fun createInitialViewPort(screenDimensions: ScreenDimensions): ViewPort {

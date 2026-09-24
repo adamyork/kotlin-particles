@@ -29,7 +29,6 @@ class CommonPhysics(
         viewPort: ViewPort,
         completedParticleResults: ArrayList<CompletedParticleResult>
     ) {
-
         val deltaTime = statusProvider.getDeltaTimeCoefficient()
         val gravity = physicsSettingsService.gravity
         val globalDrag = physicsSettingsService.drag

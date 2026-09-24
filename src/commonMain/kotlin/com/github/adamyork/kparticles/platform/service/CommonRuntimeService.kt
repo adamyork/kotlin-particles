@@ -42,7 +42,6 @@ class CommonRuntimeService(
     private var fpsFrameCountInWindow: Int = 0
     private var lastObservedPaintTime: Double = 0.0
     private var cachedFps: Double = 0.0
-    private var excessTime: Double = 0.0
     private var currentFrameTime: Double = 0.0
 
     override fun getDeltaTimeCoefficient(): Double {
@@ -101,14 +100,5 @@ class CommonRuntimeService(
         return currentFrameTime
     }
 
-    override fun reset() {
-        lastPaintTime = 0.0
-        fpsWindowStartTime = 0.0
-        fpsFrameCountInWindow = 0
-        lastObservedPaintTime = 0.0
-        cachedFps = 0.0
-        excessTime = 0.0
-        currentFrameTime = 0.0
-    }
 
 }

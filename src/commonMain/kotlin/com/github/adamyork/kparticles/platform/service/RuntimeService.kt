@@ -21,7 +21,6 @@ interface RuntimeService {
 
     fun getCurrentFrameTime(): Double
 
-    fun reset()
 
 }
 

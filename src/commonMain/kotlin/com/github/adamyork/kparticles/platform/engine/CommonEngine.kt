@@ -31,8 +31,6 @@ abstract class CommonEngine @AppScope @Inject constructor(
 
     abstract var mapItemImage: CommonImage
 
-    protected open val itemImageCache: HashMap<String, CommonImage> = hashMapOf()
-
     abstract var foregroundSurface: Any?
 
     abstract val mapElementPaint: Any
@@ -45,15 +43,15 @@ abstract class CommonEngine @AppScope @Inject constructor(
         throw EngineException("must implemented")
     }
 
-    override fun manageMap(particles: List<Particle>, viewPort: ViewPort) {
+    override fun manageMap(particles: ArrayList<Particle>, viewPort: ViewPort) {
         manageMapParticles(particles, viewPort)
     }
 
-    protected open fun manageMapParticles(particles: List<Particle>, viewPort: ViewPort) {
+    protected open fun manageMapParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
 
     }
 
-    override fun draw(particles: List<Particle>, viewPort: ViewPort, timestamp: Double): DrawResult {
+    override fun draw(particles: ArrayList<Particle>, viewPort: ViewPort, timestamp: Double): DrawResult {
         throw Exception("must be implemented")
     }
 

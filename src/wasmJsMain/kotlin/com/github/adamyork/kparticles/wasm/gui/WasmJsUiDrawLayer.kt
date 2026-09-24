@@ -1,6 +1,7 @@
-package com.github.adamyork.sparrow.wasm.gui
+package com.github.adamyork.kparticles.wasm.gui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -9,13 +10,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.skiaCanvas
+import androidx.compose.ui.unit.dp
 import com.github.adamyork.kparticles.platform.engine.data.CommonImage
 import com.github.adamyork.kparticles.platform.gui.ScreenDimensionsService
 import com.github.adamyork.kparticles.wasm.engine.data.WasmJsImage
-import com.github.adamyork.kparticles.wasm.gui.WasmJsUiParticleLayer
 import com.github.adamyork.kparticles.platform.gui.UiDrawLayer
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
@@ -52,6 +54,7 @@ class WasmJsUiDrawLayer(
         }
         Canvas(
             modifier = Modifier.fillMaxSize()
+                .border(width = 1.dp, color = Color.White, shape = RectangleShape)
                 .clip(RectangleShape)
         ) {
             image?.let { foreground ->
