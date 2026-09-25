@@ -3,6 +3,7 @@ package com.github.adamyork.kparticles.wasm.engine
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
+import com.github.adamyork.kparticles.platform.engine.Collision
 import com.github.adamyork.kparticles.platform.engine.EngineException
 import com.github.adamyork.kparticles.platform.engine.Particles
 import com.github.adamyork.kparticles.platform.engine.Physics
@@ -34,13 +35,15 @@ class WasmJsGpuEngine(
     private val physicsSettingsService: PhysicsSettingsService,
     assetService: AssetService,
     runtimeService: RuntimeService,
-    platformInterop: PlatformInterop
+    platformInterop: PlatformInterop,
+    collision: Collision
 ) : WasmJsEngine(
     physics,
     particles,
     assetService,
     runtimeService,
-    platformInterop
+    platformInterop,
+    collision
 ) {
 
     private companion object {

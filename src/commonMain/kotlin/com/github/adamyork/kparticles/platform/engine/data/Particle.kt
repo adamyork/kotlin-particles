@@ -14,7 +14,9 @@ data class Particle(
     val startColor: Color,
     val endColor: Color,
     var alpha: Double,
-    val endAlpha: Double?,
+    val endAlpha: Double,
+    var initialAlpha: Double,
+    var alphaMultiplier: Double,
     var width: Double,
     var height: Double,
     val maxWidth: Double,
@@ -41,12 +43,10 @@ data class Particle(
     var yAcceleration: Double,
     var zAcceleration: Double,
     val drag: Double,
-    val mass: Double?,
+    val mass: Double,
     val restitution: Double,
     val canCollide: Boolean,
-    var isVisible: Boolean,
-    var initialAlpha: Double?,
-    var alphaMultiplier: Double = 1.0
+    var isVisible: Boolean
 ) {
     companion object {
         private const val VISIBILITY_BUFFER = 50

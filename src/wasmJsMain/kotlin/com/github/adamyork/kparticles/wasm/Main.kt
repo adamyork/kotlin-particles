@@ -3,14 +3,11 @@ package com.github.adamyork.kparticles.wasm
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import com.github.adamyork.kparticles.platform.LogConfig
-import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.gui.UiScaffold
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.github.oshai.kotlinlogging.Level
 import kotlinx.browser.document
 import org.w3c.dom.HTMLElement
-import kotlin.math.min
-import kotlin.math.sqrt
 
 private val logger = KotlinLogging.logger {}
 
@@ -40,50 +37,6 @@ fun main() {
         val testbedColorScheme = component.testBedColorScheme
         ComposeViewport(viewportContainerId = "ComposeTarget") {
             UiScaffold().BuildGui(testBed, testbedColorScheme)
-        }
-    }
-}
-
-private fun handleCollisions(particles: MutableList<Particle>) {
-    for (i in particles.indices) {
-        for (j in i + 1 until particles.size) {
-            val p1 = particles[i]
-            val p2 = particles[j]
-            if (!p1.canCollide || !p2.canCollide) continue
-
-            val r1 = if (p1.radius > 0) p1.radius else p1.width / 2
-            val r2 = if (p2.radius > 0) p2.radius else p2.width / 2
-
-            val dx = p2.x - p1.x
-            val dy = p2.y - p1.y
-            val dist = sqrt(dx * dx + dy * dy)
-            val minDist = r1 + r2
-
-            if (dist < minDist && dist > 0) {
-                val overlap = minDist - dist
-                val nx = dx / dist
-                val ny = dy / dist
-
-                val m1 = p1.mass ?: 1.0
-                val m2 = p2.mass ?: 1.0
-                val totalMass = m1 + m2
-
-                p1.x -= nx * overlap * (m2 / totalMass)
-                p1.y -= ny * overlap * (m2 / totalMass)
-                p2.x += nx * overlap * (m1 / totalMass)
-                p2.y += ny * overlap * (m1 / totalMass)
-
-                val kx = p1.xVelocity - p2.xVelocity
-                val ky = p1.yVelocity - p2.yVelocity
-                val impulse = 2 * (nx * kx + ny * ky) / totalMass
-
-                val restitution = min(p1.restitution, p2.restitution)
-
-                p1.xVelocity -= impulse * m2 * nx * (1 + restitution)
-                p1.yVelocity -= impulse * m2 * ny * (1 + restitution)
-                p2.xVelocity += impulse * m1 * nx * (1 + restitution)
-                p2.yVelocity += impulse * m1 * ny * (1 + restitution)
-            }
         }
     }
 }

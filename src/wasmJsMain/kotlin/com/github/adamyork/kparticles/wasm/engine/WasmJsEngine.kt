@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.asSkiaBitmap
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
+import com.github.adamyork.kparticles.platform.engine.Collision
 import com.github.adamyork.kparticles.platform.engine.CommonEngine
 import com.github.adamyork.kparticles.platform.engine.Particles
 import com.github.adamyork.kparticles.platform.engine.Physics
@@ -28,13 +29,15 @@ open class WasmJsEngine(
     particles: Particles,
     assetService: AssetService,
     runtimeService: RuntimeService,
-    platformInterop: PlatformInterop
+    platformInterop: PlatformInterop,
+    collision: Collision,
 ) : CommonEngine(
     physics,
     particles,
     assetService,
     runtimeService,
-    platformInterop
+    platformInterop,
+    collision
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -66,6 +69,7 @@ open class WasmJsEngine(
 
     override fun manageMapParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
         physics.applyParticlePhysics(particles, viewPort, completedParticleResults)
+        collision.applyParticleCollision(particles)
     }
 
     override fun draw(
@@ -90,16 +94,21 @@ open class WasmJsEngine(
         canvas: Canvas,
         mapItemImage: CommonImage?
     ) {
-        val vpX = viewPort.x.toFloat()
-        val vpY = viewPort.y.toFloat()
-        val groups = mutableMapOf<Int, MutableList<Particle>>()
-        val itemReturnParticles = mutableListOf<Particle>()
-        for (particle in particles) {
+        val viewPortOffsetX = viewPort.x.toFloat()
+        val viewPortOffsetY = viewPort.y.toFloat()
+        val groups = HashMap<Int, MutableList<Particle>>(16)
+        val itemReturnParticles = ArrayList<Particle>()
+        var particleIndex = 0
+        val particleCount = particles.size
+        while (particleIndex < particleCount) {
+            val particle = particles[particleIndex]
             if (!particle.cullingCheck(viewPort)) {
+                particleIndex++
                 continue
             }
             if (particle.type == ParticleType.ITEM_RETURN) {
                 itemReturnParticles.add(particle)
+                particleIndex++
                 continue
             }
             val alpha = (particle.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255)
@@ -109,57 +118,77 @@ open class WasmJsEngine(
                 (particle.color.green * 255).toInt(),
                 (particle.color.blue * 255).toInt()
             )
-            groups.getOrPut(color) { mutableListOf() }.add(particle)
+            val bucket = groups[color]
+            if (bucket == null) {
+                groups[color] = arrayListOf(particle)
+            } else {
+                bucket.add(particle)
+            }
+            particleIndex++
         }
-
-        drawGroups(groups, vpX, vpY, canvas)
-
+        drawGroups(groups, viewPortOffsetX, viewPortOffsetY, canvas)
         if (mapItemImage != null) {
             val mapItemSkia = (mapItemImage as WasmJsImage).image
-            val srcWidth = mapItemFrameWidth.toFloat()
-            val srcHeight = mapItemFrameHeight.toFloat()
-            for ((_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, x, y) in itemReturnParticles) {
-                val localX = x.toFloat() - vpX
-                val localY = y.toFloat() - vpY
+            val sourceWidth = mapItemFrameWidth.toFloat()
+            val sourceHeight = mapItemFrameHeight.toFloat()
+            var itemIndex = 0
+            while (itemIndex < itemReturnParticles.size) {
+                val particle = itemReturnParticles[itemIndex]
+                val localX = particle.x.toFloat() - viewPortOffsetX
+                val localY = particle.y.toFloat() - viewPortOffsetY
                 canvas.drawImageRect(
                     image = mapItemSkia,
                     srcLeft = 0f,
                     srcTop = 0f,
-                    srcRight = srcWidth,
-                    srcBottom = srcHeight,
-                    dstLeft = localX - srcWidth / 2f,
-                    dstTop = localY - srcHeight / 2f,
-                    dstRight = localX + srcWidth / 2f,
-                    dstBottom = localY + srcHeight / 2f,
+                    srcRight = sourceWidth,
+                    srcBottom = sourceHeight,
+                    dstLeft = localX - sourceWidth / 2f,
+                    dstTop = localY - sourceHeight / 2f,
+                    dstRight = localX + sourceWidth / 2f,
+                    dstBottom = localY + sourceHeight / 2f,
                     samplingMode = SamplingMode.LINEAR,
                     paint = mapItemReturnPaint,
                     strict = true
                 )
+                itemIndex++
             }
         }
     }
 
-    private fun drawGroups(groups: Map<Int, MutableList<Particle>>, vpX: Float, vpY: Float, canvas: Canvas) {
-        for ((color, particleList) in groups) {
+    private fun drawGroups(
+        groups: Map<Int, MutableList<Particle>>,
+        viewPortOffsetX: Float,
+        viewPortOffsetY: Float,
+        canvas: Canvas
+    ) {
+        val groupIterator = groups.entries.iterator()
+        while (groupIterator.hasNext()) {
+            val entry = groupIterator.next()
+            val color = entry.key
+            val particleList = entry.value
             val builder = PathBuilder()
-            for ((_, _, shape, _, _, _, _, _, _, _, _, width, height, _, _, radius, _, _, x1, y1) in particleList) {
-                val x = x1.toFloat() - vpX
-                val y = y1.toFloat() - vpY
-                if (shape == ParticleShape.CIRCLE) {
-                    val diameter = (radius * 2.0).toFloat()
+            var particleIndex = 0
+            while (particleIndex < particleList.size) {
+                val particle = particleList[particleIndex]
+                val x = particle.x.toFloat() - viewPortOffsetX
+                val y = particle.y.toFloat() - viewPortOffsetY
+                if (particle.shape == ParticleShape.CIRCLE) {
+                    val radius = particle.radius.toFloat()
+                    val diameter = radius * 2f
                     builder.addOval(
                         Rect.makeXYWH(
-                            x - radius.toFloat(),
-                            y - radius.toFloat(),
+                            x - radius,
+                            y - radius,
                             diameter,
                             diameter
                         )
                     )
                 } else {
-                    val w = width.toFloat()
-                    val h = height.toFloat()
-                    builder.addRect(Rect.makeXYWH(x - w / 2f, y - h / 2f, w, h))
+                    val width = particle.width.toFloat()
+                    val height = particle.height.toFloat()
+                    builder.addRect(Rect.makeXYWH(x - width / 2f, y - height / 2f, width, height))
                 }
+                particleIndex++
             }
             val batchPath = builder.detach()
             particlePaint.color = color

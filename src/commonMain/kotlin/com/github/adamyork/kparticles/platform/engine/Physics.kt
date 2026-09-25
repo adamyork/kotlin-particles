@@ -16,4 +16,12 @@ interface Physics {
         completedParticleResults: ArrayList<CompletedParticleResult>
     )
 
+    fun applyParticleCollisionPhysics(
+        firstParticle: Particle,
+        secondParticle: Particle,
+        overlapDistance: Double,
+        normalX: Double,
+        normalY: Double
+    )
+
 }

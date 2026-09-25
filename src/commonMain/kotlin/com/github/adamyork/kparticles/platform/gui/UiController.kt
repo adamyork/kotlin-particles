@@ -7,6 +7,7 @@ import com.github.adamyork.kparticles.platform.engine.Particles
 import com.github.adamyork.kparticles.platform.engine.data.Direction
 import com.github.adamyork.kparticles.platform.engine.data.DrawResult
 import com.github.adamyork.kparticles.platform.engine.data.Particle
+import com.github.adamyork.kparticles.platform.engine.data.ParticleType
 import com.github.adamyork.kparticles.platform.gui.data.ScreenDimensions
 import com.github.adamyork.kparticles.platform.gui.data.StateElements
 import com.github.adamyork.kparticles.platform.gui.data.UiState
@@ -139,16 +140,16 @@ class UiController(
     }
 
 
-    fun createParticles(mode: String) {
+    fun createParticles(type: ParticleType) {
         val viewPort = stateElements.viewPort
-        logger.info { "createParticles: mode=$mode, viewport: x=${viewPort.x} y=${viewPort.y} w=${viewPort.width} h=${viewPort.height}" }
+        logger.info { "createParticles: type=$type, viewport: x=${viewPort.x} y=${viewPort.y} w=${viewPort.width} h=${viewPort.height}" }
         val centerX = viewPort.x + (viewPort.width / 2.0)
         val centerY = viewPort.y + (viewPort.height / 2.0)
         val destinationX = viewPort.x + (viewPort.width * 0.75)
         val destinationY = viewPort.y + (viewPort.height * 0.25)
         val direction = if (centerX < destinationX) Direction.RIGHT else Direction.LEFT
         val createdParticles = particles.create(
-            mode = mode,
+            type = type,
             x = centerX,
             y = centerY,
             viewPort = viewPort,

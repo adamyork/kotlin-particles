@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.github.adamyork.kparticles.platform.common.LifeCycleState
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
+import com.github.adamyork.kparticles.platform.engine.data.ParticleType
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.service.data.LoadingTaskStatus
 import kotlinx.coroutines.awaitCancellation
@@ -61,15 +62,15 @@ abstract class UiMain(
         var isLoadingChecklistVisible by remember { mutableStateOf(true) }
         val particleModes = remember {
             listOf(
-                "dust" to "Dust",
-                "collision" to "Collision",
-                "projectile" to "Projectile",
-                "fireworkBurst" to "Firework Burst",
-                "fireworkTails" to "Firework Tails",
-                "itemReturn" to "Item Return"
+                ParticleType.DUST,
+                ParticleType.COLLISION,
+                ParticleType.PROJECTILE,
+                ParticleType.FIREWORK_BURST,
+                ParticleType.FIREWORK_TAIL,
+                ParticleType.ITEM_RETURN
             )
         }
-        var selectedParticleMode by remember { mutableStateOf(particleModes.first().first) }
+        var selectedParticleMode by remember { mutableStateOf(particleModes.first()) }
         var isParticleModeMenuExpanded by remember { mutableStateOf(false) }
         val allTasksCompleted = controller.allTasksCompleted()
         val gameLifeCycleState = runtimeService.lifeCycleState
@@ -190,7 +191,7 @@ abstract class UiMain(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = particleModes.first { it.first == selectedParticleMode }.second,
+                                        text = selectedParticleMode.displayName,
                                         color = colorScheme.primary
                                     )
                                     Icon(
@@ -209,9 +210,9 @@ abstract class UiMain(
                             ) {
                                 particleModes.forEach { mode ->
                                     DropdownMenuItem(
-                                        text = { Text(mode.second, color = dropdownMenuTextColor) },
+                                        text = { Text(mode.displayName, color = dropdownMenuTextColor) },
                                         onClick = {
-                                            selectedParticleMode = mode.first
+                                            selectedParticleMode = mode
                                             isParticleModeMenuExpanded = false
                                         }
                                     )

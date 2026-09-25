@@ -22,7 +22,8 @@ abstract class CommonEngine @AppScope @Inject constructor(
     val particles: Particles,
     val assetService: AssetService,
     val runtimeService: RuntimeService,
-    val platformInterop: PlatformInterop
+    val platformInterop: PlatformInterop,
+    val collision: Collision,
 ) : Engine {
 
     private val logger = KotlinLogging.logger {}

@@ -2,11 +2,7 @@ package com.github.adamyork.kparticles.wasm.engine
 
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
-import com.github.adamyork.kparticles.platform.engine.CommonParticles
-import com.github.adamyork.kparticles.platform.engine.CommonPhysics
-import com.github.adamyork.kparticles.platform.engine.Engine
-import com.github.adamyork.kparticles.platform.engine.Particles
-import com.github.adamyork.kparticles.platform.engine.Physics
+import com.github.adamyork.kparticles.platform.engine.*
 import me.tatarka.inject.annotations.Provides
 
 /**
@@ -31,5 +27,8 @@ interface EngineConfig {
     @Provides
     fun provideParticles(impl: CommonParticles): Particles = impl
 
+    @AppScope
+    @Provides
+    fun provideCollision(impl: WasmJsTileCollision): Collision = impl
 
 }

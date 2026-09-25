@@ -112,7 +112,7 @@ class CommonParticles(
     }
 
     override fun create(
-        mode: String,
+        type: ParticleType,
         x: Double,
         y: Double,
         viewPort: ViewPort,
@@ -121,14 +121,13 @@ class CommonParticles(
         direction: Direction
     ): MutableList<Particle> {
         val rightEdge = viewPort.x + viewPort.width.toDouble()
-        val particles = when (mode) {
-            "dust" -> createDustParticles(x, y)
-            "collision" -> createCollisionParticles(x, y, direction)
-            "projectile" -> createProjectileParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0)
-            "fireworkBurst" -> createFireworkBurstParticles(x, y)
-            "fireworkTails" -> createFireworkTailParticles(viewPort)
-            "itemReturn" -> createItemReturnParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0)
-            else -> mutableListOf()
+        val particles = when (type) {
+            ParticleType.DUST -> createDustParticles(x, y)
+            ParticleType.COLLISION -> createCollisionParticles(x, y, direction)
+            ParticleType.PROJECTILE -> createProjectileParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0)
+            ParticleType.FIREWORK_BURST -> createFireworkBurstParticles(x, y)
+            ParticleType.FIREWORK_TAIL -> createFireworkTailParticles(viewPort)
+            ParticleType.ITEM_RETURN -> createItemReturnParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0)
         }
         return particles
     }
@@ -139,11 +138,11 @@ class CommonParticles(
 
     private fun createDustParticles(centerX: Double, centerY: Double): MutableList<Particle> {
         val particles = mutableListOf<Particle>()
-        repeat(DUST_PUFF_COUNT) { j ->
-            val angle = (j.toDouble() / DUST_PUFF_COUNT) * PI * 2
-            val dist = Random.nextDouble() * (DUST_CLUSTER_RADIUS * 0.6) + (DUST_CLUSTER_RADIUS * 0.3)
-            val offsetX = cos(angle) * dist
-            val offsetY = sin(angle) * dist
+        repeat(DUST_PUFF_COUNT) { puffIndex ->
+            val angle = (puffIndex.toDouble() / DUST_PUFF_COUNT) * PI * 2
+            val distanceFromCenter = Random.nextDouble() * (DUST_CLUSTER_RADIUS * 0.6) + (DUST_CLUSTER_RADIUS * 0.3)
+            val offsetX = cos(angle) * distanceFromCenter
+            val offsetY = sin(angle) * distanceFromCenter
             val radius = Random.nextDouble() * DUST_PUFF_RADIUS_RANGE + DUST_PUFF_MIN_RADIUS
             particles += createDustPuff(centerX + offsetX, centerY + offsetY, radius)
         }
@@ -174,6 +173,8 @@ class CommonParticles(
             endColor = dustPuffColor,
             alpha = DUST_INITIAL_ALPHA,
             endAlpha = DUST_END_ALPHA,
+            initialAlpha = DUST_INITIAL_ALPHA,
+            alphaMultiplier = 0.0,
             width = diameter,
             height = diameter,
             maxWidth = DEFAULT_MAX_WIDTH,
@@ -200,11 +201,10 @@ class CommonParticles(
             yAcceleration = 0.0,
             zAcceleration = 0.0,
             drag = 0.0,
-            mass = null,
+            mass = 0.0,
             restitution = 0.0,
             canCollide = false,
-            isVisible = true,
-            initialAlpha = null
+            isVisible = true
         )
     }
 
@@ -221,10 +221,10 @@ class CommonParticles(
         val collisionParticleColor = colorMap[ParticleType.COLLISION] ?: Color.White
         val angleStep = COLLISION_EXPLOSION_ANGLE_SPAN / (COLLISION_PARTICLE_COUNT - 1)
         val startAngle = explodeAngle - COLLISION_EXPLOSION_ANGLE_SPAN / 2.0
-        repeat(COLLISION_PARTICLE_COUNT) { i ->
+        repeat(COLLISION_PARTICLE_COUNT) { particleIndex ->
             val radius = Random.nextDouble() * COLLISION_RADIUS_RANGE + COLLISION_MIN_RADIUS
             val diameter = radius * 2.0
-            val velocityAngle = startAngle + angleStep * i
+            val velocityAngle = startAngle + angleStep * particleIndex
             val speed = Random.nextDouble() * COLLISION_SPEED_RANGE + COLLISION_MIN_SPEED
             particles += Particle(
                 id = Random.nextInt().toString(16),
@@ -238,6 +238,8 @@ class CommonParticles(
                 endColor = collisionParticleColor,
                 alpha = COLLISION_INITIAL_ALPHA,
                 endAlpha = COLLISION_END_ALPHA,
+                initialAlpha = COLLISION_INITIAL_ALPHA,
+                alphaMultiplier = 0.0,
                 width = diameter,
                 height = diameter,
                 maxWidth = DEFAULT_MAX_WIDTH,
@@ -245,8 +247,6 @@ class CommonParticles(
                 radius = radius,
                 maxRadius = DEFAULT_MAX_RADIUS,
                 growthRate = 0.0,
-                mass = radius * COLLISION_MASS_SCALE,
-                restitution = COLLISION_RESTITUTION,
                 x = centerX,
                 y = centerY,
                 z = 0.0,
@@ -266,9 +266,10 @@ class CommonParticles(
                 yAcceleration = 0.0,
                 zAcceleration = 0.0,
                 drag = COLLISION_DRAG,
+                mass = radius * COLLISION_MASS_SCALE,
+                restitution = COLLISION_RESTITUTION,
                 canCollide = false,
-                isVisible = true,
-                initialAlpha = null
+                isVisible = true
             )
         }
 
@@ -297,6 +298,8 @@ class CommonParticles(
                 endColor = projectileParticleColor,
                 alpha = 1.0,
                 endAlpha = 1.0,
+                initialAlpha = 1.0,
+                alphaMultiplier = 0.0,
                 width = diameter,
                 height = diameter,
                 maxWidth = DEFAULT_MAX_WIDTH,
@@ -304,7 +307,6 @@ class CommonParticles(
                 radius = PROJECTILE_RADIUS,
                 maxRadius = DEFAULT_MAX_RADIUS,
                 growthRate = 0.0,
-                mass = PROJECTILE_MASS,
                 x = centerX,
                 y = centerY,
                 z = 0.0,
@@ -324,10 +326,10 @@ class CommonParticles(
                 yAcceleration = sin(launchAngle) * GUIDED_LAUNCH_THRUST,
                 zAcceleration = 0.0,
                 drag = PROJECTILE_DRAG,
+                mass = PROJECTILE_MASS,
                 restitution = 0.0,
                 canCollide = false,
-                isVisible = true,
-                initialAlpha = null
+                isVisible = true
             )
         )
     }
@@ -351,6 +353,8 @@ class CommonParticles(
                 endColor = endColor,
                 alpha = 1.0,
                 endAlpha = 1.0,
+                initialAlpha = 1.0,
+                alphaMultiplier = 0.0,
                 width = diameter,
                 height = diameter,
                 maxWidth = DEFAULT_MAX_WIDTH,
@@ -358,7 +362,6 @@ class CommonParticles(
                 radius = FIREWORK_BURST_RADIUS,
                 maxRadius = DEFAULT_MAX_RADIUS,
                 growthRate = 0.0,
-                mass = FIREWORK_BURST_MASS,
                 x = centerX,
                 y = centerY,
                 z = 0.0,
@@ -378,10 +381,10 @@ class CommonParticles(
                 yAcceleration = FIREWORK_BURST_Y_ACCELERATION,
                 zAcceleration = 0.0,
                 drag = FIREWORK_BURST_DRAG,
+                mass = FIREWORK_BURST_MASS,
                 restitution = 0.0,
                 canCollide = false,
-                isVisible = true,
-                initialAlpha = null
+                isVisible = true
             )
         }
         return particles
@@ -395,16 +398,15 @@ class CommonParticles(
         val viewPortWidth = viewPort.width.toDouble()
         val viewPortHeight = viewPort.height.toDouble()
         val originY = viewPort.y + viewPortHeight
-        // destination band centered in the upper part of the viewport
         val destinationBandStart = viewPortHeight * FIREWORK_TAIL_DESTINATION_BAND_START_RATIO
         val destinationBandSize = viewPortHeight * FIREWORK_TAIL_DESTINATION_BAND_SIZE_RATIO
         val averageDistance = originY - (viewPort.y + destinationBandStart + destinationBandSize / 2.0)
         val averageLaunchVelocity = sqrt(2 * deceleration * averageDistance)
         val averageTimeToApex = averageLaunchVelocity / deceleration
         val staggerFrames = averageTimeToApex * FIREWORK_TAIL_STAGGER_TIMING_RATIO
-        repeat(FIREWORK_TAIL_PARTICLE_COUNT) { i ->
+        repeat(FIREWORK_TAIL_PARTICLE_COUNT) { particleIndex ->
             val (startColor, endColor) = createDistinctColorPair()
-            val xPosition = viewPort.x + (i.toDouble() / (FIREWORK_TAIL_PARTICLE_COUNT - 1)) * viewPortWidth
+            val xPosition = viewPort.x + (particleIndex.toDouble() / (FIREWORK_TAIL_PARTICLE_COUNT - 1)) * viewPortWidth
             val randomDestinationY = viewPort.y + destinationBandStart + Random.nextDouble() * destinationBandSize
             val distanceToDestination = originY - randomDestinationY
             val launchVelocity = sqrt(2 * deceleration * distanceToDestination)
@@ -413,7 +415,7 @@ class CommonParticles(
             val diameter = radius * 2.0
             val delay = max(
                 0.0,
-                round(delayOrder[i] * staggerFrames + (Random.nextDouble() - 0.5) * FIREWORK_TAIL_DELAY_JITTER_RANGE)
+                round(delayOrder[particleIndex] * staggerFrames + (Random.nextDouble() - 0.5) * FIREWORK_TAIL_DELAY_JITTER_RANGE)
             )
             particles += Particle(
                 id = Random.nextInt().toString(16),
@@ -427,6 +429,8 @@ class CommonParticles(
                 endColor = endColor,
                 alpha = 1.0,
                 endAlpha = 1.0,
+                initialAlpha = 1.0,
+                alphaMultiplier = 0.0,
                 width = diameter,
                 height = diameter,
                 maxWidth = DEFAULT_MAX_WIDTH,
@@ -434,7 +438,6 @@ class CommonParticles(
                 radius = radius,
                 maxRadius = DEFAULT_MAX_RADIUS,
                 growthRate = 0.0,
-                mass = FIREWORK_TAIL_MASS,
                 x = xPosition,
                 y = originY,
                 z = 0.0,
@@ -454,10 +457,10 @@ class CommonParticles(
                 yAcceleration = 0.0,
                 zAcceleration = 0.0,
                 drag = 0.0,
+                mass = FIREWORK_TAIL_MASS,
                 restitution = 0.0,
                 canCollide = false,
-                isVisible = true,
-                initialAlpha = null
+                isVisible = true
             )
         }
 
@@ -486,14 +489,15 @@ class CommonParticles(
                 endColor = Color.White,
                 alpha = 1.0,
                 endAlpha = 1.0,
-                radius = ITEM_RETURN_RADIUS,
+                initialAlpha = 1.0,
+                alphaMultiplier = 0.0,
                 width = diameter,
                 height = diameter,
                 maxWidth = DEFAULT_MAX_WIDTH,
                 maxHeight = DEFAULT_MAX_HEIGHT,
+                radius = ITEM_RETURN_RADIUS,
                 maxRadius = DEFAULT_MAX_RADIUS,
                 growthRate = 0.0,
-                mass = ITEM_RETURN_MASS,
                 x = centerX,
                 y = centerY,
                 z = 0.0,
@@ -513,10 +517,10 @@ class CommonParticles(
                 yAcceleration = sin(launchAngle) * GUIDED_LAUNCH_THRUST,
                 zAcceleration = 0.0,
                 drag = ITEM_RETURN_DRAG,
+                mass = ITEM_RETURN_MASS,
                 restitution = 0.0,
                 canCollide = false,
-                isVisible = true,
-                initialAlpha = null
+                isVisible = true
             )
         )
     }
@@ -540,11 +544,11 @@ class CommonParticles(
     }
 
     private fun <T> shuffle(items: MutableList<T>) {
-        for (i in items.lastIndex downTo 1) {
-            val randomIndex = Random.nextInt(i + 1)
-            val temp = items[i]
-            items[i] = items[randomIndex]
-            items[randomIndex] = temp
+        for (currentIndex in items.lastIndex downTo 1) {
+            val randomIndex = Random.nextInt(currentIndex + 1)
+            val swappedItem = items[currentIndex]
+            items[currentIndex] = items[randomIndex]
+            items[randomIndex] = swappedItem
         }
     }
 }

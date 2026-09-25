@@ -3,6 +3,7 @@ package com.github.adamyork.kparticles.platform.engine
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.data.Direction
 import com.github.adamyork.kparticles.platform.engine.data.Particle
+import com.github.adamyork.kparticles.platform.engine.data.ParticleType
 import com.github.adamyork.kparticles.platform.service.AssetService
 
 interface Particles {
@@ -18,7 +19,7 @@ interface Particles {
     }
 
     fun create(
-        mode: String,
+        type: ParticleType,
         x: Double,
         y: Double,
         viewPort: ViewPort,

@@ -1,11 +1,13 @@
 package com.github.adamyork.kparticles.platform.engine.data
 
-enum class ParticleType {
-    DUST,
-    PROJECTILE,
-    ITEM_RETURN,
-    COLLISION,
-    FIREWORK_TAIL,
-    FIREWORK_BURST
+enum class ParticleType(
+    val displayName: String
+) {
+    DUST("Dust"),
+    PROJECTILE("Projectile"),
+    ITEM_RETURN("Item Return"),
+    COLLISION("Collision"),
+    FIREWORK_TAIL("Firework Tails"),
+    FIREWORK_BURST("Firework Burst")
 }
 
