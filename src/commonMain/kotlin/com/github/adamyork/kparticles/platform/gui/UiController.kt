@@ -4,6 +4,7 @@ import com.github.adamyork.kparticles.platform.common.LifeCycleState
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.Engine
 import com.github.adamyork.kparticles.platform.engine.Particles
+import com.github.adamyork.kparticles.platform.engine.data.Direction
 import com.github.adamyork.kparticles.platform.engine.data.DrawResult
 import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.gui.data.ScreenDimensions
@@ -145,11 +146,12 @@ class UiController(
         val centerY = viewPort.y + (viewPort.height / 2.0)
         val destinationX = viewPort.x + (viewPort.width * 0.75)
         val destinationY = viewPort.y + (viewPort.height * 0.25)
-        val direction = if (centerX < destinationX) "right" else "left"
+        val direction = if (centerX < destinationX) Direction.RIGHT else Direction.LEFT
         val createdParticles = particles.create(
             mode = mode,
             x = centerX,
             y = centerY,
+            viewPort = viewPort,
             destinationX = destinationX,
             destinationY = destinationY,
             direction = direction

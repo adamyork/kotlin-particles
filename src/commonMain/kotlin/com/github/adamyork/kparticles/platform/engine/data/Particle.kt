@@ -25,12 +25,12 @@ data class Particle(
     var x: Double,
     var y: Double,
     var z: Double,
-    val originX: Double,
-    val originY: Double,
-    val originZ: Double,
-    val destinationX: Double,
-    val destinationY: Double,
-    val destinationZ: Double,
+    val originX: Int,
+    val originY: Int,
+    val originZ: Int,
+    val destinationX: Int,
+    val destinationY: Int,
+    val destinationZ: Int,
     var xVelocity: Double,
     var yVelocity: Double,
     var zVelocity: Double,
@@ -45,7 +45,8 @@ data class Particle(
     val restitution: Double,
     val canCollide: Boolean,
     var isVisible: Boolean,
-    val initialAlpha: Double?
+    var initialAlpha: Double?,
+    var alphaMultiplier: Double = 1.0
 ) {
     companion object {
         private const val VISIBILITY_BUFFER = 50

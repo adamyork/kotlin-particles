@@ -31,7 +31,6 @@ class CommonPhysics(
     ) {
         val deltaTime = statusProvider.getDeltaTimeCoefficient()
         val gravity = physicsSettingsService.gravity
-        val globalDrag = physicsSettingsService.drag
 
         for (i in mapParticles.lastIndex downTo 0) {
             val p = mapParticles[i]
@@ -55,12 +54,10 @@ class CommonPhysics(
             val mass = p.mass
             if (mass != null && mass > 0.0) {
                 val gravityScale = min(1.0, mass)
-                p.xVelocity += gravity * gravityScale * deltaTime
                 p.yVelocity += gravity * gravityScale * deltaTime
-                p.zVelocity += gravity * gravityScale * deltaTime
             }
 
-            val totalDrag = max(0.0, p.drag + globalDrag)
+            val totalDrag = max(0.0, p.drag)
             if (totalDrag > 0.0) {
                 val dragFactor = max(0.0, 1 - totalDrag * deltaTime)
                 p.xVelocity *= dragFactor
@@ -89,10 +86,13 @@ class CommonPhysics(
             }
 
             p.color = interpolateColor(p.startColor, p.endColor, progress)
-            p.endAlpha?.let { end ->
-                val start = p.initialAlpha ?: p.alpha
-                p.alpha = start + (end - start) * progress
+            if (p.initialAlpha == null) {
+                p.initialAlpha = p.alpha
             }
+            val startAlpha = p.initialAlpha ?: p.alpha
+            val endAlpha = p.endAlpha ?: startAlpha
+            p.alphaMultiplier = progress
+            p.alpha = startAlpha + (endAlpha - startAlpha) * p.alphaMultiplier
         }
 
     }

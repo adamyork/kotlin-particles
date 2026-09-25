@@ -1,5 +1,7 @@
 package com.github.adamyork.kparticles.platform.engine
 
+import com.github.adamyork.kparticles.platform.common.data.ViewPort
+import com.github.adamyork.kparticles.platform.engine.data.Direction
 import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.service.AssetService
 
@@ -19,9 +21,10 @@ interface Particles {
         mode: String,
         x: Double,
         y: Double,
+        viewPort: ViewPort,
         destinationX: Double? = null,
         destinationY: Double? = null,
-        direction: String? = null
+        direction: Direction
     ): MutableList<Particle>
 
 //    fun writeGpuParticleSpawnBuffer(

@@ -1,19 +1,89 @@
 package com.github.adamyork.kparticles.platform.engine
 
 import androidx.compose.ui.graphics.Color
+import com.github.adamyork.kparticles.platform.common.data.ViewPort
+import com.github.adamyork.kparticles.platform.engine.data.Direction
 import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.engine.data.ParticleShape
 import com.github.adamyork.kparticles.platform.engine.data.ParticleType
 import com.github.adamyork.kparticles.platform.service.AssetService
+import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
 import kotlin.math.*
 import kotlin.random.Random
 
 @Inject
-class CommonParticles : Particles {
+class CommonParticles(
+    private val physicsSettingsService: PhysicsSettingsService
+) : Particles {
 
     companion object {
         const val GPU_COMPUTE_FLOATS_PER_PARTICLE: Int = 16
+
+        private const val DEFAULT_MAX_WIDTH: Double = 10.0
+        private const val DEFAULT_MAX_HEIGHT: Double = 10.0
+        private const val DEFAULT_MAX_RADIUS: Double = 5.0
+        private const val DEFAULT_MAX_VELOCITY: Double = 10.0
+
+        private const val GUIDED_LAUNCH_INITIAL_SPEED: Double = 2.8
+        private const val GUIDED_LAUNCH_MAX_SPEED: Double = 5.25
+        private const val GUIDED_LAUNCH_THRUST: Double = 0.16
+        private const val GUIDED_LAUNCH_VELOCITY_HEADROOM: Double = 0.2
+
+        private const val DUST_PUFF_COUNT: Int = 16
+        private const val DUST_CLUSTER_RADIUS: Double = 12.0
+        private const val DUST_CENTER_PUFF_RADIUS: Double = 9.0
+        private const val DUST_PUFF_MIN_RADIUS: Double = 6.0
+        private const val DUST_PUFF_RADIUS_RANGE: Double = 5.0
+        private const val DUST_MIN_TRAVEL_DISTANCE: Double = 8.0
+        private const val DUST_TRAVEL_DISTANCE_RANGE: Double = 4.0
+        private const val DUST_MIN_SPEED: Double = 0.06
+        private const val DUST_SPEED_RANGE: Double = 0.04
+        private const val DUST_LIFETIME: Double = 128.0
+        private const val DUST_INITIAL_ALPHA: Double = 0.85
+        private const val DUST_END_ALPHA: Double = 0.0
+
+        private const val COLLISION_PARTICLE_COUNT: Int = 256
+        private const val COLLISION_EXPLOSION_ANGLE_SPAN: Double = PI
+        private const val COLLISION_MIN_RADIUS: Double = 2.0
+        private const val COLLISION_RADIUS_RANGE: Double = 2.5
+        private const val COLLISION_MIN_SPEED: Double = 4.0
+        private const val COLLISION_SPEED_RANGE: Double = 6.0
+        private const val COLLISION_LIFETIME: Double = 240.0
+        private const val COLLISION_INITIAL_ALPHA: Double = 0.95
+        private const val COLLISION_END_ALPHA: Double = 1.0
+        private const val COLLISION_MASS_SCALE: Double = 0.04
+        private const val COLLISION_RESTITUTION: Double = 0.8
+        private const val COLLISION_DRAG: Double = 0.01
+
+        private const val PROJECTILE_RADIUS: Double = 16.0
+        private const val PROJECTILE_LIFETIME: Double = 512.0
+        private const val PROJECTILE_MASS: Double = 0.15
+        private const val PROJECTILE_DRAG: Double = 0.001
+
+        private const val FIREWORK_BURST_PARTICLE_COUNT: Int = 100
+        private const val FIREWORK_BURST_MIN_SPEED: Double = 2.0
+        private const val FIREWORK_BURST_SPEED_RANGE: Double = 6.0
+        private const val FIREWORK_BURST_RADIUS: Double = 3.0
+        private const val FIREWORK_BURST_LIFETIME: Double = 120.0
+        private const val FIREWORK_BURST_MASS: Double = 0.02
+        private const val FIREWORK_BURST_Y_ACCELERATION: Double = 0.05
+        private const val FIREWORK_BURST_DRAG: Double = 0.02
+
+        private const val FIREWORK_TAIL_PARTICLE_COUNT: Int = 256
+        private const val FIREWORK_TAIL_MASS: Double = 0.02
+        private const val FIREWORK_TAIL_DESTINATION_BAND_START_RATIO: Double = 0.15
+        private const val FIREWORK_TAIL_DESTINATION_BAND_SIZE_RATIO: Double = 0.2
+        private const val FIREWORK_TAIL_STAGGER_TIMING_RATIO: Double = 0.5
+        private const val FIREWORK_TAIL_DELAY_JITTER_RANGE: Double = 20.0
+        private const val FIREWORK_TAIL_MIN_RADIUS: Double = 8.0
+        private const val FIREWORK_TAIL_RADIUS_RANGE: Double = 8.0
+        private const val FIREWORK_TAIL_VELOCITY_HEADROOM: Double = 1.2
+
+        private const val ITEM_RETURN_RADIUS: Double = 16.0
+        private const val ITEM_RETURN_LIFETIME: Double = 512.0
+        private const val ITEM_RETURN_MASS: Double = 0.15
+        private const val ITEM_RETURN_DRAG: Double = 0.001
     }
 
     private var colorMap: Map<ParticleType, Color> = emptyMap()
@@ -45,19 +115,19 @@ class CommonParticles : Particles {
         mode: String,
         x: Double,
         y: Double,
+        viewPort: ViewPort,
         destinationX: Double?,
         destinationY: Double?,
-        direction: String?
+        direction: Direction
     ): MutableList<Particle> {
-        val width = (x * 2).coerceAtLeast(1.0)
-        val height = (y * 2).coerceAtLeast(1.0)
+        val rightEdge = viewPort.x + viewPort.width.toDouble()
         val particles = when (mode) {
             "dust" -> createDustParticles(x, y)
             "collision" -> createCollisionParticles(x, y, direction)
-            "projectile" -> createProjectileParticles(x, y, destinationX ?: width, destinationY ?: 0.0)
+            "projectile" -> createProjectileParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0)
             "fireworkBurst" -> createFireworkBurstParticles(x, y)
-            "fireworkTails" -> createFireworkTailParticles(x, width, height)
-            "itemReturn" -> createItemReturnParticles(x, y, destinationX ?: width, destinationY ?: 0.0)
+            "fireworkTails" -> createFireworkTailParticles(viewPort)
+            "itemReturn" -> createItemReturnParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0)
             else -> mutableListOf()
         }
         return particles
@@ -69,29 +139,27 @@ class CommonParticles : Particles {
 
     private fun createDustParticles(centerX: Double, centerY: Double): MutableList<Particle> {
         val particles = mutableListOf<Particle>()
-        val puffCount = 16
-        val clusterRadius = 12.0
-        repeat(puffCount) { j ->
-            val angle = (j.toDouble() / puffCount) * PI * 2
-            val dist = Random.nextDouble() * (clusterRadius * 0.6) + (clusterRadius * 0.3)
+        repeat(DUST_PUFF_COUNT) { j ->
+            val angle = (j.toDouble() / DUST_PUFF_COUNT) * PI * 2
+            val dist = Random.nextDouble() * (DUST_CLUSTER_RADIUS * 0.6) + (DUST_CLUSTER_RADIUS * 0.3)
             val offsetX = cos(angle) * dist
             val offsetY = sin(angle) * dist
-            val radius = Random.nextDouble() * 5 + 6
+            val radius = Random.nextDouble() * DUST_PUFF_RADIUS_RANGE + DUST_PUFF_MIN_RADIUS
             particles += createDustPuff(centerX + offsetX, centerY + offsetY, radius)
         }
-        particles += createDustPuff(centerX, centerY, 9.0)
+        particles += createDustPuff(centerX, centerY, DUST_CENTER_PUFF_RADIUS)
         return particles
     }
 
     private fun createDustPuff(x: Double, y: Double, radius: Double): Particle {
         val destinationAngle = Random.nextDouble() * PI * 2
-        val destinationDistance = 8 + Random.nextDouble() * 4
+        val destinationDistance = DUST_MIN_TRAVEL_DISTANCE + Random.nextDouble() * DUST_TRAVEL_DISTANCE_RANGE
         val destinationX = x + cos(destinationAngle) * destinationDistance
         val destinationY = y + sin(destinationAngle) * destinationDistance
         val deltaX = destinationX - x
         val deltaY = destinationY - y
         val length = hypot(deltaX, deltaY).takeIf { it > 0 } ?: 1.0
-        val speed = 0.06 + Random.nextDouble() * 0.04
+        val speed = DUST_MIN_SPEED + Random.nextDouble() * DUST_SPEED_RANGE
         val dustPuffColor = colorMap[ParticleType.DUST] ?: Color.White
         val diameter = radius * 2.0
         return Particle(
@@ -100,34 +168,34 @@ class CommonParticles : Particles {
             shape = ParticleShape.CIRCLE,
             age = 0.0,
             delay = 0.0,
-            lifetime = 128.0,
+            lifetime = DUST_LIFETIME,
             color = dustPuffColor,
             startColor = dustPuffColor,
             endColor = dustPuffColor,
-            alpha = 0.85,
-            endAlpha = 0.0,
+            alpha = DUST_INITIAL_ALPHA,
+            endAlpha = DUST_END_ALPHA,
             width = diameter,
             height = diameter,
-            maxWidth = 10.0,
-            maxHeight = 10.0,
+            maxWidth = DEFAULT_MAX_WIDTH,
+            maxHeight = DEFAULT_MAX_HEIGHT,
             radius = radius,
-            maxRadius = 5.0,
+            maxRadius = DEFAULT_MAX_RADIUS,
             growthRate = 0.0,
             x = x,
             y = y,
             z = 0.0,
-            originX = x,
-            originY = y,
-            originZ = 0.0,
-            destinationX = destinationX,
-            destinationY = destinationY,
-            destinationZ = 0.0,
+            originX = x.roundToInt(),
+            originY = y.roundToInt(),
+            originZ = 0,
+            destinationX = destinationX.roundToInt(),
+            destinationY = destinationY.roundToInt(),
+            destinationZ = 0,
             xVelocity = (deltaX / length) * speed,
             yVelocity = (deltaY / length) * speed,
             zVelocity = 0.0,
-            maxXVelocity = 10.0,
-            maxYVelocity = 10.0,
-            maxZVelocity = 10.0,
+            maxXVelocity = DEFAULT_MAX_VELOCITY,
+            maxYVelocity = DEFAULT_MAX_VELOCITY,
+            maxZVelocity = DEFAULT_MAX_VELOCITY,
             xAcceleration = 0.0,
             yAcceleration = 0.0,
             zAcceleration = 0.0,
@@ -140,57 +208,64 @@ class CommonParticles : Particles {
         )
     }
 
-    private fun createCollisionParticles(centerX: Double, centerY: Double, direction: String?): MutableList<Particle> {
+    private fun createCollisionParticles(
+        centerX: Double,
+        centerY: Double,
+        direction: Direction
+    ): MutableList<Particle> {
         val particles = mutableListOf<Particle>()
-        val collisionDirection = if (direction == "right") "right" else "left"
-        val explodeAngle = if (collisionDirection == "left") 0.0 else PI
+        val explodeAngle = when (direction) {
+            Direction.RIGHT -> 0.0
+            Direction.LEFT -> PI
+        }
         val collisionParticleColor = colorMap[ParticleType.COLLISION] ?: Color.White
-        repeat(256) {
-            val radius = Random.nextDouble() * 2.5 + 2
+        val angleStep = COLLISION_EXPLOSION_ANGLE_SPAN / (COLLISION_PARTICLE_COUNT - 1)
+        val startAngle = explodeAngle - COLLISION_EXPLOSION_ANGLE_SPAN / 2.0
+        repeat(COLLISION_PARTICLE_COUNT) { i ->
+            val radius = Random.nextDouble() * COLLISION_RADIUS_RANGE + COLLISION_MIN_RADIUS
             val diameter = radius * 2.0
-            val spread = (Random.nextDouble() - 0.5) * 1.2
-            val velocityAngle = explodeAngle + spread
-            val speed = Random.nextDouble() * 6 + 4
+            val velocityAngle = startAngle + angleStep * i
+            val speed = Random.nextDouble() * COLLISION_SPEED_RANGE + COLLISION_MIN_SPEED
             particles += Particle(
                 id = Random.nextInt().toString(16),
                 type = ParticleType.COLLISION,
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = 0.0,
-                lifetime = 240.0,
+                lifetime = COLLISION_LIFETIME,
                 color = collisionParticleColor,
                 startColor = collisionParticleColor,
                 endColor = collisionParticleColor,
-                alpha = 0.95,
-                endAlpha = 1.0,
+                alpha = COLLISION_INITIAL_ALPHA,
+                endAlpha = COLLISION_END_ALPHA,
                 width = diameter,
                 height = diameter,
-                maxWidth = 10.0,
-                maxHeight = 10.0,
+                maxWidth = DEFAULT_MAX_WIDTH,
+                maxHeight = DEFAULT_MAX_HEIGHT,
                 radius = radius,
-                maxRadius = 5.0,
+                maxRadius = DEFAULT_MAX_RADIUS,
                 growthRate = 0.0,
-                mass = radius,
-                restitution = 0.8,
+                mass = radius * COLLISION_MASS_SCALE,
+                restitution = COLLISION_RESTITUTION,
                 x = centerX,
                 y = centerY,
                 z = 0.0,
-                originX = centerX,
-                originY = centerY,
-                originZ = 0.0,
-                destinationX = 0.0,
-                destinationY = 0.0,
-                destinationZ = 0.0,
+                originX = centerX.roundToInt(),
+                originY = centerY.roundToInt(),
+                originZ = 0,
+                destinationX = 0,
+                destinationY = 0,
+                destinationZ = 0,
                 xVelocity = cos(velocityAngle) * speed,
                 yVelocity = sin(velocityAngle) * speed,
                 zVelocity = 0.0,
-                maxXVelocity = 10.0,
-                maxYVelocity = 10.0,
-                maxZVelocity = 10.0,
+                maxXVelocity = DEFAULT_MAX_VELOCITY,
+                maxYVelocity = DEFAULT_MAX_VELOCITY,
+                maxZVelocity = DEFAULT_MAX_VELOCITY,
                 xAcceleration = 0.0,
                 yAcceleration = 0.0,
                 zAcceleration = 0.0,
-                drag = 0.01,
+                drag = COLLISION_DRAG,
                 canCollide = false,
                 isVisible = true,
                 initialAlpha = null
@@ -207,12 +282,8 @@ class CommonParticles : Particles {
         destinationY: Double
     ): MutableList<Particle> {
         val launchAngle = atan2(destinationY - centerY, destinationX - centerX)
-        val initialSpeed = 2.8
-        val maxSpeed = 5.25
-        val thrust = 0.16
         val projectileParticleColor = colorMap[ParticleType.PROJECTILE] ?: Color.White
-        val radius = 16.0
-        val diameter = radius * 2.0
+        val diameter = PROJECTILE_RADIUS * 2.0
         return mutableListOf(
             Particle(
                 id = Random.nextInt().toString(16),
@@ -220,7 +291,7 @@ class CommonParticles : Particles {
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = 0.0,
-                lifetime = 512.0,
+                lifetime = PROJECTILE_LIFETIME,
                 color = projectileParticleColor,
                 startColor = projectileParticleColor,
                 endColor = projectileParticleColor,
@@ -228,31 +299,31 @@ class CommonParticles : Particles {
                 endAlpha = 1.0,
                 width = diameter,
                 height = diameter,
-                maxWidth = 10.0,
-                maxHeight = 10.0,
-                radius = radius,
-                maxRadius = 5.0,
+                maxWidth = DEFAULT_MAX_WIDTH,
+                maxHeight = DEFAULT_MAX_HEIGHT,
+                radius = PROJECTILE_RADIUS,
+                maxRadius = DEFAULT_MAX_RADIUS,
                 growthRate = 0.0,
-                mass = 0.15,
+                mass = PROJECTILE_MASS,
                 x = centerX,
                 y = centerY,
                 z = 0.0,
-                originX = centerX,
-                originY = centerY,
-                originZ = 0.0,
-                destinationX = destinationX,
-                destinationY = destinationY,
-                destinationZ = 0.0,
-                xVelocity = cos(launchAngle) * initialSpeed,
-                yVelocity = sin(launchAngle) * initialSpeed,
+                originX = centerX.roundToInt(),
+                originY = centerY.roundToInt(),
+                originZ = 0,
+                destinationX = destinationX.roundToInt(),
+                destinationY = destinationY.roundToInt(),
+                destinationZ = 0,
+                xVelocity = cos(launchAngle) * GUIDED_LAUNCH_INITIAL_SPEED,
+                yVelocity = sin(launchAngle) * GUIDED_LAUNCH_INITIAL_SPEED,
                 zVelocity = 0.0,
-                maxXVelocity = abs(cos(launchAngle) * maxSpeed) + 0.2,
-                maxYVelocity = abs(sin(launchAngle) * maxSpeed) + 0.2,
-                maxZVelocity = 10.0,
-                xAcceleration = cos(launchAngle) * thrust,
-                yAcceleration = sin(launchAngle) * thrust,
+                maxXVelocity = abs(cos(launchAngle) * GUIDED_LAUNCH_MAX_SPEED) + GUIDED_LAUNCH_VELOCITY_HEADROOM,
+                maxYVelocity = abs(sin(launchAngle) * GUIDED_LAUNCH_MAX_SPEED) + GUIDED_LAUNCH_VELOCITY_HEADROOM,
+                maxZVelocity = DEFAULT_MAX_VELOCITY,
+                xAcceleration = cos(launchAngle) * GUIDED_LAUNCH_THRUST,
+                yAcceleration = sin(launchAngle) * GUIDED_LAUNCH_THRUST,
                 zAcceleration = 0.0,
-                drag = 0.001,
+                drag = PROJECTILE_DRAG,
                 restitution = 0.0,
                 canCollide = false,
                 isVisible = true,
@@ -264,18 +335,17 @@ class CommonParticles : Particles {
     private fun createFireworkBurstParticles(centerX: Double, centerY: Double): MutableList<Particle> {
         val particles = mutableListOf<Particle>()
         val (startColor, endColor) = createDistinctColorPair()
-        repeat(100) {
+        repeat(FIREWORK_BURST_PARTICLE_COUNT) {
             val angle = Random.nextDouble() * PI * 2
-            val speed = Random.nextDouble() * 6 + 2
-            val radius = 3.0
-            val diameter = radius * 2.0
+            val speed = Random.nextDouble() * FIREWORK_BURST_SPEED_RANGE + FIREWORK_BURST_MIN_SPEED
+            val diameter = FIREWORK_BURST_RADIUS * 2.0
             particles += Particle(
                 id = Random.nextInt().toString(16),
                 type = ParticleType.FIREWORK_BURST,
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = 0.0,
-                lifetime = 120.0,
+                lifetime = FIREWORK_BURST_LIFETIME,
                 color = startColor,
                 startColor = startColor,
                 endColor = endColor,
@@ -283,31 +353,31 @@ class CommonParticles : Particles {
                 endAlpha = 1.0,
                 width = diameter,
                 height = diameter,
-                maxWidth = 10.0,
-                maxHeight = 10.0,
-                radius = radius,
-                maxRadius = 5.0,
+                maxWidth = DEFAULT_MAX_WIDTH,
+                maxHeight = DEFAULT_MAX_HEIGHT,
+                radius = FIREWORK_BURST_RADIUS,
+                maxRadius = DEFAULT_MAX_RADIUS,
                 growthRate = 0.0,
-                mass = 1.0,
+                mass = FIREWORK_BURST_MASS,
                 x = centerX,
                 y = centerY,
                 z = 0.0,
-                originX = 0.0,
-                originY = 0.0,
-                originZ = 0.0,
-                destinationX = 0.0,
-                destinationY = 0.0,
-                destinationZ = 0.0,
+                originX = 0,
+                originY = 0,
+                originZ = 0,
+                destinationX = 0,
+                destinationY = 0,
+                destinationZ = 0,
                 xVelocity = cos(angle) * speed,
                 yVelocity = sin(angle) * speed,
                 zVelocity = 0.0,
-                maxXVelocity = 10.0,
-                maxYVelocity = 10.0,
-                maxZVelocity = 10.0,
+                maxXVelocity = DEFAULT_MAX_VELOCITY,
+                maxYVelocity = DEFAULT_MAX_VELOCITY,
+                maxZVelocity = DEFAULT_MAX_VELOCITY,
                 xAcceleration = 0.0,
-                yAcceleration = 0.05,
+                yAcceleration = FIREWORK_BURST_Y_ACCELERATION,
                 zAcceleration = 0.0,
-                drag = 0.02,
+                drag = FIREWORK_BURST_DRAG,
                 restitution = 0.0,
                 canCollide = false,
                 isVisible = true,
@@ -317,26 +387,41 @@ class CommonParticles : Particles {
         return particles
     }
 
-    private fun createFireworkTailParticles(centerX: Double, width: Double, height: Double): MutableList<Particle> {
+    private fun createFireworkTailParticles(viewPort: ViewPort): MutableList<Particle> {
         val particles = mutableListOf<Particle>()
-        val tailCount = 256
-        val staggerFrames = 60.0
-        val delayOrder = MutableList(tailCount) { it }
+        val deceleration = physicsSettingsService.gravity * FIREWORK_TAIL_MASS
+        val delayOrder = MutableList(FIREWORK_TAIL_PARTICLE_COUNT) { it }
         shuffle(delayOrder)
-        repeat(tailCount) { i ->
+        val viewPortWidth = viewPort.width.toDouble()
+        val viewPortHeight = viewPort.height.toDouble()
+        val originY = viewPort.y + viewPortHeight
+        // destination band centered in the upper part of the viewport
+        val destinationBandStart = viewPortHeight * FIREWORK_TAIL_DESTINATION_BAND_START_RATIO
+        val destinationBandSize = viewPortHeight * FIREWORK_TAIL_DESTINATION_BAND_SIZE_RATIO
+        val averageDistance = originY - (viewPort.y + destinationBandStart + destinationBandSize / 2.0)
+        val averageLaunchVelocity = sqrt(2 * deceleration * averageDistance)
+        val averageTimeToApex = averageLaunchVelocity / deceleration
+        val staggerFrames = averageTimeToApex * FIREWORK_TAIL_STAGGER_TIMING_RATIO
+        repeat(FIREWORK_TAIL_PARTICLE_COUNT) { i ->
             val (startColor, endColor) = createDistinctColorPair()
-            val xPosition = if (tailCount > 1) (i.toDouble() / (tailCount - 1)) * width else centerX
-            val randomDestinationY = (height * 0.35) + Random.nextDouble() * (height * 0.3)
-            val radius = 8 + Random.nextDouble() * 8
+            val xPosition = viewPort.x + (i.toDouble() / (FIREWORK_TAIL_PARTICLE_COUNT - 1)) * viewPortWidth
+            val randomDestinationY = viewPort.y + destinationBandStart + Random.nextDouble() * destinationBandSize
+            val distanceToDestination = originY - randomDestinationY
+            val launchVelocity = sqrt(2 * deceleration * distanceToDestination)
+            val timeToDestination = launchVelocity / deceleration
+            val radius = FIREWORK_TAIL_MIN_RADIUS + Random.nextDouble() * FIREWORK_TAIL_RADIUS_RANGE
             val diameter = radius * 2.0
-            val delay = max(0.0, round(delayOrder[i] * staggerFrames + (Random.nextDouble() - 0.5) * 20))
+            val delay = max(
+                0.0,
+                round(delayOrder[i] * staggerFrames + (Random.nextDouble() - 0.5) * FIREWORK_TAIL_DELAY_JITTER_RANGE)
+            )
             particles += Particle(
                 id = Random.nextInt().toString(16),
                 type = ParticleType.FIREWORK_TAIL,
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = delay,
-                lifetime = 260.0,
+                lifetime = timeToDestination,
                 color = startColor,
                 startColor = startColor,
                 endColor = endColor,
@@ -344,27 +429,27 @@ class CommonParticles : Particles {
                 endAlpha = 1.0,
                 width = diameter,
                 height = diameter,
-                maxWidth = 10.0,
-                maxHeight = 10.0,
+                maxWidth = DEFAULT_MAX_WIDTH,
+                maxHeight = DEFAULT_MAX_HEIGHT,
                 radius = radius,
-                maxRadius = 5.0,
+                maxRadius = DEFAULT_MAX_RADIUS,
                 growthRate = 0.0,
-                mass = 0.25,
+                mass = FIREWORK_TAIL_MASS,
                 x = xPosition,
-                y = height,
+                y = originY,
                 z = 0.0,
-                originX = xPosition,
-                originY = height,
-                originZ = 0.0,
-                destinationX = xPosition,
-                destinationY = randomDestinationY,
-                destinationZ = 0.0,
+                originX = xPosition.roundToInt(),
+                originY = originY.roundToInt(),
+                originZ = 0,
+                destinationX = xPosition.roundToInt(),
+                destinationY = randomDestinationY.roundToInt(),
+                destinationZ = 0,
                 xVelocity = 0.0,
-                yVelocity = -(Random.nextDouble() * 2 + 5),
+                yVelocity = -launchVelocity,
                 zVelocity = 0.0,
-                maxXVelocity = 10.0,
-                maxYVelocity = 10.0,
-                maxZVelocity = 10.0,
+                maxXVelocity = DEFAULT_MAX_VELOCITY,
+                maxYVelocity = launchVelocity * FIREWORK_TAIL_VELOCITY_HEADROOM,
+                maxZVelocity = DEFAULT_MAX_VELOCITY,
                 xAcceleration = 0.0,
                 yAcceleration = 0.0,
                 zAcceleration = 0.0,
@@ -386,9 +471,7 @@ class CommonParticles : Particles {
         destinationY: Double
     ): MutableList<Particle> {
         val launchAngle = atan2(destinationY - centerY, destinationX - centerX)
-        val initialSpeed = 2.8
-        val maxSpeed = 5.25
-        val thrust = 0.16
+        val diameter = ITEM_RETURN_RADIUS * 2.0
 
         return mutableListOf(
             Particle(
@@ -397,39 +480,39 @@ class CommonParticles : Particles {
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = 0.0,
-                lifetime = 512.0,
+                lifetime = ITEM_RETURN_LIFETIME,
                 color = Color.White,
                 startColor = Color.White,
                 endColor = Color.White,
                 alpha = 1.0,
                 endAlpha = 1.0,
-                radius = 16.0,
-                width = 32.0,
-                height = 32.0,
-                maxWidth = 10.0,
-                maxHeight = 10.0,
-                maxRadius = 5.0,
+                radius = ITEM_RETURN_RADIUS,
+                width = diameter,
+                height = diameter,
+                maxWidth = DEFAULT_MAX_WIDTH,
+                maxHeight = DEFAULT_MAX_HEIGHT,
+                maxRadius = DEFAULT_MAX_RADIUS,
                 growthRate = 0.0,
-                mass = 0.15,
+                mass = ITEM_RETURN_MASS,
                 x = centerX,
                 y = centerY,
                 z = 0.0,
-                originX = centerX,
-                originY = centerY,
-                originZ = 0.0,
-                destinationX = destinationX,
-                destinationY = destinationY,
-                destinationZ = 0.0,
-                xVelocity = cos(launchAngle) * initialSpeed,
-                yVelocity = sin(launchAngle) * initialSpeed,
+                originX = centerX.roundToInt(),
+                originY = centerY.roundToInt(),
+                originZ = 0,
+                destinationX = destinationX.roundToInt(),
+                destinationY = destinationY.roundToInt(),
+                destinationZ = 0,
+                xVelocity = cos(launchAngle) * GUIDED_LAUNCH_INITIAL_SPEED,
+                yVelocity = sin(launchAngle) * GUIDED_LAUNCH_INITIAL_SPEED,
                 zVelocity = 0.0,
-                maxXVelocity = abs(cos(launchAngle) * maxSpeed) + 0.2,
-                maxYVelocity = abs(sin(launchAngle) * maxSpeed) + 0.2,
-                maxZVelocity = 10.0,
-                xAcceleration = cos(launchAngle) * thrust,
-                yAcceleration = sin(launchAngle) * thrust,
+                maxXVelocity = abs(cos(launchAngle) * GUIDED_LAUNCH_MAX_SPEED) + GUIDED_LAUNCH_VELOCITY_HEADROOM,
+                maxYVelocity = abs(sin(launchAngle) * GUIDED_LAUNCH_MAX_SPEED) + GUIDED_LAUNCH_VELOCITY_HEADROOM,
+                maxZVelocity = DEFAULT_MAX_VELOCITY,
+                xAcceleration = cos(launchAngle) * GUIDED_LAUNCH_THRUST,
+                yAcceleration = sin(launchAngle) * GUIDED_LAUNCH_THRUST,
                 zAcceleration = 0.0,
-                drag = 0.001,
+                drag = ITEM_RETURN_DRAG,
                 restitution = 0.0,
                 canCollide = false,
                 isVisible = true,
