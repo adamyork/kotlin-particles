@@ -8,6 +8,8 @@ enum class ParticleType(
     ITEM_RETURN("Item Return"),
     COLLISION("Collision"),
     FIREWORK_TAIL("Firework Tails"),
-    FIREWORK_BURST("Firework Burst")
+    FIREWORK_BURST("Firework Burst"),
+    COLLIDING_BITS("Colliding Bits"),
+    GOBBLER("Gobbler")
 }
 

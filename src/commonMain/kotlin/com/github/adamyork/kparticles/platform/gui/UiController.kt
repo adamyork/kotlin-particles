@@ -157,10 +157,6 @@ class UiController(
             destinationY = destinationY,
             direction = direction
         )
-        logger.info { "createParticles: created ${createdParticles.size} particles at ($centerX, $centerY)" }
-        createdParticles.forEach { p ->
-            logger.info { "  created particle: type=${p.type} x=${p.x} y=${p.y} w=${p.width} h=${p.height} age=${p.age} lifetime=${p.lifetime}" }
-        }
         allParticles.addAll(createdParticles)
         if (runtimeService.lifeCycleState != LifeCycleState.RUNNING) {
             runtimeService.lifeCycleState = LifeCycleState.RUNNING

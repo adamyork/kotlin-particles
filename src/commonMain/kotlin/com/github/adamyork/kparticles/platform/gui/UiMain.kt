@@ -67,7 +67,9 @@ abstract class UiMain(
                 ParticleType.PROJECTILE,
                 ParticleType.FIREWORK_BURST,
                 ParticleType.FIREWORK_TAIL,
-                ParticleType.ITEM_RETURN
+                ParticleType.ITEM_RETURN,
+                ParticleType.COLLIDING_BITS,
+                ParticleType.GOBBLER
             )
         }
         var selectedParticleMode by remember { mutableStateOf(particleModes.first()) }

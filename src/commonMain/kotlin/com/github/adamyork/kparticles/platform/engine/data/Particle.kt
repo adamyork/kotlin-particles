@@ -30,8 +30,8 @@ data class Particle(
     val originX: Int,
     val originY: Int,
     val originZ: Int,
-    val destinationX: Int,
-    val destinationY: Int,
+    var destinationX: Int,
+    var destinationY: Int,
     val destinationZ: Int,
     var xVelocity: Double,
     var yVelocity: Double,
@@ -43,10 +43,12 @@ data class Particle(
     var yAcceleration: Double,
     var zAcceleration: Double,
     val drag: Double,
-    val mass: Double,
+    var mass: Double,
     val restitution: Double,
+    var attraction: Double,
     val canCollide: Boolean,
-    var isVisible: Boolean
+    var visible: Boolean,
+    val viewportBound: Boolean
 ) {
     companion object {
         private const val VISIBILITY_BUFFER = 50
