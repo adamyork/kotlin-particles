@@ -18,8 +18,8 @@ import me.tatarka.inject.annotations.Inject
  * Copyright (c) Adam York
  */
 abstract class CommonEngine @AppScope @Inject constructor(
-    val physics: Physics,
-    val particles: Particles,
+    val particlePhysics: ParticlePhysics,
+    val particleFactory: ParticleFactory,
     val assetService: AssetService,
     val runtimeService: RuntimeService,
     val platformInterop: PlatformInterop,
@@ -45,11 +45,11 @@ abstract class CommonEngine @AppScope @Inject constructor(
     }
 
     override fun manageMap(particles: ArrayList<Particle>, viewPort: ViewPort) {
-        manageMapParticles(particles, viewPort)
+        manageParticles(particles, viewPort)
     }
 
-    protected open fun manageMapParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
-
+    protected open fun manageParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
+        throw Exception("must be implemented")
     }
 
     override fun draw(particles: ArrayList<Particle>, viewPort: ViewPort, timestamp: Double): DrawResult {

@@ -8,6 +8,10 @@ import com.github.adamyork.kparticles.platform.gui.UiController
 import com.github.adamyork.kparticles.platform.gui.UiDrawLayer
 import com.github.adamyork.kparticles.platform.gui.UiMain
 
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
 class WasmUiMain(
     controller: UiController,
     runtimeService: RuntimeService,

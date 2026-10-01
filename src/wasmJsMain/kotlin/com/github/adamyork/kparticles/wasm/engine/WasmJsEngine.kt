@@ -6,8 +6,8 @@ import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.Collision
 import com.github.adamyork.kparticles.platform.engine.CommonEngine
-import com.github.adamyork.kparticles.platform.engine.Particles
-import com.github.adamyork.kparticles.platform.engine.Physics
+import com.github.adamyork.kparticles.platform.engine.ParticleFactory
+import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
 import com.github.adamyork.kparticles.platform.engine.data.*
 import com.github.adamyork.kparticles.platform.service.AbstractPlatformAssetService
 import com.github.adamyork.kparticles.platform.service.AssetService
@@ -17,6 +17,7 @@ import com.github.adamyork.kparticles.wasm.engine.data.WasmJsImage
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
+import kotlin.time.TimeSource
 
 /**
  * Author: Adam York
@@ -25,22 +26,27 @@ import org.jetbrains.skia.*
 @AppScope
 @Inject
 open class WasmJsEngine(
-    physics: Physics,
-    particles: Particles,
+    particlePhysics: ParticlePhysics,
+    particleFactory: ParticleFactory,
     assetService: AssetService,
     runtimeService: RuntimeService,
     platformInterop: PlatformInterop,
     collision: Collision,
 ) : CommonEngine(
-    physics,
-    particles,
+    particlePhysics,
+    particleFactory,
     assetService,
     runtimeService,
     platformInterop,
     collision
 ) {
 
+    private companion object {
+        const val PROFILE_LOG_INTERVAL_TICKS = 60
+    }
+
     private val logger = KotlinLogging.logger {}
+    private var drawTickCounter = 0
 
     override var mapItemImage: CommonImage = WasmJsImage(
         Image.makeFromBitmap(AbstractPlatformAssetService.getTmpImageBitmap().asSkiaBitmap())
@@ -67,8 +73,8 @@ open class WasmJsEngine(
         mapItemFrameHeight = collectibleAsset.height
     }
 
-    override fun manageMapParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
-        physics.applyParticlePhysics(particles, viewPort, completedParticleResults)
+    override fun manageParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
+        particlePhysics.applyParticlePhysics(particles, viewPort, completedParticleResults)
         collision.applyParticleCollision(particles)
     }
 
@@ -77,12 +83,20 @@ open class WasmJsEngine(
         viewPort: ViewPort,
         timestamp: Double
     ): DrawResult {
+        val startMark = TimeSource.Monotonic.markNow()
         val foregroundSurface = getOrCreateForegroundSurface(viewPort)
         val foregroundCanvas = foregroundSurface.canvas
         foregroundCanvas.clear(0x00000000)
         drawParticles(particles, viewPort, foregroundCanvas, mapItemImage)
+        val beforeSnapshotMark = TimeSource.Monotonic.markNow()
         val foregroundImage = foregroundSurface.makeImageSnapshot()
         runtimeService.lastPaintTime = timestamp
+        if (drawTickCounter % PROFILE_LOG_INTERVAL_TICKS == 0) {
+            logger.debug {
+                "draw total: ${particles.size} particles, makeImageSnapshot took " +
+                    "${beforeSnapshotMark.elapsedNow()}, whole draw() took ${startMark.elapsedNow()}"
+            }
+        }
         return DrawResult(
             foregroundImage = WasmJsImage(foregroundImage),
         )
@@ -94,6 +108,7 @@ open class WasmJsEngine(
         canvas: Canvas,
         mapItemImage: CommonImage?
     ) {
+        val startMark = TimeSource.Monotonic.markNow()
         val viewPortOffsetX = viewPort.x.toFloat()
         val viewPortOffsetY = viewPort.y.toFloat()
         val groups = HashMap<Int, MutableList<Particle>>(16)
@@ -151,6 +166,14 @@ open class WasmJsEngine(
                     strict = true
                 )
                 itemIndex++
+            }
+        }
+
+        drawTickCounter++
+        if (drawTickCounter % PROFILE_LOG_INTERVAL_TICKS == 0) {
+            logger.debug {
+                "draw: $particleCount particles into ${groups.size} color groups " +
+                    "(1 group per drawPath call) in ${startMark.elapsedNow()}"
             }
         }
     }

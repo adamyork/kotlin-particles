@@ -26,8 +26,7 @@ class LoadingViewModel : ViewModel(), LoadingProgressListener {
             return when (fileName) {
                 "collectible item" -> "item_sprite_1"
                 "app_yaml" -> "app_yaml"
-                //"particles", "particles.wgsl" -> "particle_shader"
-               // "particles_gl" -> "particle_shader_gl"
+                "particles", "particles.wgsl" -> "particle_shader"
                 else -> ""
             }
         }
@@ -37,8 +36,7 @@ class LoadingViewModel : ViewModel(), LoadingProgressListener {
         listOf(
             LoadingTask("app_yaml", "Application YAML"),
             LoadingTask("item_sprite_1", "Item Sprite 1"),
-            //LoadingTask("particle_shader", "Particle Shader"),
-            //LoadingTask("particle_shader_gl", "Particle GL Shaders")
+            LoadingTask("particle_shader", "Particle Shader"),
         )
     )
 

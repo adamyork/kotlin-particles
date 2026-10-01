@@ -26,4 +26,5 @@ interface PhysicsSettingsService {
     var mapItemReturnParticleMinTravelDist: Double
     var mapItemReturnParticleSpeed: Double
     var dustParticleSpeedCoefficient: Double
+    var spatialGridCellSize: Double
 }

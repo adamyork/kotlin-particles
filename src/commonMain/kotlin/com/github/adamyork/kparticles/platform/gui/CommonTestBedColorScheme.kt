@@ -20,33 +20,31 @@ import me.tatarka.inject.annotations.Inject
 @Inject
 class CommonTestBedColorScheme : TestBedColorScheme {
 
-    // --- Legacy CSS Constants ---
     private val buttonActive = Color(0xFFEDC189)
     private val buttonDisabledBg = Color(0xFFCCCCCC)
     private val buttonDisabledBorder = Color(0xFF999999)
     private val buttonDisabledText = Color(0xFF666666)
     private val overlayBackground = Color(0xFFCCCCCC)
 
-    // --- Typography Tokens ---
     private val appFontFamily = FontFamily.SansSerif
     private val labelLargeSize = 14.sp
     private val bodySmallSize = 12.sp
 
-    private val lightBgColor = Color(0xFFF8FAFC)        // --bg-color
-    private val lightCardBg = Color(0xFFFFFFFF)         // --card-bg
-    private val lightTextMain = Color.Black              // --text-com.github.adamyork.sparrow.wasm.main
-    private val lightTextMuted = Color(0xFF64748B)      // --text-muted
-    private val lightPrimary = Color(0xFF4F46E5)        // --primary
-    private val lightPrimaryHover = Color(0xFF6366F1)   // --primary-hover
-    private val lightBorderColor = Color(0xFFE2E8F0)    // --border-color
+    private val lightBgColor = Color(0xFFF8FAFC)
+    private val lightCardBg = Color(0xFFFFFFFF)
+    private val lightTextMain = Color.Black
+    private val lightTextMuted = Color(0xFF64748B)
+    private val lightPrimary = Color(0xFF4F46E5)
+    private val lightPrimaryHover = Color(0xFF6366F1)
+    private val lightBorderColor = Color(0xFFE2E8F0)
 
-    private val darkBgColor = Color(0xFF0F172A)         // --bg-color
-    private val darkCardBg = Color(0xFF1E293B)          // --card-bg
-    private val darkTextMain = Color.Black               // --text-com.github.adamyork.sparrow.wasm.main
-    private val darkTextMuted = Color(0xFF94A3B8)       // --text-muted
-    private val darkPrimary = Color(0xFF818CF8)         // --primary
-    private val darkPrimaryHover = Color(0xFFA5B4FC)    // --primary-hover
-    private val darkBorderColor = Color(0xFF334155)     // --border-color
+    private val darkBgColor = Color(0xFF0F172A)
+    private val darkCardBg = Color(0xFF1E293B)
+    private val darkTextMain = Color.Black
+    private val darkTextMuted = Color(0xFF94A3B8)
+    private val darkPrimary = Color(0xFF818CF8)
+    private val darkPrimaryHover = Color(0xFFA5B4FC)
+    private val darkBorderColor = Color(0xFF334155)
 
     private val primaryColor
         @Composable

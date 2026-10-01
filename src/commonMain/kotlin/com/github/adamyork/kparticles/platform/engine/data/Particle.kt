@@ -3,6 +3,10 @@ package com.github.adamyork.kparticles.platform.engine.data
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
 data class Particle(
     val id: String,
     val type: ParticleType,
@@ -48,7 +52,10 @@ data class Particle(
     var attraction: Double,
     val canCollide: Boolean,
     var visible: Boolean,
-    val viewportBound: Boolean
+    val viewportBound: Boolean,
+    var xForce: Double = 0.0,
+    var yForce: Double = 0.0,
+    var gpuReservedSlot: Int = -1
 ) {
     companion object {
         private const val VISIBILITY_BUFFER = 50
@@ -61,5 +68,7 @@ data class Particle(
                 localCord.x > -VISIBILITY_BUFFER &&
                 localCord.x < viewPort.width + VISIBILITY_BUFFER
     }
+
+    fun canInteract(): Boolean = canCollide || attraction > 0.0
 }
 

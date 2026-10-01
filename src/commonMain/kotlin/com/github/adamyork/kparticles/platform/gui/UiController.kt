@@ -3,7 +3,7 @@ package com.github.adamyork.kparticles.platform.gui
 import com.github.adamyork.kparticles.platform.common.LifeCycleState
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.Engine
-import com.github.adamyork.kparticles.platform.engine.Particles
+import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.data.Direction
 import com.github.adamyork.kparticles.platform.engine.data.DrawResult
 import com.github.adamyork.kparticles.platform.engine.data.Particle
@@ -27,7 +27,7 @@ import kotlinx.coroutines.*
 class UiController(
     private val assetService: AssetService,
     private val engine: Engine,
-    private val particles: Particles,
+    private val particleFactory: ParticleFactory,
     private val runtimeService: RuntimeService,
     private val screenDimensionsService: ScreenDimensionsService
 ) : LoadingProgressListener {
@@ -48,8 +48,7 @@ class UiController(
             assetService.initialize(this)
             val loaders: Map<String, suspend () -> Any> = mapOf(
                 "collectible item" to { assetService.loadItem(0) },
-//                "particles" to { assetService.loadParticleShader() },
-//                "particles_gl" to { assetService.loadParticleGlShaders() }
+                "particles" to { assetService.loadParticleShader() },
             )
             val loadedAssets = coroutineScope {
                 loaders.map { (key, loader) ->
@@ -79,7 +78,7 @@ class UiController(
             val collectibleAsset = loadedAssets.getValue("collectible item") as ImageAsset
             withContext(Dispatchers.Default) {
                 engine.initialize(collectibleAsset)
-                particles.populateColorMap(assetService)
+                particleFactory.populateColorMap(assetService)
             }
             withContext(Dispatchers.Main) {
                 stateElements.viewPort = viewPort
@@ -128,7 +127,6 @@ class UiController(
         }
         engine.manageMap(allParticles, elements.viewPort)
         if (!hasSpawnedCompletionFireworkTailParticles) {
-            //particles.createFireworkTailParticles(elements.viewPort, elements.gameMap.particles)
             hasSpawnedCompletionFireworkTailParticles = true
         }
         val drawResult = engine.draw(allParticles, elements.viewPort, timestamp)
@@ -148,7 +146,7 @@ class UiController(
         val destinationX = viewPort.x + (viewPort.width * 0.75)
         val destinationY = viewPort.y + (viewPort.height * 0.25)
         val direction = if (centerX < destinationX) Direction.RIGHT else Direction.LEFT
-        val createdParticles = particles.create(
+        val createdParticles = particleFactory.create(
             type = type,
             x = centerX,
             y = centerY,

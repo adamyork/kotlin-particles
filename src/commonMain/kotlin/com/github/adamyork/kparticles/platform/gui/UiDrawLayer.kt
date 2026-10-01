@@ -52,7 +52,6 @@ abstract class UiDrawLayer(
 
     @Composable
     protected open fun OverlayLayer() {
-        // Optional platform-specific overlay layer (for example, a GPU particle surface).
     }
 
 

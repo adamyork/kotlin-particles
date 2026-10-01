@@ -4,12 +4,17 @@ import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.data.Direction
 import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.engine.data.ParticleType
+import com.github.adamyork.kparticles.platform.engine.data.ParticleWriteResult
 import com.github.adamyork.kparticles.platform.service.AssetService
 
-interface Particles {
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
+interface ParticleFactory {
 
     companion object {
-        const val DEFAULT_GPU_PARTICLE_CAPACITY: Int = 4096
+        const val DEFAULT_GPU_PARTICLE_CAPACITY: Int = 8192
     }
 
     fun populateColorMap(assetService: AssetService)
@@ -28,15 +33,14 @@ interface Particles {
         direction: Direction
     ): MutableList<Particle>
 
-//    fun writeGpuParticleSpawnBuffer(
-//        player: Player,
-//        mapParticles: List<Particle>,
-//        targetBuffer: FloatArray,
-//        maxParticles: Int = DEFAULT_GPU_PARTICLE_CAPACITY,
-//        startSlot: Int = 0,
-//        previouslyWrittenSlots: List<Int> = emptyList()
-//    ): ParticleWriteResult {
-//        throw EngineException("GPU particle spawn buffer writes are not implemented for this engine")
-//    }
+    fun writeGpuParticleSpawnBuffer(
+        mapParticles: List<Particle>,
+        targetBuffer: FloatArray,
+        maxParticles: Int = DEFAULT_GPU_PARTICLE_CAPACITY,
+        startSlot: Int = 0,
+        previouslyWrittenSlots: List<Int> = emptyList()
+    ): ParticleWriteResult {
+        throw EngineException("GPU particle spawn buffer writes are not implemented for this engine")
+    }
 
 }

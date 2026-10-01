@@ -69,7 +69,9 @@ abstract class UiMain(
                 ParticleType.FIREWORK_TAIL,
                 ParticleType.ITEM_RETURN,
                 ParticleType.COLLIDING_BITS,
-                ParticleType.GOBBLER
+                ParticleType.GOBBLER,
+                ParticleType.BLACK_HOLE,
+                ParticleType.STRESS_TEST
             )
         }
         var selectedParticleMode by remember { mutableStateOf(particleModes.first()) }
@@ -133,7 +135,6 @@ abstract class UiMain(
 
         LaunchedEffect(gameLifeCycleState) {
             if (gameLifeCycleState == LifeCycleState.RUNNING) {
-                // Force-clear any focused control so mobile button chrome is not retained in gameplay.
                 focusManager.clearFocus(force = true)
                 platformInterop.requestKeyboardFocus()
             }

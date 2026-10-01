@@ -31,5 +31,6 @@ class CommonPhysicsSettingsService : PhysicsSettingsService {
     override var mapItemReturnParticleMinTravelDist: Double = 5.0
     override var mapItemReturnParticleSpeed: Double = 30.0
     override var dustParticleSpeedCoefficient: Double = .25
+    override var spatialGridCellSize: Double = 64.0
 
 }

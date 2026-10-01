@@ -9,6 +9,10 @@ import io.github.oshai.kotlinlogging.Level
 import kotlinx.browser.document
 import org.w3c.dom.HTMLElement
 
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
 private val logger = KotlinLogging.logger {}
 
 @OptIn(ExperimentalComposeUiApi::class)

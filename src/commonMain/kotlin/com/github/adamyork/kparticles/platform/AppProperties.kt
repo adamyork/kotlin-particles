@@ -14,10 +14,6 @@ data class AppProperties(
     val particle: ParticleConfig
 )
 
-/**
- * Author: Adam York
- * Copyright (c) Adam York
- */
 @Serializable
 data class EngineConfig(
     val tickTargetPerSec: Int,
@@ -40,10 +36,6 @@ data class ItemConfig(
     }
 }
 
-/**
- * Author: Adam York
- * Copyright (c) Adam York
- */
 @Serializable
 data class AssetDimensions(val width: Int, val height: Int, val path: String)
 
@@ -53,10 +45,6 @@ data class ItemPosition(val x: Int, val y: Int, val type: String, val ref: Strin
 @Serializable
 data class ParticleConfig(val player: MovementCollision, val enemy: Projectile)
 
-/**
- * Author: Adam York
- * Copyright (c) Adam York
- */
 @Serializable
 data class MovementCollision(val movement: ColorWrapper, val collision: ColorWrapper)
 
@@ -66,10 +54,6 @@ data class ColorWrapper(val color: RGBA)
 @Serializable
 data class RGBA(val r: Int, val g: Int, val b: Int, val a: Int)
 
-/**
- * Author: Adam York
- * Copyright (c) Adam York
- */
 @Serializable
 data class Projectile(val projectile: ColorWrapper)
 

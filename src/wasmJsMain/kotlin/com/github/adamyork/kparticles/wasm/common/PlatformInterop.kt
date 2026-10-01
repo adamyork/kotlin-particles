@@ -11,6 +11,10 @@ import org.khronos.webgl.toInt8Array
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
 
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
 @AppScope
 @Inject
 class WasmJsInterop : PlatformInterop {
@@ -51,8 +55,8 @@ class WasmJsInterop : PlatformInterop {
     }
 
     override fun isGpuEngineSupported(platformData: Any?): Boolean {
-        return false
-        //return hasWebGpuSupport()
+        //return false
+        return hasWebGpuSupport()
     }
 
     override fun requestKeyboardFocus() {

@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.engine.Engine
-import com.github.adamyork.kparticles.platform.engine.Particles
+import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.gui.ScreenDimensionsService
 import com.github.adamyork.kparticles.platform.gui.TestBed
 import com.github.adamyork.kparticles.platform.service.AssetService
@@ -21,7 +21,7 @@ import me.tatarka.inject.annotations.Inject
 class WasmJsTestBed(
     private val assetService: AssetService,
     private val engine: Engine,
-    private val particles: Particles,
+    private val particleFactory: ParticleFactory,
     private val runtimeService: RuntimeService,
     private val screenDimensionsService: ScreenDimensionsService,
     private val particleLayer: WasmJsUiParticleLayer,
@@ -31,7 +31,7 @@ class WasmJsTestBed(
     private val controller = UiController(
         assetService = assetService,
         engine = engine,
-        particles = particles,
+        particleFactory = particleFactory,
         runtimeService = runtimeService,
         screenDimensionsService = screenDimensionsService
     )

@@ -47,8 +47,8 @@ class WasmJsUiDrawLayer(
         var overlayInitialized by remember { mutableStateOf(false) }
         if (!overlayInitialized) {
             particleLayer.initializeOverlayCanvas(
-                expectedWidth = screenDimensions.width,
-                expectedHeight = screenDimensions.height
+                viewportWidth = screenDimensions.width,
+                viewportHeight = screenDimensions.height
             )
             overlayInitialized = true
         }

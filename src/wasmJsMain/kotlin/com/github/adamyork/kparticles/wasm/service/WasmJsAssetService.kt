@@ -13,11 +13,11 @@ import io.ktor.http.*
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.Image
 
-
 /**
  * Author: Adam York
  * Copyright (c) Adam York
  */
+
 @AppScope
 @Inject
 class WasmJsAssetService(

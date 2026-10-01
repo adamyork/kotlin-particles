@@ -18,3 +18,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "kotlin-particles"
+
+include(":androidApp")

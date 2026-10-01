@@ -3,6 +3,10 @@ package com.github.adamyork.kparticles.platform.gui.data
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.service.data.ImageAsset
 
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
 data class StateElements(
     var viewPort: ViewPort,
     var mapItemCollectibleAsset: ImageAsset,

@@ -1,39 +1,81 @@
 package com.github.adamyork.kparticles.platform.engine
 
 import com.github.adamyork.kparticles.platform.engine.data.Particle
+import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.math.sqrt
+import kotlin.time.TimeSource
 
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
 abstract class BaseCollision(
-    private val physics: Physics
+    private val particlePhysics: ParticlePhysics,
+    private val spatialGrid: SpatialGrid,
+    private val physicsSettingsService: PhysicsSettingsService
 ) : Collision {
 
+    private companion object {
+        const val PROFILE_LOG_INTERVAL_TICKS = 60
+    }
+
+    private val logger = KotlinLogging.logger {}
+    private var tickCounter = 0
+
     override fun applyParticleCollision(particles: ArrayList<Particle>) {
-        for (firstParticleIndex in particles.indices) {
-            for (secondParticleIndex in firstParticleIndex + 1 until particles.size) {
-                val firstParticle = particles[firstParticleIndex]
-                val secondParticle = particles[secondParticleIndex]
-                if (!firstParticle.canCollide || !secondParticle.canCollide) continue
-                val firstParticleRadius =
-                    if (firstParticle.radius > 0) firstParticle.radius else firstParticle.width / 2
-                val secondParticleRadius =
-                    if (secondParticle.radius > 0) secondParticle.radius else secondParticle.width / 2
-                val deltaX = secondParticle.x - firstParticle.x
-                val deltaY = secondParticle.y - firstParticle.y
-                val distance = sqrt(deltaX * deltaX + deltaY * deltaY)
-                val minimumDistance = firstParticleRadius + secondParticleRadius
-                if (distance < minimumDistance && distance > 0) {
-                    val overlapDistance = minimumDistance - distance
-                    val normalX = deltaX / distance
-                    val normalY = deltaY / distance
-                    physics.applyParticleCollisionPhysics(
-                        firstParticle = firstParticle,
-                        secondParticle = secondParticle,
-                        overlapDistance = overlapDistance,
-                        normalX = normalX,
-                        normalY = normalY
-                    )
-                }
+        val startMark = TimeSource.Monotonic.markNow()
+        var pairCount = 0
+        var restingSkipCount = 0
+        val minActiveVelocitySquared = physicsSettingsService.minActiveVelocity * physicsSettingsService.minActiveVelocity
+        spatialGrid.forEachNearbyPair { firstParticle, secondParticle ->
+            pairCount++
+            if (firstParticle.attraction <= 0.0 && secondParticle.attraction <= 0.0 &&
+                isResting(firstParticle, minActiveVelocitySquared) && isResting(secondParticle, minActiveVelocitySquared)
+            ) {
+                restingSkipCount++
+                return@forEachNearbyPair
+            }
+            val deltaX = secondParticle.x - firstParticle.x
+            val deltaY = secondParticle.y - firstParticle.y
+            val distance = sqrt(deltaX * deltaX + deltaY * deltaY)
+            if (distance <= 0.0) return@forEachNearbyPair
+            val normalX = deltaX / distance
+            val normalY = deltaY / distance
+
+            particlePhysics.applyParticleAttractionPhysics(firstParticle, secondParticle, distance, normalX, normalY)
+
+            if (!firstParticle.canCollide || !secondParticle.canCollide) return@forEachNearbyPair
+            val firstParticleRadius =
+                if (firstParticle.radius > 0) firstParticle.radius else firstParticle.width / 2
+            val secondParticleRadius =
+                if (secondParticle.radius > 0) secondParticle.radius else secondParticle.width / 2
+            val minimumDistance = firstParticleRadius + secondParticleRadius
+            if (distance < minimumDistance) {
+                val overlapDistance = minimumDistance - distance
+                particlePhysics.applyParticleCollisionPhysics(
+                    firstParticle = firstParticle,
+                    secondParticle = secondParticle,
+                    distance = distance,
+                    overlapDistance = overlapDistance,
+                    normalX = normalX,
+                    normalY = normalY
+                )
             }
         }
+
+        tickCounter++
+        if (tickCounter % PROFILE_LOG_INTERVAL_TICKS == 0) {
+            logger.debug {
+                "collision/attraction pair walk: $pairCount pairs ($restingSkipCount resting-skipped) over " +
+                    "${particles.size} particles (max ${spatialGrid.maxCellOccupancy()} in one cell) in " +
+                    "${startMark.elapsedNow()}"
+            }
+        }
+    }
+
+    private fun isResting(particle: Particle, minActiveVelocitySquared: Double): Boolean {
+        val speedSquared = particle.xVelocity * particle.xVelocity + particle.yVelocity * particle.yVelocity
+        return speedSquared < minActiveVelocitySquared
     }
 }

@@ -1,7 +1,8 @@
 @file:Suppress("UnstableApiUsage")
 
 plugins {
-    //alias(libs.plugins.android.application)
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
@@ -19,7 +20,11 @@ repositories {
 }
 
 kotlin {
-    //androidTarget()
+    android {
+        namespace = "com.github.adamyork.kparticles.core"
+        compileSdk = 36
+        minSdk = 24
+    }
 
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
@@ -57,11 +62,10 @@ kotlin {
             implementation(libs.lifecycle.viewmodel.compose)
         }
 
-//        getByName("androidMain").dependencies {
-//            implementation(libs.ktor.client.okhttp)
-//            implementation(libs.kotlinx.coroutines.android)
-//            implementation(libs.activity.compose)
-//        }
+        getByName("androidMain").dependencies {
+            implementation(libs.ktor.client.okhttp)
+            implementation(libs.kotlinx.coroutines.android)
+        }
 
         getByName("wasmJsMain").dependencies {
             implementation(libs.ktor.client.js)
@@ -69,20 +73,6 @@ kotlin {
         }
     }
 }
-
-//android {
-//    namespace = "com.github.adamyork.kparticles"
-//    compileSdk = 36
-//    defaultConfig {
-//        minSdk = 24
-//        //noinspection OldTargetApi
-//        targetSdk = 36
-//    }
-//    sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
-//    sourceSets["main"].java.srcDirs("src/androidMain/kotlin")
-//    sourceSets["main"].res.srcDirs("src/androidMain/res")
-//}
-
 
 val prepareDevServer = tasks.register<Copy>("prepareDevServer") {
     description = "Prepares static assets and Compose resources for the dev server."

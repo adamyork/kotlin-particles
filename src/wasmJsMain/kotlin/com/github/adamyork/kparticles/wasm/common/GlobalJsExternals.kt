@@ -8,6 +8,10 @@ import org.w3c.dom.HTMLCanvasElement
 import org.w3c.files.Blob
 import kotlin.js.Promise
 
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
 external interface VisualViewport {
     val height: Double
     val width: Double

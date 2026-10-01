@@ -2,7 +2,9 @@ package com.github.adamyork.kparticles.wasm.engine
 
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.engine.CommonTileCollision
-import com.github.adamyork.kparticles.platform.engine.Physics
+import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
+import com.github.adamyork.kparticles.platform.engine.SpatialGrid
+import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
 
 /**
@@ -12,5 +14,7 @@ import me.tatarka.inject.annotations.Inject
 @AppScope
 @Inject
 class WasmJsTileCollision(
-    physics: Physics,
-) : CommonTileCollision(physics)
+    particlePhysics: ParticlePhysics,
+    spatialGrid: SpatialGrid,
+    physicsSettingsService: PhysicsSettingsService,
+) : CommonTileCollision(particlePhysics, spatialGrid, physicsSettingsService)

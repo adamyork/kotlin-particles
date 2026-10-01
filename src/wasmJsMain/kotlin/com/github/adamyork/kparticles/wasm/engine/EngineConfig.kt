@@ -21,14 +21,18 @@ interface EngineConfig {
 
     @AppScope
     @Provides
-    fun providePhysics(impl: CommonPhysics): Physics = impl
+    fun providePhysics(impl: CommonParticlePhysics): ParticlePhysics = impl
 
     @AppScope
     @Provides
-    fun provideParticles(impl: CommonParticles): Particles = impl
+    fun provideParticles(impl: CommonParticleFactory): ParticleFactory = impl
 
     @AppScope
     @Provides
     fun provideCollision(impl: WasmJsTileCollision): Collision = impl
+
+    @AppScope
+    @Provides
+    fun provideSpatialGrid(impl: CommonSpatialGrid): SpatialGrid = impl
 
 }

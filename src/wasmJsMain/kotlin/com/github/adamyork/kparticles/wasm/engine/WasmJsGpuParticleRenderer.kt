@@ -1,7 +1,7 @@
 package com.github.adamyork.kparticles.wasm.engine
 
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
-import com.github.adamyork.kparticles.platform.engine.Particles
+import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.wasm.common.*
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.browser.window
@@ -14,8 +14,8 @@ import kotlin.math.ceil
 import kotlin.math.max
 
 /**
- * WebGPU collision-particle renderer used by the wasm GPU engine.
- * Physics and rendering are both performed on the GPU via compute + render pipelines.
+ * Author: Adam York
+ * Copyright (c) Adam York
  */
 @OptIn(ExperimentalWasmJsInterop::class)
 class WasmJsGpuParticleRenderer {
@@ -65,6 +65,8 @@ class WasmJsGpuParticleRenderer {
     private var renderUniformBuffer: GPUBuffer? = null
     private var mapItemSampler: GPUSampler? = null
     private var mapItemTextureView: GPUTextureView? = null
+    private var mapItemSpriteWidth: Float = 1f
+    private var mapItemSpriteHeight: Float = 1f
 
     private var computePipeline: GPUComputePipeline? = null
     private var renderPipelineNonDust: GPURenderPipeline? = null
@@ -227,6 +229,8 @@ class WasmJsGpuParticleRenderer {
         context = webGpuContext
         queue = deviceQueue
         presentationFormat = preferredFormat
+        mapItemSpriteWidth = mapItemFirstCellWidth.coerceAtLeast(1).toFloat()
+        mapItemSpriteHeight = mapItemFirstCellHeight.coerceAtLeast(1).toFloat()
         stateBufferA = createdStateA
         stateBufferB = createdStateB
         spawnBuffer = createdSpawn
@@ -258,18 +262,10 @@ class WasmJsGpuParticleRenderer {
         dirtySlotRanges: List<IntRange>,
         deltaTimeSeconds: Float,
         viewPort: ViewPort,
-        particles: Particles,
-        playerX: Float,
-        playerY: Float,
-        playerWidth: Float,
-        playerHeight: Float,
+        particleFactory: ParticleFactory,
         gravity: Float,
         tickTargetPerSecond: Int,
-        speedCoefficient: Float,
-        dustSpeedCoefficient: Float,
-        projectileSpeed: Float,
-        mapItemReturnSpeed: Float,
-        mapItemReturnMinTravelDist: Float
+        speedCoefficient: Float
     ) {
         check(initialized) { "WebGPU renderer must be initialized before updateGpuParticleBuffer" }
         val gpuDevice = device ?: return
@@ -304,7 +300,6 @@ class WasmJsGpuParticleRenderer {
         val simulationSpeed = (1f + (tunedSpeed * 8f)).coerceAtLeast(1f)
         val gravityBoost = (1.5f + (tunedSpeed * 6f)).coerceAtLeast(1f)
         val lifetimeDecay = (1f + (tunedSpeed * 6f)).coerceAtLeast(1f)
-        val dustGrowthPerTick = dustSpeedCoefficient.coerceAtLeast(0f)
         computeUniformData[0] = deltaTimeSeconds.coerceAtLeast(0.0001f)
         computeUniformData[1] = gravity
         computeUniformData[2] = clampedSpawnCount.toFloat()
@@ -313,14 +308,10 @@ class WasmJsGpuParticleRenderer {
         computeUniformData[5] = simulationSpeed
         computeUniformData[6] = gravityBoost
         computeUniformData[7] = lifetimeDecay
-        computeUniformData[8] = dustGrowthPerTick
-        computeUniformData[9] = projectileSpeed.coerceAtLeast(0f)
-        computeUniformData[10] = mapItemReturnSpeed.coerceAtLeast(0f)
-        computeUniformData[11] = mapItemReturnMinTravelDist.coerceAtLeast(0f)
-        computeUniformData[12] = playerX
-        computeUniformData[13] = playerY
-        computeUniformData[14] = playerWidth.coerceAtLeast(1f)
-        computeUniformData[15] = playerHeight.coerceAtLeast(1f)
+        computeUniformData[8] = viewPort.x.toFloat()
+        computeUniformData[9] = viewPort.y.toFloat()
+        computeUniformData[10] = viewPort.width.toFloat()
+        computeUniformData[11] = viewPort.height.toFloat()
         writeFloatArrayBuffer(gpuQueue, computeUniform, computeUniformData)
 
         val (collisionResetBuffer, collisionResetView) = getOrCreateCollisionResetScratch()
@@ -370,6 +361,11 @@ class WasmJsGpuParticleRenderer {
             configureWebGpuContext(webGpuContext, gpuDevice, presentationFormat)
             lastConfiguredCanvasWidth = targetCanvas.width
             lastConfiguredCanvasHeight = targetCanvas.height
+            logger.info {
+                "gpu particle renderer (re)configured: canvasBackingBuffer=${targetCanvas.width}x${targetCanvas.height} " +
+                    "viewPort=(${viewPort.x},${viewPort.y},${viewPort.width}x${viewPort.height}) " +
+                    "renderScale=${getRenderScale()}"
+            }
         }
 
         val sizeScale = (sizeMultiplier.coerceAtLeast(1).toFloat() / 14f).coerceAtLeast(0.1f)
@@ -379,8 +375,8 @@ class WasmJsGpuParticleRenderer {
         renderUniformData[3] = targetCanvas.height.toFloat()
         renderUniformData[4] = getRenderScale()
         renderUniformData[5] = sizeScale
-        renderUniformData[6] = 0f
-        renderUniformData[7] = 0f
+        renderUniformData[6] = mapItemSpriteWidth
+        renderUniformData[7] = mapItemSpriteHeight
         val renderUniform = renderUniformBuffer ?: return
         writeFloatArrayBuffer(gpuQueue, renderUniform, renderUniformData)
 
@@ -433,7 +429,6 @@ class WasmJsGpuParticleRenderer {
         queueWriteBuffer(queue, targetBuffer, targetOffsetBytes, buffer, requiredBytes)
     }
 
-    // Reuse host upload memory to avoid per-frame ArrayBuffer/DataView allocations.
     private fun getOrCreateUploadScratch(requiredBytes: Int): Pair<ArrayBuffer, DataView> {
         val currentBuffer = uploadScratchBuffer
         val currentView = uploadScratchView

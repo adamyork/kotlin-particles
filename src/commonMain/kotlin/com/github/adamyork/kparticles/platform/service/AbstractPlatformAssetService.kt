@@ -15,6 +15,10 @@ import io.ktor.http.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
 abstract class AbstractPlatformAssetService(
     protected val httpClient: HttpClient
 ) : AssetService {
@@ -43,7 +47,6 @@ abstract class AbstractPlatformAssetService(
     protected abstract suspend fun fetchImageAndBytes(path: String, width: Int, height: Int): ImageAsset
 
     override suspend fun loadParticleGlShaders() {
-        // Default no-op for platforms that do not use the OpenGL ES shader triplet.
     }
 
     override suspend fun initialize(listener: LoadingProgressListener) {
