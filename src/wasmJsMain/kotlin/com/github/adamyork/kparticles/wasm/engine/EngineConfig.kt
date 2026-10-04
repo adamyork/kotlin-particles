@@ -21,11 +21,11 @@ interface EngineConfig {
 
     @AppScope
     @Provides
-    fun providePhysics(impl: CommonParticlePhysics): ParticlePhysics = impl
+    fun provideParticlePhysics(impl: CommonParticlePhysics): ParticlePhysics = impl
 
     @AppScope
     @Provides
-    fun provideParticles(impl: CommonParticleFactory): ParticleFactory = impl
+    fun provideParticleFactory(impl: CommonParticleFactory): ParticleFactory = impl
 
     @AppScope
     @Provides

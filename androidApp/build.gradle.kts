@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.ksp)
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -19,4 +21,13 @@ android {
 dependencies {
     implementation(project(":"))
     implementation(libs.activity.compose)
+    implementation(libs.kotlin.inject.runtime)
+    implementation(libs.kotlin.logging)
+    implementation(libs.compose.runtime)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.ui)
+    implementation(libs.compose.material3)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    ksp(libs.kotlin.inject.compiler)
 }

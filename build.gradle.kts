@@ -10,6 +10,7 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+
 group = "com.github.adamyork"
 version = "0.0.1"
 
@@ -72,6 +73,10 @@ kotlin {
             implementation(libs.kotlinx.browser)
         }
     }
+}
+
+compose.resources {
+    publicResClass = true
 }
 
 val prepareDevServer = tasks.register<Copy>("prepareDevServer") {

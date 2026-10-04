@@ -1,4 +1,4 @@
-package com.github.adamyork.kparticles.wasm.gui
+package com.github.adamyork.kparticles.android.gui
 
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.gui.CommonScreenDimensionsService
@@ -20,7 +20,7 @@ interface GuiConfig {
 
     @AppScope
     @Provides
-    fun provideGameLayer(impl: WasmJsTestBed): TestBed = impl
+    fun provideGameLayer(impl: AndroidTestBed): TestBed = impl
 
     @AppScope
     @Provides
