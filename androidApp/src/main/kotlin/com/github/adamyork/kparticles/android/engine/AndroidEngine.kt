@@ -80,6 +80,11 @@ open class AndroidEngine(
         }
     }
 
+    override fun manageParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
+        particlePhysics.applyParticlePhysics(particles, viewPort, completedParticleResults)
+        collision.applyParticleCollision(particles)
+    }
+
     override fun draw(
         particles: ArrayList<Particle>,
         viewPort: ViewPort,

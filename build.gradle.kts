@@ -25,6 +25,9 @@ kotlin {
         namespace = "com.github.adamyork.kparticles.core"
         compileSdk = 36
         minSdk = 24
+        androidResources {
+            enable = true
+        }
     }
 
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
