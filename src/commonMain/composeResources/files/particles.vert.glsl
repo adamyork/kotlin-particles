@@ -1,84 +1,93 @@
 #version 310 es
+
 layout(location = 0) in vec2 aUnused;
 
 layout(std430, binding = 0) readonly buffer ParticleBuffer {
     vec4 particleData[];
 };
 
-uniform vec2 uViewPort;
-uniform vec2 uSurfaceSize;
-uniform vec2 uViewPortSize;
+uniform float uViewportX;
+uniform float uViewportY;
+uniform float uViewportWidth;
+uniform float uViewportHeight;
 uniform float uSizeScale;
+uniform float uMapItemSpriteWidth;
+uniform float uMapItemSpriteHeight;
 
 out vec4 vColor;
-out vec2 vLocal;
-out float vShape;
-out float vFrame;
-out float vLifetime;
-out float vKind;
+out vec2 vQuadCoordinate;
+out float vShapeFlag;
+out vec2 vUv;
+out float vParticleKind;
 
-const float KIND_DUST = 1.0;
-const float KIND_MAP_ITEM_RETURN = 3.0;
-const float KIND_FIREWORK_TAIL = 4.0;
-const float KIND_FIREWORK_BURST = 5.0;
-
-// Top-left UV quad used for fragment circle masking.
-const vec2 QUAD[6] = vec2[6](
-        vec2(0.0, 0.0),
-        vec2(1.0, 0.0),
-        vec2(1.0, 1.0),
-        vec2(0.0, 0.0),
-        vec2(1.0, 1.0),
-        vec2(0.0, 1.0)
-);
+vec2 quadCorner(int vertexIndex) {
+    switch (vertexIndex) {
+        case 0: return vec2(-1.0, -1.0);
+        case 1: return vec2(1.0, -1.0);
+        case 2: return vec2(1.0, 1.0);
+        case 3: return vec2(-1.0, -1.0);
+        case 4: return vec2(1.0, 1.0);
+        default: return vec2(-1.0, 1.0);
+    }
+}
 
 void main() {
-    int slot = gl_InstanceID;
-    int base = slot * 4;
-    vec4 p0 = particleData[base + 0];
-    vec4 p1 = particleData[base + 1];
-    vec4 p2 = particleData[base + 2];
-    vec4 p3 = particleData[base + 3];
+    uint base = uint(gl_InstanceID) * 6u;
+    vec4 positionVelocity = particleData[base + 0u];
+    vec4 lifecycle = particleData[base + 1u];
+    vec4 colorRgba = particleData[base + 2u];
+    vec4 typeInfo = particleData[base + 3u];
 
-    if (p1.w <= 0.5) {
+    if (lifecycle.w <= 0.5) {
         gl_Position = vec4(-2.0, -2.0, 0.0, 1.0);
-        vColor = vec4(0.0);
-        vLocal = vec2(0.0);
-        vShape = 0.0;
-        vFrame = 0.0;
-        vLifetime = 1.0;
-        vKind = 0.0;
+        vColor = vec4(0.0, 0.0, 0.0, 0.0);
+        vQuadCoordinate = vec2(0.0, 0.0);
+        vShapeFlag = 0.0;
+        vUv = vec2(0.0, 0.0);
+        vParticleKind = 0.0;
         return;
     }
 
-    float kind = p3.x;
-    bool usesUnscaledSize =
-            (kind == KIND_DUST) ||
-            (kind == KIND_MAP_ITEM_RETURN) ||
-            (kind == KIND_FIREWORK_TAIL) ||
-            (kind == KIND_FIREWORK_BURST);
-    float sizeScale = usesUnscaledSize ? 1.0 : uSizeScale;
-    float baseSize = max(p1.z, 1.0) * sizeScale;
+    float particleKind = typeInfo.x;
+    bool isMapItemReturn = particleKind > 2.5 && particleKind <= 3.5;
+    bool isDust = particleKind > 0.5 && particleKind <= 1.5;
+    bool usesUnscaledSize = isMapItemReturn || isDust;
+    float widthScale = usesUnscaledSize ? 1.0 : uSizeScale;
+    float baseWidth = isMapItemReturn ? uMapItemSpriteWidth : lifecycle.z;
+    float baseHeight = isMapItemReturn ? uMapItemSpriteHeight : lifecycle.z;
+    float halfWidth = max(baseWidth * widthScale * 0.5, 1.0);
+    float halfHeight = max(baseHeight * widthScale * 0.5, 1.0);
+    vec2 corner = quadCorner(gl_VertexID);
+    float localX = (positionVelocity.x - uViewportX) + (corner.x * halfWidth);
+    float localY = (positionVelocity.y - uViewportY) + (corner.y * halfHeight);
+    float x = (localX / uViewportWidth) * 2.0 - 1.0;
+    float y = (localY / uViewportHeight) * 2.0 - 1.0;
 
-    bool isCircle = p3.y > 0.5;
-    vec2 local = isCircle ? (QUAD[gl_VertexID] - vec2(0.5)) * baseSize : QUAD[gl_VertexID] * baseSize;
-    vec2 world = p0.xy + local;
-    vec2 screen = world - uViewPort;
+    float lifetime = max(lifecycle.y, 1.0);
+    float ageProgress = clamp(lifecycle.x / lifetime, 0.0, 1.0);
+    bool isFireworkBurst = particleKind > 4.5 && particleKind <= 5.5;
+    bool isCollision = particleKind > 5.5 && particleKind <= 6.5;
+    float resolvedAlpha;
+    if (isDust || isCollision) {
+        resolvedAlpha = mix(colorRgba.w, typeInfo.w, ageProgress);
+    } else {
+        resolvedAlpha = colorRgba.w;
+    }
 
-    vec2 renderSize = vec2(
-            max(uViewPortSize.x, 1.0),
-            max(uViewPortSize.y, 1.0)
-    );
-    vec2 ndc = vec2(
-            (screen.x / renderSize.x) * 2.0 - 1.0,
-            1.0 - (screen.y / renderSize.y) * 2.0
-    );
+    vec3 resolvedColor = vec3(colorRgba.x, colorRgba.y, colorRgba.z);
+    if (isFireworkBurst) {
+        float packedEndColor = typeInfo.z;
+        float endColorRed = floor(packedEndColor / 65536.0);
+        float endColorGreen = floor((packedEndColor - (endColorRed * 65536.0)) / 256.0);
+        float endColorBlue = packedEndColor - (endColorRed * 65536.0) - (endColorGreen * 256.0);
+        vec3 endColor = vec3(endColorRed / 255.0, endColorGreen / 255.0, endColorBlue / 255.0);
+        resolvedColor = mix(resolvedColor, endColor, ageProgress);
+    }
 
-    gl_Position = vec4(ndc, 0.0, 1.0);
-    vColor = p2;
-    vLocal = QUAD[gl_VertexID];
-    vShape = p3.y;
-    vFrame = p1.x;
-    vLifetime = max(p1.y, 1.0);
-    vKind = kind;
+    gl_Position = vec4(x, -y, 0.0, 1.0);
+    vColor = vec4(resolvedColor, resolvedAlpha);
+    vQuadCoordinate = corner;
+    vShapeFlag = typeInfo.y;
+    vUv = vec2((corner.x + 1.0) * 0.5, (corner.y + 1.0) * 0.5);
+    vParticleKind = particleKind;
 }

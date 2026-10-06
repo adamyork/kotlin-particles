@@ -116,12 +116,14 @@ open class AndroidEngine(
                 if (mapItemImage is AndroidImage) {
                     val localX = particle.x.toFloat() - vpX
                     val localY = particle.y.toFloat() - vpY
+                    val sourceWidth = mapItemFrameWidth.toFloat()
+                    val sourceHeight = mapItemFrameHeight.toFloat()
                     particleSrcRect.set(0, 0, mapItemFrameWidth, mapItemFrameHeight)
                     particleRectF.set(
-                        localX,
-                        localY,
-                        localX + particle.width.toFloat(),
-                        localY + particle.height.toFloat()
+                        localX - sourceWidth / 2f,
+                        localY - sourceHeight / 2f,
+                        localX + sourceWidth / 2f,
+                        localY + sourceHeight / 2f
                     )
                     canvas.drawBitmap(
                         mapItemImage.bitmap,

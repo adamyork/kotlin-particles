@@ -62,7 +62,6 @@ class AndroidInterop : PlatformInterop {
     }
 
     override fun isGpuEngineSupported(platformData: Any?): Boolean {
-        return false
         val activityManager = when (platformData) {
             is ActivityManager -> platformData
             is Context -> resolveActivityManager(platformData)

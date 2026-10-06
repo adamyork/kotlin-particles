@@ -21,7 +21,7 @@ class CommonParticleFactory(
 ) : ParticleFactory {
 
     companion object {
-        const val GPU_COMPUTE_FLOATS_PER_PARTICLE: Int = 16
+        const val GPU_COMPUTE_FLOATS_PER_PARTICLE: Int = 24
 
         private const val DEFAULT_MAX_WIDTH: Double = 10.0
         private const val DEFAULT_MAX_HEIGHT: Double = 10.0
@@ -1076,6 +1076,7 @@ class CommonParticleFactory(
             }
 
             val isDust = particle.type == ParticleType.DUST
+            val isCollision = particle.type == ParticleType.COLLISION
             val guidedLaunchDeltaX = (particle.destinationX - particle.originX).toFloat()
             val guidedLaunchDeltaY = (particle.destinationY - particle.originY).toFloat()
             val guidedLaunchLength =
@@ -1140,7 +1141,7 @@ class CommonParticleFactory(
                 else -> 0f
             }
             targetBuffer[writeIndex++] = when {
-                isDust -> particle.endAlpha.toFloat()
+                isDust || isCollision -> particle.endAlpha.toFloat()
                 isProjectile || isMapItemReturn -> guidedLaunchUnitY
                 isBlackHoleCore -> particle.attraction.toFloat()
                 isFireworkTail -> particle.delay.toFloat()
@@ -1150,6 +1151,22 @@ class CommonParticleFactory(
                 }
                 else -> 0f
             }
+            targetBuffer[writeIndex++] = when {
+                isStressTest -> (particle.xAcceleration + particle.xForce).toFloat()
+                isGobbler || isBlackHoleExplosion -> particle.mass.toFloat()
+                else -> 0f
+            }
+            targetBuffer[writeIndex++] = when {
+                isStressTest -> (particle.yAcceleration + particle.yForce).toFloat()
+                isGobbler || isBlackHoleExplosion -> particle.attraction.toFloat()
+                else -> 0f
+            }
+            targetBuffer[writeIndex++] = if (isStressTest) particle.drag.toFloat() else 0f
+            targetBuffer[writeIndex++] = if (isStressTest) particle.maxXVelocity.toFloat() else 0f
+            targetBuffer[writeIndex++] = if (isStressTest) particle.delay.toFloat() else 0f
+            targetBuffer[writeIndex++] = 0f
+            targetBuffer[writeIndex++] = 0f
+            targetBuffer[writeIndex++] = 0f
             dirtySlotFlags[slotIndex] = true
             writtenSlotFlags[slotIndex] = true
             activeCount++

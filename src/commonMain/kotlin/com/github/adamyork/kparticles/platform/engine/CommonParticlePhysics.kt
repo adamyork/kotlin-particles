@@ -8,10 +8,8 @@ import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.engine.data.ParticleShape
 import com.github.adamyork.kparticles.platform.service.CommonRuntimeService
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
-import io.github.oshai.kotlinlogging.KotlinLogging
 import me.tatarka.inject.annotations.Inject
 import kotlin.math.*
-import kotlin.time.TimeSource
 
 /**
  * Author: Adam York
@@ -25,13 +23,6 @@ class CommonParticlePhysics(
     private val spatialGrid: SpatialGrid
 ) : ParticlePhysics {
 
-    private companion object {
-        const val PROFILE_LOG_INTERVAL_TICKS = 60
-    }
-
-    private val logger = KotlinLogging.logger {}
-    private var tickCounter = 0
-
     private val statusProvider: CommonRuntimeService
         get() = statusProviderFactory()
 
@@ -40,7 +31,6 @@ class CommonParticlePhysics(
         viewPort: ViewPort,
         completedParticleResults: ArrayList<CompletedParticleResult>
     ) {
-        val startMark = TimeSource.Monotonic.markNow()
         val deltaTime = statusProvider.getDeltaTimeCoefficient()
         val gravity = physicsSettingsService.gravity
 
@@ -141,11 +131,6 @@ class CommonParticlePhysics(
             particle.alpha = startAlpha + (endAlpha - startAlpha) * particle.alphaMultiplier
 
             if (particle.canInteract()) spatialGrid.place(particle)
-        }
-
-        tickCounter++
-        if (tickCounter % PROFILE_LOG_INTERVAL_TICKS == 0) {
-            logger.debug { "physics loop: ${particles.size} particles in ${startMark.elapsedNow()}" }
         }
     }
 

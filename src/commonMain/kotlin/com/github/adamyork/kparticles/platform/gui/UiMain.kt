@@ -1,11 +1,9 @@
 package com.github.adamyork.kparticles.platform.gui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Circle
@@ -13,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -53,6 +50,7 @@ abstract class UiMain(
     protected open val centerHudWithinViewport: Boolean = false
     protected open val hudTopInset: Dp = 72.dp
     protected open val hudOverlayTopPadding: Dp = 8.dp
+    protected open val controlsPlacement: ControlsPlacement = ControlsPlacement.INLINE
 
     @Composable
     fun Build() {
@@ -174,69 +172,25 @@ abstract class UiMain(
                     )
                 }
 
-                if (gameLifeCycleState != LifeCycleState.INITIALIZING) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .padding(top = 20.dp)
-                            .semantics { contentDescription = "particle-controls" }
-                            .testTag("particle-controls")
-                    ) {
-                        Box {
-                            OutlinedButton(
-                                onClick = { isParticleModeMenuExpanded = true },
-                                colors = dropdownButtonColors,
-                                modifier = Modifier
-                                    .focusProperties { canFocus = false }
-                                    .semantics { contentDescription = "particleMode" }
-                                    .testTag("particleMode")
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = selectedParticleMode.displayName,
-                                        color = colorScheme.primary
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = null,
-                                        tint = colorScheme.primary
-                                    )
-                                }
-                            }
-                            DropdownMenu(
-                                expanded = isParticleModeMenuExpanded,
-                                onDismissRequest = { isParticleModeMenuExpanded = false },
-                                modifier = Modifier
-                                    .border(width = 1.dp, color = Color.White, shape = controlsShape)
-                                    .background(colorScheme.surface, controlsShape)
-                            ) {
-                                particleModes.forEach { mode ->
-                                    DropdownMenuItem(
-                                        text = { Text(mode.displayName, color = dropdownMenuTextColor) },
-                                        onClick = {
-                                            selectedParticleMode = mode
-                                            isParticleModeMenuExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        Button(
-                            onClick = {
+                if (gameLifeCycleState != LifeCycleState.INITIALIZING && controlsPlacement == ControlsPlacement.INLINE) {
+                    Box(modifier = Modifier.padding(top = 20.dp)) {
+                        UiParticleControls().Build(
+                            particleModes = particleModes,
+                            selectedParticleMode = selectedParticleMode,
+                            isParticleModeMenuExpanded = isParticleModeMenuExpanded,
+                            onParticleModeMenuExpandedChange = { isParticleModeMenuExpanded = it },
+                            onParticleModeSelected = { selectedParticleMode = it },
+                            colorScheme = colorScheme,
+                            dropdownButtonColors = dropdownButtonColors,
+                            dropdownMenuTextColor = dropdownMenuTextColor,
+                            createButtonColors = createButtonColors,
+                            controlsShape = controlsShape,
+                            onCreateClicked = {
                                 controller.createParticles(selectedParticleMode)
                                 focusManager.clearFocus(force = true)
                                 platformInterop.requestKeyboardFocus()
-                            },
-                            colors = createButtonColors,
-                            modifier = Modifier
-                                .focusProperties { canFocus = false }
-                                .semantics { contentDescription = "createBtn" }
-                                .testTag("createBtn")
-                        ) {
-                            Text("create")
-                        }
+                            }
+                        )
                     }
                 }
             }
@@ -292,6 +246,34 @@ abstract class UiMain(
                                 .semantics { contentDescription = "Screen dimensions label" }
                                 .testTag("screen-dimensions-label")
                         )
+                    }
+
+                    if (gameLifeCycleState != LifeCycleState.INITIALIZING && controlsPlacement == ControlsPlacement.OVERLAY) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 16.dp)
+                                .background(overlayBg, controlsShape)
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                        ) {
+                            UiParticleControls().Build(
+                                particleModes = particleModes,
+                                selectedParticleMode = selectedParticleMode,
+                                isParticleModeMenuExpanded = isParticleModeMenuExpanded,
+                                onParticleModeMenuExpandedChange = { isParticleModeMenuExpanded = it },
+                                onParticleModeSelected = { selectedParticleMode = it },
+                                colorScheme = colorScheme,
+                                dropdownButtonColors = dropdownButtonColors,
+                                dropdownMenuTextColor = dropdownMenuTextColor,
+                                createButtonColors = createButtonColors,
+                                controlsShape = controlsShape,
+                                onCreateClicked = {
+                                    controller.createParticles(selectedParticleMode)
+                                    focusManager.clearFocus(force = true)
+                                    platformInterop.requestKeyboardFocus()
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -363,4 +345,9 @@ abstract class UiMain(
             }
         }
     }
+}
+
+enum class ControlsPlacement {
+    INLINE,
+    OVERLAY
 }

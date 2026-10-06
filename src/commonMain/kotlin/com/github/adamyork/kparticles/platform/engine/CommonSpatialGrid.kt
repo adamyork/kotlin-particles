@@ -33,8 +33,6 @@ class CommonSpatialGrid(
 
     override fun currentCellSize(): Double = cellSize
 
-    override fun maxCellOccupancy(): Int = cells.maxOf { it.size }
-
     override fun beginTick(viewPort: ViewPort) {
         requiredCellSizeFromLastTick = observedMaxReachThisTick
         observedMaxReachThisTick = 0.0

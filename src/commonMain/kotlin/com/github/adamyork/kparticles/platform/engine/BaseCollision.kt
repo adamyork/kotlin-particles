@@ -2,9 +2,7 @@ package com.github.adamyork.kparticles.platform.engine
 
 import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.math.sqrt
-import kotlin.time.TimeSource
 
 /**
  * Author: Adam York
@@ -16,24 +14,12 @@ abstract class BaseCollision(
     private val physicsSettingsService: PhysicsSettingsService
 ) : Collision {
 
-    private companion object {
-        const val PROFILE_LOG_INTERVAL_TICKS = 60
-    }
-
-    private val logger = KotlinLogging.logger {}
-    private var tickCounter = 0
-
     override fun applyParticleCollision(particles: ArrayList<Particle>) {
-        val startMark = TimeSource.Monotonic.markNow()
-        var pairCount = 0
-        var restingSkipCount = 0
         val minActiveVelocitySquared = physicsSettingsService.minActiveVelocity * physicsSettingsService.minActiveVelocity
         spatialGrid.forEachNearbyPair { firstParticle, secondParticle ->
-            pairCount++
             if (firstParticle.attraction <= 0.0 && secondParticle.attraction <= 0.0 &&
                 isResting(firstParticle, minActiveVelocitySquared) && isResting(secondParticle, minActiveVelocitySquared)
             ) {
-                restingSkipCount++
                 return@forEachNearbyPair
             }
             val deltaX = secondParticle.x - firstParticle.x
@@ -61,15 +47,6 @@ abstract class BaseCollision(
                     normalX = normalX,
                     normalY = normalY
                 )
-            }
-        }
-
-        tickCounter++
-        if (tickCounter % PROFILE_LOG_INTERVAL_TICKS == 0) {
-            logger.debug {
-                "collision/attraction pair walk: $pairCount pairs ($restingSkipCount resting-skipped) over " +
-                    "${particles.size} particles (max ${spatialGrid.maxCellOccupancy()} in one cell) in " +
-                    "${startMark.elapsedNow()}"
             }
         }
     }

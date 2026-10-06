@@ -1,7 +1,8 @@
 package com.github.adamyork.kparticles.android.engine.data
 
 /**
- * Per-frame input payload consumed by the Android OpenGL particle runtime.
+ * Author: Adam York
+ * Copyright (c) Adam York
  */
 internal class AndroidGpuParticleFrame(
     val sourceBuffer: FloatArray,
@@ -12,9 +13,8 @@ internal class AndroidGpuParticleFrame(
     val sizeMultiplier: Int,
     val deltaTimeSeconds: Float,
     val gravity: Float,
-    val burstFrameGrowthMultiplier: Float,
-    val burstSpeedCoefficient: Float,
-    val projectileSpeed: Float,
-    val mapItemReturnSpeed: Float,
-    val mapItemReturnMinTravelDist: Float
+    val tickRate: Float,
+    val simulationSpeed: Float,
+    val gravityBoost: Float,
+    val lifetimeDecay: Float
 )

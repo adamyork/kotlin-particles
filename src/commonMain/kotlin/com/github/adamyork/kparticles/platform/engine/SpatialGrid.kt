@@ -11,8 +11,6 @@ interface SpatialGrid {
 
     fun currentCellSize(): Double
 
-    fun maxCellOccupancy(): Int
-
     fun beginTick(viewPort: ViewPort)
 
     fun place(particle: Particle)

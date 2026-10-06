@@ -25,7 +25,7 @@ class WasmJsGpuParticleRenderer {
         private const val COLLISION_SIGNAL_UINT_COUNT = 4
         private const val COLLISION_SIGNAL_BYTES = COLLISION_SIGNAL_UINT_COUNT * 4
         private const val COLLISION_READBACK_BUFFER_COUNT = 3
-        private const val FLOATS_PER_PARTICLE = 16
+        private const val FLOATS_PER_PARTICLE = 24
         private const val BYTES_PER_FLOAT = 4
         private const val COMPUTE_UNIFORM_FLOATS = 16
         private const val RENDER_UNIFORM_FLOATS = 8
