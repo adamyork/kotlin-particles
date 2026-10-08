@@ -9,7 +9,7 @@ import com.github.adamyork.kparticles.platform.common.data.ViewPort
  */
 data class Particle(
     val id: String,
-    val type: ParticleType,
+    val effect: ParticleEffect,
     val shape: ParticleShape,
     var age: Double,
     val delay: Double,

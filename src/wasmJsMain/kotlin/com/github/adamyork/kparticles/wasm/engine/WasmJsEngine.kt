@@ -6,6 +6,7 @@ import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.Collision
 import com.github.adamyork.kparticles.platform.engine.CommonEngine
+import com.github.adamyork.kparticles.platform.engine.CommonParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
 import com.github.adamyork.kparticles.platform.engine.data.*
@@ -17,6 +18,7 @@ import com.github.adamyork.kparticles.wasm.engine.data.WasmJsImage
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
+import kotlin.math.*
 
 /**
  * Author: Adam York
@@ -51,6 +53,7 @@ open class WasmJsEngine(
     override val mapElementPaint = Paint().apply { isAntiAlias = true }
     override val particlePaint = Paint().apply { isAntiAlias = false; mode = PaintMode.FILL }
     override val mapItemReturnPaint = Paint().apply { isAntiAlias = true }
+    private val projectileBlobPaint = Paint().apply { isAntiAlias = true; mode = PaintMode.FILL }
 
     override fun getOrCreateForegroundSurface(viewPort: ViewPort): Surface =
         (foregroundSurface as Surface?) ?: Surface.makeRaster(ImageInfo.makeN32Premul(viewPort.width, viewPort.height))
@@ -98,6 +101,7 @@ open class WasmJsEngine(
         val viewPortOffsetY = viewPort.y.toFloat()
         val groups = HashMap<Int, MutableList<Particle>>(16)
         val itemReturnParticles = ArrayList<Particle>()
+        val blobProjectileParticles = ArrayList<Particle>()
         var particleIndex = 0
         val particleCount = particles.size
         while (particleIndex < particleCount) {
@@ -106,8 +110,13 @@ open class WasmJsEngine(
                 particleIndex++
                 continue
             }
-            if (particle.type == ParticleType.ITEM_RETURN) {
+            if (particle.effect == ParticleEffect.ITEM_RETURN) {
                 itemReturnParticles.add(particle)
+                particleIndex++
+                continue
+            }
+            if (particle.effect == ParticleEffect.BLOB_PROJECTILE) {
+                blobProjectileParticles.add(particle)
                 particleIndex++
                 continue
             }
@@ -127,6 +136,9 @@ open class WasmJsEngine(
             particleIndex++
         }
         drawGroups(groups, viewPortOffsetX, viewPortOffsetY, canvas)
+        if (blobProjectileParticles.isNotEmpty()) {
+            drawProjectileBlobs(blobProjectileParticles, viewPortOffsetX, viewPortOffsetY, canvas)
+        }
         if (mapItemImage != null) {
             val mapItemSkia = (mapItemImage as WasmJsImage).image
             val sourceWidth = mapItemFrameWidth.toFloat()
@@ -195,6 +207,73 @@ open class WasmJsEngine(
             canvas.drawPath(batchPath, particlePaint)
             batchPath.close()
         }
+    }
+
+    private fun drawProjectileBlobs(
+        particles: List<Particle>,
+        viewPortOffsetX: Float,
+        viewPortOffsetY: Float,
+        canvas: Canvas
+    ) {
+        var particleIndex = 0
+        while (particleIndex < particles.size) {
+            val particle = particles[particleIndex]
+            val centerX = particle.x.toFloat() - viewPortOffsetX
+            val centerY = particle.y.toFloat() - viewPortOffsetY
+            val baseRadius = particle.radius.toFloat()
+            val age = particle.age.toFloat()
+            val lobePointXs = FloatArray(CommonParticleFactory.PROJECTILE_BLOB_LOBE_COUNT)
+            val lobePointYs = FloatArray(CommonParticleFactory.PROJECTILE_BLOB_LOBE_COUNT)
+            var lobeIndex = 0
+            while (lobeIndex < CommonParticleFactory.PROJECTILE_BLOB_LOBE_COUNT) {
+                val lobeAngle = (lobeIndex.toFloat() / CommonParticleFactory.PROJECTILE_BLOB_LOBE_COUNT.toFloat()) * (2f * PI.toFloat())
+                val lobeFrequency = CommonParticleFactory.PROJECTILE_BLOB_BASE_FREQUENCY + (lobeIndex * CommonParticleFactory.PROJECTILE_BLOB_FREQUENCY_STEP)
+                val lobePhase = lobeIndex * CommonParticleFactory.PROJECTILE_BLOB_PHASE_STEP
+                val lobeWobble = sin((age * lobeFrequency) + lobePhase)
+                val lobeRadius = baseRadius * (1f + (CommonParticleFactory.PROJECTILE_BLOB_AMPLITUDE_RATIO * lobeWobble))
+                lobePointXs[lobeIndex] = centerX + (cos(lobeAngle) * lobeRadius)
+                lobePointYs[lobeIndex] = centerY + (sin(lobeAngle) * lobeRadius)
+                lobeIndex++
+            }
+            val blobPath = buildSmoothClosedBlobPath(lobePointXs, lobePointYs)
+            val alpha = (particle.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255)
+            projectileBlobPaint.color = Color.makeARGB(
+                alpha,
+                (particle.color.red * 255).toInt(),
+                (particle.color.green * 255).toInt(),
+                (particle.color.blue * 255).toInt()
+            )
+            canvas.drawPath(blobPath, projectileBlobPaint)
+            blobPath.close()
+            particleIndex++
+        }
+    }
+
+    private fun buildSmoothClosedBlobPath(lobePointXs: FloatArray, lobePointYs: FloatArray): Path {
+        val builder = PathBuilder()
+        val lobeCount = lobePointXs.size
+        builder.moveTo(lobePointXs[0], lobePointYs[0])
+        var lobeIndex = 0
+        while (lobeIndex < lobeCount) {
+            val previousIndex = (lobeIndex - 1 + lobeCount) % lobeCount
+            val nextIndex = (lobeIndex + 1) % lobeCount
+            val afterNextIndex = (lobeIndex + 2) % lobeCount
+            val controlPoint1X = lobePointXs[lobeIndex] + (lobePointXs[nextIndex] - lobePointXs[previousIndex]) / CommonParticleFactory.PROJECTILE_BLOB_SPLINE_TENSION
+            val controlPoint1Y = lobePointYs[lobeIndex] + (lobePointYs[nextIndex] - lobePointYs[previousIndex]) / CommonParticleFactory.PROJECTILE_BLOB_SPLINE_TENSION
+            val controlPoint2X = lobePointXs[nextIndex] - (lobePointXs[afterNextIndex] - lobePointXs[lobeIndex]) / CommonParticleFactory.PROJECTILE_BLOB_SPLINE_TENSION
+            val controlPoint2Y = lobePointYs[nextIndex] - (lobePointYs[afterNextIndex] - lobePointYs[lobeIndex]) / CommonParticleFactory.PROJECTILE_BLOB_SPLINE_TENSION
+            builder.cubicTo(
+                controlPoint1X,
+                controlPoint1Y,
+                controlPoint2X,
+                controlPoint2Y,
+                lobePointXs[nextIndex],
+                lobePointYs[nextIndex]
+            )
+            lobeIndex++
+        }
+        builder.closePath()
+        return builder.detach()
     }
 
 }

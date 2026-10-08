@@ -169,7 +169,8 @@ fn computeMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
     let wasConsumed = (wasGobblerOrBlackHoleExplosion && typeInfo.w > 0.5) ||
         (wasStressTest && typeInfo.w >= 4.0);
     let isFreshSpawnInstance = spawnLifecycle.x < 1.0;
-    let preserveGpuState = (spawnKind > 1.5 && lifecycle.w > 0.5) ||
+    let isProjectileSpawn = (spawnKind > 1.5 && spawnKind <= 2.5) || (spawnKind > 11.5 && spawnKind <= 12.5);
+    let preserveGpuState = (spawnKind > 1.5 && lifecycle.w > 0.5 && !(isProjectileSpawn && isFreshSpawnInstance)) ||
         (wasConsumed && !isFreshSpawnInstance);
     if (!preserveGpuState) {
       positionVelocity = spawnPositionVelocity;
@@ -247,7 +248,7 @@ fn computeMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
         positionVelocity.x = positionVelocity.x + (positionVelocity.z * elapsedTicks);
         positionVelocity.y = positionVelocity.y + (positionVelocity.w * elapsedTicks);
       }
-    } else if (particleKind > 1.5 && particleKind <= 2.5) {
+    } else if ((particleKind > 1.5 && particleKind <= 2.5) || (particleKind > 11.5 && particleKind <= 12.5)) {
       const projectileThrust = 0.16;
       const projectileMaxSpeed = 5.25;
       const projectileVelocityHeadroom = 0.2;
@@ -696,12 +697,22 @@ struct VertexOutput {
   @location(2) shapeFlag: f32,
   @location(3) uv: vec2<f32>,
   @location(4) particleKind: f32,
+  @location(5) age: f32,
 };
 
 @group(0) @binding(0) var<storage, read> renderParticles: ParticleBuffer;
 @group(0) @binding(1) var<uniform> renderUniforms: RenderUniforms;
 @group(0) @binding(2) var renderSampler: sampler;
 @group(0) @binding(3) var renderTexture: texture_2d<f32>;
+
+const blobProjectileQuadSizeMultiplier = 1.4;
+
+fn blobProjectileBoundaryScale(angle: f32, age: f32) -> f32 {
+  let wobbleA = sin((angle * 2.0) + (age * 0.05));
+  let wobbleB = sin((angle * 3.0) + (age * 0.035) + 2.1);
+  let wobbleC = sin((angle * 5.0) + (age * 0.07) + 4.2);
+  return 1.0 + (0.12 * wobbleA) + (0.08 * wobbleB) + (0.06 * wobbleC);
+}
 
 fn quadCorner(vertexIndex: u32) -> vec2<f32> {
   switch(vertexIndex) {
@@ -732,6 +743,7 @@ fn vertexMain(
     out.shapeFlag = 0.0;
     out.uv = vec2<f32>(0.0, 0.0);
     out.particleKind = 0.0;
+    out.age = 0.0;
     return out;
   }
   let scale = renderUniforms.renderScale.x;
@@ -739,12 +751,14 @@ fn vertexMain(
   let particleKind = typeInfo.x;
   let isMapItemReturn = particleKind > 2.5 && particleKind <= 3.5;
   let isDust = particleKind > 0.5 && particleKind <= 1.5;
+  let isBlobProjectile = particleKind > 11.5 && particleKind <= 12.5;
   let usesUnscaledSize = isMapItemReturn || isDust;
   let widthScale = select(sizeScale, 1.0, usesUnscaledSize);
   let baseWidth = select(lifecycle.z, renderUniforms.renderScale.z, isMapItemReturn);
   let baseHeight = select(lifecycle.z, renderUniforms.renderScale.w, isMapItemReturn);
-  let halfWidth = max(baseWidth * widthScale * scale * 0.5, 1.0);
-  let halfHeight = max(baseHeight * widthScale * scale * 0.5, 1.0);
+  let blobSizeMultiplier = select(1.0, blobProjectileQuadSizeMultiplier, isBlobProjectile);
+  let halfWidth = max(baseWidth * widthScale * scale * 0.5 * blobSizeMultiplier, 1.0);
+  let halfHeight = max(baseHeight * widthScale * scale * 0.5 * blobSizeMultiplier, 1.0);
   let corner = quadCorner(vertexIndex);
   let localX = ((positionVelocity.x - renderUniforms.viewport.x) * scale) + (corner.x * halfWidth);
   let localY = ((positionVelocity.y - renderUniforms.viewport.y) * scale) + (corner.y * halfHeight);
@@ -776,11 +790,19 @@ fn vertexMain(
   out.shapeFlag = typeInfo.y;
   out.uv = vec2<f32>((corner.x + 1.0) * 0.5, (corner.y + 1.0) * 0.5);
   out.particleKind = particleKind;
+  out.age = lifecycle.x;
   return out;
 }
 
 fn shouldDiscardCircle(shapeFlag: f32, quadCoordinate: vec2<f32>) -> bool {
   return shapeFlag > 0.5 && dot(quadCoordinate, quadCoordinate) > 1.0;
+}
+
+fn shouldDiscardBlobProjectile(quadCoordinate: vec2<f32>, age: f32) -> bool {
+  let pixelDistance = length(quadCoordinate) * blobProjectileQuadSizeMultiplier;
+  let pixelAngle = atan2(quadCoordinate.y, quadCoordinate.x);
+  let boundaryScale = blobProjectileBoundaryScale(pixelAngle, age);
+  return pixelDistance > boundaryScale;
 }
 
 @fragment
@@ -789,7 +811,8 @@ fn fragmentMainNonDust(
   @location(1) quadCoordinate: vec2<f32>,
   @location(2) shapeFlag: f32,
   @location(3) uv: vec2<f32>,
-  @location(4) particleKind: f32
+  @location(4) particleKind: f32,
+  @location(5) age: f32
 ) -> @location(0) vec4<f32> {
   let isDust = particleKind > 0.5 && particleKind <= 1.5;
   if (isDust) {
@@ -798,6 +821,12 @@ fn fragmentMainNonDust(
   if (particleKind > 2.5 && particleKind <= 3.5) {
     let sampled = textureSampleLevel(renderTexture, renderSampler, uv, 0.0);
     return sampled * color;
+  }
+  if (particleKind > 11.5 && particleKind <= 12.5) {
+    if (shouldDiscardBlobProjectile(quadCoordinate, age)) {
+      return vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    }
+    return color;
   }
   if (shouldDiscardCircle(shapeFlag, quadCoordinate)) {
     return vec4<f32>(0.0, 0.0, 0.0, 0.0);
@@ -811,7 +840,8 @@ fn fragmentMainDust(
   @location(1) quadCoordinate: vec2<f32>,
   @location(2) shapeFlag: f32,
   @location(3) uv: vec2<f32>,
-  @location(4) particleKind: f32
+  @location(4) particleKind: f32,
+  @location(5) age: f32
 ) -> @location(0) vec4<f32> {
   let _layoutAnchorSample = textureSampleLevel(renderTexture, renderSampler, uv, 0.0);
   let isDust = particleKind > 0.5 && particleKind <= 1.5;

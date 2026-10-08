@@ -7,7 +7,7 @@ import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.data.Direction
 import com.github.adamyork.kparticles.platform.engine.data.DrawResult
 import com.github.adamyork.kparticles.platform.engine.data.Particle
-import com.github.adamyork.kparticles.platform.engine.data.ParticleType
+import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
 import com.github.adamyork.kparticles.platform.gui.data.ScreenDimensions
 import com.github.adamyork.kparticles.platform.gui.data.StateElements
 import com.github.adamyork.kparticles.platform.gui.data.UiState
@@ -138,7 +138,7 @@ class UiController(
     }
 
 
-    fun createParticles(type: ParticleType) {
+    fun createParticles(type: ParticleEffect) {
         val viewPort = stateElements.viewPort
         logger.info { "createParticles: type=$type, viewport: x=${viewPort.x} y=${viewPort.y} w=${viewPort.width} h=${viewPort.height}" }
         val centerX = viewPort.x + (viewPort.width / 2.0)

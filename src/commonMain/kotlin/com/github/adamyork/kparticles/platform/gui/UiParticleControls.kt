@@ -26,7 +26,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.github.adamyork.kparticles.platform.engine.data.ParticleType
+import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
 
 /**
  * Author: Adam York
@@ -36,11 +36,11 @@ class UiParticleControls {
 
     @Composable
     fun Build(
-        particleModes: List<ParticleType>,
-        selectedParticleMode: ParticleType,
+        particleModes: List<ParticleEffect>,
+        selectedParticleMode: ParticleEffect,
         isParticleModeMenuExpanded: Boolean,
         onParticleModeMenuExpandedChange: (Boolean) -> Unit,
-        onParticleModeSelected: (ParticleType) -> Unit,
+        onParticleModeSelected: (ParticleEffect) -> Unit,
         colorScheme: ColorScheme,
         dropdownButtonColors: ButtonColors,
         dropdownMenuTextColor: Color,

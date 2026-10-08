@@ -64,6 +64,13 @@ class CommonParticleFactory(
         private const val PROJECTILE_MASS: Double = 0.15
         private const val PROJECTILE_DRAG: Double = 0.001
 
+        const val PROJECTILE_BLOB_LOBE_COUNT: Int = 7
+        const val PROJECTILE_BLOB_AMPLITUDE_RATIO: Float = 0.22f
+        const val PROJECTILE_BLOB_BASE_FREQUENCY: Float = 0.05f
+        const val PROJECTILE_BLOB_FREQUENCY_STEP: Float = 0.015f
+        const val PROJECTILE_BLOB_PHASE_STEP: Float = 1.1f
+        const val PROJECTILE_BLOB_SPLINE_TENSION: Float = 6f
+
         private const val FIREWORK_BURST_PARTICLE_COUNT: Int = 100
         private const val FIREWORK_BURST_MIN_SPEED: Double = 2.0
         private const val FIREWORK_BURST_SPEED_RANGE: Double = 6.0
@@ -150,7 +157,7 @@ class CommonParticleFactory(
         private const val MAX_ACTIVE_STRESS_TEST_PARTICLES: Int = 2048
     }
 
-    private var colorMap: Map<ParticleType, Color> = emptyMap()
+    private var colorMap: Map<ParticleEffect, Color> = emptyMap()
     private var nextCollidingBitsGpuSlot: Int = 0
     private var nextBlackHoleCoreGpuSlot: Int = 0
     private var nextBlackHoleExplosionGpuSlot: Int = 0
@@ -161,19 +168,19 @@ class CommonParticleFactory(
 
     override fun populateColorMap(assetService: AssetService) {
         colorMap = mapOf(
-            ParticleType.DUST to Color(
+            ParticleEffect.DUST to Color(
                 assetService.appProperties.particle.player.movement.color.r.toFloat() / 255f,
                 assetService.appProperties.particle.player.movement.color.g.toFloat() / 255f,
                 assetService.appProperties.particle.player.movement.color.b.toFloat() / 255f,
                 assetService.appProperties.particle.player.movement.color.a.toFloat() / 255f
             ),
-            ParticleType.COLLISION to Color(
+            ParticleEffect.COLLISION to Color(
                 assetService.appProperties.particle.player.collision.color.r.toFloat() / 255f,
                 assetService.appProperties.particle.player.collision.color.g.toFloat() / 255f,
                 assetService.appProperties.particle.player.collision.color.b.toFloat() / 255f,
                 assetService.appProperties.particle.player.collision.color.a.toFloat() / 255f
             ),
-            ParticleType.PROJECTILE to Color(
+            ParticleEffect.PROJECTILE to Color(
                 assetService.appProperties.particle.enemy.projectile.color.r.toFloat() / 255f,
                 assetService.appProperties.particle.enemy.projectile.color.g.toFloat() / 255f,
                 assetService.appProperties.particle.enemy.projectile.color.b.toFloat() / 255f,
@@ -183,7 +190,7 @@ class CommonParticleFactory(
     }
 
     override fun create(
-        type: ParticleType,
+        type: ParticleEffect,
         x: Double,
         y: Double,
         viewPort: ViewPort,
@@ -193,16 +200,17 @@ class CommonParticleFactory(
     ): MutableList<Particle> {
         val rightEdge = viewPort.x + viewPort.width.toDouble()
         val particles = when (type) {
-            ParticleType.DUST -> createDustParticles(x, y)
-            ParticleType.COLLISION -> createCollisionParticles(x, y, direction)
-            ParticleType.PROJECTILE -> createProjectileParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0)
-            ParticleType.FIREWORK_BURST -> createFireworkBurstParticles(x, y)
-            ParticleType.FIREWORK_TAIL -> createFireworkTailParticles(viewPort)
-            ParticleType.ITEM_RETURN -> createItemReturnParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0)
-            ParticleType.COLLIDING_BITS -> createCollidingBitsParticles(viewPort)
-            ParticleType.GOBBLER -> createGobblerParticles(viewPort)
-            ParticleType.BLACK_HOLE -> createBlackHoleParticles(viewPort)
-            ParticleType.STRESS_TEST -> createStressTestParticles(viewPort)
+            ParticleEffect.DUST -> createDustParticles(x, y)
+            ParticleEffect.COLLISION -> createCollisionParticles(x, y, direction)
+            ParticleEffect.PROJECTILE -> createProjectileParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0, ParticleEffect.PROJECTILE)
+            ParticleEffect.BLOB_PROJECTILE -> createProjectileParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0, ParticleEffect.BLOB_PROJECTILE)
+            ParticleEffect.FIREWORK_BURST -> createFireworkBurstParticles(x, y)
+            ParticleEffect.FIREWORK_TAIL -> createFireworkTailParticles(viewPort)
+            ParticleEffect.ITEM_RETURN -> createItemReturnParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0)
+            ParticleEffect.COLLIDING_BITS -> createCollidingBitsParticles(viewPort)
+            ParticleEffect.GOBBLER -> createGobblerParticles(viewPort)
+            ParticleEffect.BLACK_HOLE -> createBlackHoleParticles(viewPort)
+            ParticleEffect.STRESS_TEST -> createStressTestParticles(viewPort)
         }
         return particles
     }
@@ -234,11 +242,11 @@ class CommonParticleFactory(
         val deltaY = destinationY - y
         val length = hypot(deltaX, deltaY).takeIf { it > 0 } ?: 1.0
         val speed = DUST_MIN_SPEED + Random.nextDouble() * DUST_SPEED_RANGE
-        val dustPuffColor = colorMap[ParticleType.DUST] ?: Color.White
+        val dustPuffColor = colorMap[ParticleEffect.DUST] ?: Color.White
         val diameter = radius * 2.0
         return Particle(
             id = Random.nextInt().toString(16),
-            type = ParticleType.DUST,
+            effect = ParticleEffect.DUST,
             shape = ParticleShape.CIRCLE,
             age = 0.0,
             delay = 0.0,
@@ -295,7 +303,7 @@ class CommonParticleFactory(
             Direction.RIGHT -> 0.0
             Direction.LEFT -> PI
         }
-        val collisionParticleColor = colorMap[ParticleType.COLLISION] ?: Color.White
+        val collisionParticleColor = colorMap[ParticleEffect.COLLISION] ?: Color.White
         val angleStep = COLLISION_EXPLOSION_ANGLE_SPAN / (COLLISION_PARTICLE_COUNT - 1)
         val startAngle = explodeAngle - COLLISION_EXPLOSION_ANGLE_SPAN / 2.0
         repeat(COLLISION_PARTICLE_COUNT) { particleIndex ->
@@ -305,7 +313,7 @@ class CommonParticleFactory(
             val speed = Random.nextDouble() * COLLISION_SPEED_RANGE + COLLISION_MIN_SPEED
             particles += Particle(
                 id = Random.nextInt().toString(16),
-                type = ParticleType.COLLISION,
+                effect = ParticleEffect.COLLISION,
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = 0.0,
@@ -359,15 +367,16 @@ class CommonParticleFactory(
         centerX: Double,
         centerY: Double,
         destinationX: Double,
-        destinationY: Double
+        destinationY: Double,
+        particleType: ParticleEffect
     ): MutableList<Particle> {
         val launchAngle = atan2(destinationY - centerY, destinationX - centerX)
-        val projectileParticleColor = colorMap[ParticleType.PROJECTILE] ?: Color.White
+        val projectileParticleColor = colorMap[ParticleEffect.PROJECTILE] ?: Color.White
         val diameter = PROJECTILE_RADIUS * 2.0
         return mutableListOf(
             Particle(
                 id = Random.nextInt().toString(16),
-                type = ParticleType.PROJECTILE,
+                effect = particleType,
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = 0.0,
@@ -424,7 +433,7 @@ class CommonParticleFactory(
             val diameter = FIREWORK_BURST_RADIUS * 2.0
             particles += Particle(
                 id = Random.nextInt().toString(16),
-                type = ParticleType.FIREWORK_BURST,
+                effect = ParticleEffect.FIREWORK_BURST,
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = 0.0,
@@ -504,7 +513,7 @@ class CommonParticleFactory(
             )
             particles += Particle(
                 id = Random.nextInt().toString(16),
-                type = ParticleType.FIREWORK_TAIL,
+                effect = ParticleEffect.FIREWORK_TAIL,
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = delay,
@@ -568,7 +577,7 @@ class CommonParticleFactory(
         return mutableListOf(
             Particle(
                 id = Random.nextInt().toString(16),
-                type = ParticleType.ITEM_RETURN,
+                effect = ParticleEffect.ITEM_RETURN,
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = 0.0,
@@ -643,7 +652,7 @@ class CommonParticleFactory(
             }
             particles += Particle(
                 id = Random.nextInt().toString(16),
-                type = ParticleType.COLLIDING_BITS,
+                effect = ParticleEffect.COLLIDING_BITS,
                 shape = if (isCircle) ParticleShape.CIRCLE else ParticleShape.RECT,
                 age = 0.0,
                 delay = 0.0,
@@ -710,7 +719,7 @@ class CommonParticleFactory(
             val color = randomColor()
             particles += Particle(
                 id = Random.nextInt().toString(16),
-                type = ParticleType.GOBBLER,
+                effect = ParticleEffect.GOBBLER,
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = 0.0,
@@ -772,7 +781,7 @@ class CommonParticleFactory(
 
         particles += Particle(
             id = Random.nextInt().toString(16),
-            type = ParticleType.BLACK_HOLE,
+            effect = ParticleEffect.BLACK_HOLE,
             shape = ParticleShape.CIRCLE,
             age = 0.0,
             delay = BLACK_HOLE_CORE_DELAY,
@@ -829,7 +838,7 @@ class CommonParticleFactory(
             val color = randomColor()
             particles += Particle(
                 id = Random.nextInt().toString(16),
-                type = ParticleType.BLACK_HOLE,
+                effect = ParticleEffect.BLACK_HOLE,
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = 0.0,
@@ -919,7 +928,7 @@ class CommonParticleFactory(
 
             particles += Particle(
                 id = Random.nextInt().toString(16),
-                type = ParticleType.STRESS_TEST,
+                effect = ParticleEffect.STRESS_TEST,
                 shape = if (Random.nextBoolean()) ParticleShape.CIRCLE else ParticleShape.RECT,
                 age = 0.0,
                 delay = delay,
@@ -1038,16 +1047,18 @@ class CommonParticleFactory(
         for (particle in mapParticles) {
             if (activeCount >= clampedMaxParticles) break
 
-            val isProjectile = particle.type == ParticleType.PROJECTILE
-            val isMapItemReturn = particle.type == ParticleType.ITEM_RETURN
-            val isFireworkTail = particle.type == ParticleType.FIREWORK_TAIL
-            val isFireworkBurst = particle.type == ParticleType.FIREWORK_BURST
-            val isCollidingBits = particle.type == ParticleType.COLLIDING_BITS
-            val isGobbler = particle.type == ParticleType.GOBBLER
-            val isBlackHoleCore = particle.type == ParticleType.BLACK_HOLE && particle.delay > 0.0
-            val isBlackHoleExplosion = particle.type == ParticleType.BLACK_HOLE && particle.delay <= 0.0
-            val isStressTest = particle.type == ParticleType.STRESS_TEST
-            val slotIndex = if (isProjectile && reservedProjectileSlots > 0) {
+            val isProjectile = particle.effect == ParticleEffect.PROJECTILE
+            val isBlobProjectile = particle.effect == ParticleEffect.BLOB_PROJECTILE
+            val isAnyProjectile = isProjectile || isBlobProjectile
+            val isMapItemReturn = particle.effect == ParticleEffect.ITEM_RETURN
+            val isFireworkTail = particle.effect == ParticleEffect.FIREWORK_TAIL
+            val isFireworkBurst = particle.effect == ParticleEffect.FIREWORK_BURST
+            val isCollidingBits = particle.effect == ParticleEffect.COLLIDING_BITS
+            val isGobbler = particle.effect == ParticleEffect.GOBBLER
+            val isBlackHoleCore = particle.effect == ParticleEffect.BLACK_HOLE && particle.delay > 0.0
+            val isBlackHoleExplosion = particle.effect == ParticleEffect.BLACK_HOLE && particle.delay <= 0.0
+            val isStressTest = particle.effect == ParticleEffect.STRESS_TEST
+            val slotIndex = if (isAnyProjectile && reservedProjectileSlots > 0) {
                 val projectileSlotOffset = 0
                 firstProjectileSlot + projectileSlotOffset
             } else if (isMapItemReturn && reservedMapItemReturnSlots > 0) {
@@ -1075,8 +1086,8 @@ class CommonParticleFactory(
                 break
             }
 
-            val isDust = particle.type == ParticleType.DUST
-            val isCollision = particle.type == ParticleType.COLLISION
+            val isDust = particle.effect == ParticleEffect.DUST
+            val isCollision = particle.effect == ParticleEffect.COLLISION
             val guidedLaunchDeltaX = (particle.destinationX - particle.originX).toFloat()
             val guidedLaunchDeltaY = (particle.destinationY - particle.originY).toFloat()
             val guidedLaunchLength =
@@ -1084,11 +1095,11 @@ class CommonParticleFactory(
             val guidedLaunchUnitX = if (guidedLaunchLength > 0f) guidedLaunchDeltaX / guidedLaunchLength else 1f
             val guidedLaunchUnitY = if (guidedLaunchLength > 0f) guidedLaunchDeltaY / guidedLaunchLength else 0f
             val velocityX = when {
-                isProjectile || isMapItemReturn -> guidedLaunchUnitX * GUIDED_LAUNCH_INITIAL_SPEED.toFloat()
+                isAnyProjectile || isMapItemReturn -> guidedLaunchUnitX * GUIDED_LAUNCH_INITIAL_SPEED.toFloat()
                 else -> particle.xVelocity.toFloat()
             }
             val velocityY = when {
-                isProjectile || isMapItemReturn -> guidedLaunchUnitY * GUIDED_LAUNCH_INITIAL_SPEED.toFloat()
+                isAnyProjectile || isMapItemReturn -> guidedLaunchUnitY * GUIDED_LAUNCH_INITIAL_SPEED.toFloat()
                 else -> particle.yVelocity.toFloat()
             }
             val size = max(particle.width, particle.height).toFloat()
@@ -1117,14 +1128,15 @@ class CommonParticleFactory(
             targetBuffer[writeIndex++] = particle.color.blue.coerceIn(0f, 1f)
             targetBuffer[writeIndex++] = particle.color.alpha.coerceIn(0f, 1f)
             val particleKind = when {
-                particle.type == ParticleType.DUST -> 1f
-                particle.type == ParticleType.PROJECTILE -> 2f
-                particle.type == ParticleType.ITEM_RETURN -> 3f
-                particle.type == ParticleType.FIREWORK_TAIL -> 4f
-                particle.type == ParticleType.FIREWORK_BURST -> 5f
-                particle.type == ParticleType.COLLISION -> 6f
-                particle.type == ParticleType.COLLIDING_BITS -> 7f
-                particle.type == ParticleType.GOBBLER -> 8f
+                particle.effect == ParticleEffect.DUST -> 1f
+                particle.effect == ParticleEffect.PROJECTILE -> 2f
+                particle.effect == ParticleEffect.BLOB_PROJECTILE -> 12f
+                particle.effect == ParticleEffect.ITEM_RETURN -> 3f
+                particle.effect == ParticleEffect.FIREWORK_TAIL -> 4f
+                particle.effect == ParticleEffect.FIREWORK_BURST -> 5f
+                particle.effect == ParticleEffect.COLLISION -> 6f
+                particle.effect == ParticleEffect.COLLIDING_BITS -> 7f
+                particle.effect == ParticleEffect.GOBBLER -> 8f
                 isBlackHoleCore -> 9f
                 isBlackHoleExplosion -> 10f
                 isStressTest -> 11f
@@ -1133,7 +1145,7 @@ class CommonParticleFactory(
             targetBuffer[writeIndex++] = particleKind
             targetBuffer[writeIndex++] = if (particle.shape == ParticleShape.CIRCLE) 1f else 0f
             targetBuffer[writeIndex++] = when {
-                isProjectile || isMapItemReturn -> guidedLaunchUnitX
+                isAnyProjectile || isMapItemReturn -> guidedLaunchUnitX
                 isBlackHoleCore -> particle.mass.toFloat()
                 isFireworkBurst -> fireworkBurstPackedEndColor
                 isFireworkTail -> particle.maxYVelocity.toFloat()
@@ -1142,7 +1154,7 @@ class CommonParticleFactory(
             }
             targetBuffer[writeIndex++] = when {
                 isDust || isCollision -> particle.endAlpha.toFloat()
-                isProjectile || isMapItemReturn -> guidedLaunchUnitY
+                isAnyProjectile || isMapItemReturn -> guidedLaunchUnitY
                 isBlackHoleCore -> particle.attraction.toFloat()
                 isFireworkTail -> particle.delay.toFloat()
                 isStressTest -> {
@@ -1170,7 +1182,7 @@ class CommonParticleFactory(
             dirtySlotFlags[slotIndex] = true
             writtenSlotFlags[slotIndex] = true
             activeCount++
-            if (!isProjectile && !isMapItemReturn && !isCollidingBits && !isGobbler &&
+            if (!isAnyProjectile && !isMapItemReturn && !isCollidingBits && !isGobbler &&
                 !isBlackHoleCore && !isBlackHoleExplosion && !isFireworkBurst && !isFireworkTail &&
                 !isStressTest && ringBufferCapacity > 0
             ) {

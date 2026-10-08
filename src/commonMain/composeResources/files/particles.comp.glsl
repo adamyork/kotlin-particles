@@ -168,7 +168,8 @@ void main() {
         bool wasConsumed = (wasGobblerOrBlackHoleExplosion && typeInfo.w > 0.5) ||
                 (wasStressTest && typeInfo.w >= 4.0);
         bool isFreshSpawnInstance = spawnLifecycle.x < 1.0;
-        bool preserveGpuState = (spawnKind > 1.5 && lifecycle.w > 0.5) ||
+        bool isProjectileSpawn = (spawnKind > 1.5 && spawnKind <= 2.5) || (spawnKind > 11.5 && spawnKind <= 12.5);
+        bool preserveGpuState = (spawnKind > 1.5 && lifecycle.w > 0.5 && !(isProjectileSpawn && isFreshSpawnInstance)) ||
                 (wasConsumed && !isFreshSpawnInstance);
         if (!preserveGpuState) {
             positionVelocity = spawnPositionVelocity;
@@ -245,7 +246,7 @@ void main() {
                 positionVelocity.x = positionVelocity.x + (positionVelocity.z * elapsedTicks);
                 positionVelocity.y = positionVelocity.y + (positionVelocity.w * elapsedTicks);
             }
-        } else if (particleKind > 1.5 && particleKind <= 2.5) {
+        } else if ((particleKind > 1.5 && particleKind <= 2.5) || (particleKind > 11.5 && particleKind <= 12.5)) {
             const float projectileThrust = 0.16;
             const float projectileMaxSpeed = 5.25;
             const float projectileVelocityHeadroom = 0.2;

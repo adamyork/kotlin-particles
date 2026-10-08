@@ -9,6 +9,7 @@ import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.Collision
 import com.github.adamyork.kparticles.platform.engine.CommonEngine
+import com.github.adamyork.kparticles.platform.engine.CommonParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
 import com.github.adamyork.kparticles.platform.engine.data.*
@@ -20,6 +21,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.tatarka.inject.annotations.Inject
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 @AppScope
 @Inject
@@ -53,6 +57,10 @@ open class AndroidEngine(
     override val mapItemReturnPaint: Any = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         isFilterBitmap = true
     }
+    private val projectileBlobPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+    private val projectileBlobPath = Path()
 
     private val particleSrcRect = Rect()
     private val particleRectF = RectF()
@@ -112,7 +120,7 @@ open class AndroidEngine(
         for (i in particles.indices) {
             val particle = particles[i]
             if (!particle.cullingCheck(viewPort)) continue
-            if (particle.type == ParticleType.ITEM_RETURN) {
+            if (particle.effect == ParticleEffect.ITEM_RETURN) {
                 if (mapItemImage is AndroidImage) {
                     val localX = particle.x.toFloat() - vpX
                     val localY = particle.y.toFloat() - vpY
@@ -134,10 +142,14 @@ open class AndroidEngine(
                 }
                 continue
             }
+            if (particle.effect == ParticleEffect.BLOB_PROJECTILE) {
+                drawProjectileBlob(particle, vpX, vpY, canvas)
+                continue
+            }
             val lifetime = if (particle.lifetime <= 0) 1 else particle.lifetime
             val ageProgress = (particle.age.toFloat() / lifetime.toFloat()).coerceIn(0f, 1f)
             val alphaMultiplier = when {
-                particle.type == ParticleType.PROJECTILE -> 1.0f
+                particle.effect == ParticleEffect.PROJECTILE -> 1.0f
                 ageProgress < 0.33f -> 1.0f
                 ageProgress < 0.66f -> 0.66f
                 else -> 0.33f
@@ -160,6 +172,62 @@ open class AndroidEngine(
         val green = (particle.color.green * 255f).toInt().coerceIn(0, 255)
         val blue = (particle.color.blue * 255f).toInt().coerceIn(0, 255)
         return Color.argb(alpha, red, green, blue)
+    }
+
+    private fun drawProjectileBlob(particle: Particle, vpX: Float, vpY: Float, canvas: Canvas) {
+        val centerX = (particle.x.toFloat() - vpX) + (particle.width.toFloat() * 0.5f)
+        val centerY = (particle.y.toFloat() - vpY) + (particle.height.toFloat() * 0.5f)
+        val baseRadius = particle.radius.toFloat()
+        val age = particle.age.toFloat()
+        val lobeCount = CommonParticleFactory.PROJECTILE_BLOB_LOBE_COUNT
+        val lobePointXs = FloatArray(lobeCount)
+        val lobePointYs = FloatArray(lobeCount)
+        var lobeIndex = 0
+        while (lobeIndex < lobeCount) {
+            val lobeAngle = (lobeIndex.toFloat() / lobeCount.toFloat()) * (2f * PI.toFloat())
+            val lobeFrequency = CommonParticleFactory.PROJECTILE_BLOB_BASE_FREQUENCY +
+                    (lobeIndex * CommonParticleFactory.PROJECTILE_BLOB_FREQUENCY_STEP)
+            val lobePhase = lobeIndex * CommonParticleFactory.PROJECTILE_BLOB_PHASE_STEP
+            val lobeWobble = sin((age * lobeFrequency) + lobePhase)
+            val lobeRadius = baseRadius * (1f + (CommonParticleFactory.PROJECTILE_BLOB_AMPLITUDE_RATIO * lobeWobble))
+            lobePointXs[lobeIndex] = centerX + (cos(lobeAngle) * lobeRadius)
+            lobePointYs[lobeIndex] = centerY + (sin(lobeAngle) * lobeRadius)
+            lobeIndex++
+        }
+        buildSmoothClosedBlobPath(lobePointXs, lobePointYs)
+        val alpha = (particle.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255)
+        val red = (particle.color.red * 255f).toInt().coerceIn(0, 255)
+        val green = (particle.color.green * 255f).toInt().coerceIn(0, 255)
+        val blue = (particle.color.blue * 255f).toInt().coerceIn(0, 255)
+        projectileBlobPaint.color = Color.argb(alpha, red, green, blue)
+        canvas.drawPath(projectileBlobPath, projectileBlobPaint)
+    }
+
+    private fun buildSmoothClosedBlobPath(lobePointXs: FloatArray, lobePointYs: FloatArray) {
+        projectileBlobPath.reset()
+        val lobeCount = lobePointXs.size
+        projectileBlobPath.moveTo(lobePointXs[0], lobePointYs[0])
+        var lobeIndex = 0
+        while (lobeIndex < lobeCount) {
+            val previousIndex = (lobeIndex - 1 + lobeCount) % lobeCount
+            val nextIndex = (lobeIndex + 1) % lobeCount
+            val afterNextIndex = (lobeIndex + 2) % lobeCount
+            val tension = CommonParticleFactory.PROJECTILE_BLOB_SPLINE_TENSION
+            val controlPoint1X = lobePointXs[lobeIndex] + (lobePointXs[nextIndex] - lobePointXs[previousIndex]) / tension
+            val controlPoint1Y = lobePointYs[lobeIndex] + (lobePointYs[nextIndex] - lobePointYs[previousIndex]) / tension
+            val controlPoint2X = lobePointXs[nextIndex] - (lobePointXs[afterNextIndex] - lobePointXs[lobeIndex]) / tension
+            val controlPoint2Y = lobePointYs[nextIndex] - (lobePointYs[afterNextIndex] - lobePointYs[lobeIndex]) / tension
+            projectileBlobPath.cubicTo(
+                controlPoint1X,
+                controlPoint1Y,
+                controlPoint2X,
+                controlPoint2Y,
+                lobePointXs[nextIndex],
+                lobePointYs[nextIndex]
+            )
+            lobeIndex++
+        }
+        projectileBlobPath.close()
     }
 
 }

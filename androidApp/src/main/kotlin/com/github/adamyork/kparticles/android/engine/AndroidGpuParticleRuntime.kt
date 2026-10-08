@@ -145,7 +145,6 @@ class AndroidGpuParticleRuntime {
     fun createTextureView(context: Context): TextureView {
         logger.info { "[GPU][Runtime] Creating TextureView (enabled=$enabled, maxParticles=$maxParticles)" }
         val glRenderer = renderer ?: createRenderer().also { renderer = it }
-
         return object : TextureView(context) {
             override fun onTouchEvent(event: MotionEvent?) = false
         }.apply {
@@ -153,7 +152,6 @@ class AndroidGpuParticleRuntime {
             isClickable = false
             isFocusable = false
             isFocusableInTouchMode = false
-
             surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                 override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
                     logger.info { "[GPU][Runtime] SurfaceTexture available ($width x $height)" }
@@ -185,12 +183,10 @@ class AndroidGpuParticleRuntime {
         if (eglDisplay === EGL14.EGL_NO_DISPLAY) {
             throw RuntimeException("eglGetDisplay failed")
         }
-
         val version = IntArray(2)
         if (!EGL14.eglInitialize(eglDisplay, version, 0, version, 1)) {
             throw RuntimeException("eglInitialize failed")
         }
-
         val attribList = intArrayOf(
             EGL14.EGL_RED_SIZE, 8,
             EGL14.EGL_GREEN_SIZE, 8,
@@ -200,14 +196,12 @@ class AndroidGpuParticleRuntime {
             EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT or 0x40,
             EGL14.EGL_NONE
         )
-
         val configs = arrayOfNulls<EGLConfig>(1)
         val numConfigs = IntArray(1)
         if (!EGL14.eglChooseConfig(eglDisplay, attribList, 0, configs, 0, 1, numConfigs, 0) || numConfigs[0] <= 0) {
             throw RuntimeException("eglChooseConfig failed")
         }
         val eglConfig = configs[0]!!
-
         val contextAttribs = intArrayOf(
             EGL14.EGL_CONTEXT_CLIENT_VERSION, 3,
             EGL14.EGL_NONE
@@ -216,12 +210,10 @@ class AndroidGpuParticleRuntime {
         if (eglContext === EGL14.EGL_NO_CONTEXT) {
             throw RuntimeException("eglCreateContext failed")
         }
-
         eglSurface = EGL14.eglCreateWindowSurface(eglDisplay, eglConfig, surface, intArrayOf(EGL14.EGL_NONE), 0)
         if (eglSurface === EGL14.EGL_NO_SURFACE) {
             throw RuntimeException("eglCreateWindowSurface failed")
         }
-
         if (!EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
             throw RuntimeException("eglMakeCurrent failed")
         }

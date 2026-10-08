@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.github.adamyork.kparticles.platform.common.LifeCycleState
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
-import com.github.adamyork.kparticles.platform.engine.data.ParticleType
+import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.service.data.LoadingTaskStatus
 import kotlinx.coroutines.awaitCancellation
@@ -60,16 +60,17 @@ abstract class UiMain(
         var isLoadingChecklistVisible by remember { mutableStateOf(true) }
         val particleModes = remember {
             listOf(
-                ParticleType.DUST,
-                ParticleType.COLLISION,
-                ParticleType.PROJECTILE,
-                ParticleType.FIREWORK_BURST,
-                ParticleType.FIREWORK_TAIL,
-                ParticleType.ITEM_RETURN,
-                ParticleType.COLLIDING_BITS,
-                ParticleType.GOBBLER,
-                ParticleType.BLACK_HOLE,
-                ParticleType.STRESS_TEST
+                ParticleEffect.DUST,
+                ParticleEffect.COLLISION,
+                ParticleEffect.PROJECTILE,
+                ParticleEffect.BLOB_PROJECTILE,
+                ParticleEffect.FIREWORK_BURST,
+                ParticleEffect.FIREWORK_TAIL,
+                ParticleEffect.ITEM_RETURN,
+                ParticleEffect.COLLIDING_BITS,
+                ParticleEffect.GOBBLER,
+                ParticleEffect.BLACK_HOLE,
+                ParticleEffect.STRESS_TEST
             )
         }
         var selectedParticleMode by remember { mutableStateOf(particleModes.first()) }

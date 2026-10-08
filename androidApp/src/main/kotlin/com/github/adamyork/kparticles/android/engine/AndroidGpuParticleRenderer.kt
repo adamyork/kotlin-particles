@@ -92,7 +92,6 @@ internal class AndroidGpuParticleRenderer(
         check(computeShaderSource.isNotBlank()) { "Compute shader source is empty" }
         check(vertexShaderSource.isNotBlank()) { "Vertex shader source is empty" }
         check(fragmentShaderSource.isNotBlank()) { "Fragment shader source is empty" }
-
         val glVersion = GLES20.glGetString(GLES20.GL_VERSION).orEmpty()
         val glslVersion = GLES20.glGetString(GLES20.GL_SHADING_LANGUAGE_VERSION).orEmpty()
         logger.info { "[GPU][Renderer] GL_VERSION='$glVersion', GLSL='$glslVersion'" }
@@ -104,25 +103,21 @@ internal class AndroidGpuParticleRenderer(
             rendererReady = false
             return
         }
-
         GLES31.glDisable(GLES31.GL_DEPTH_TEST)
         GLES31.glEnable(GLES31.GL_BLEND)
         GLES31.glBlendFunc(GLES31.GL_SRC_ALPHA, GLES31.GL_ONE_MINUS_SRC_ALPHA)
         GLES31.glBlendEquation(GLES31.GL_FUNC_ADD)
         GLES31.glClearColor(0f, 0f, 0f, 0f)
-
         try {
             computeProgram = createComputeProgram()
             renderProgram = createRenderProgram()
             vao = createVertexArrayObject()
-
             val buffers = IntArray(4)
             GLES31.glGenBuffers(4, buffers, 0)
             stateBufferA = buffers[0]
             stateBufferB = buffers[1]
             spawnBuffer = buffers[2]
             collisionSignalBuffer = buffers[3]
-
             val particleBytes = maxParticles * FLOATS_PER_PARTICLE * BYTES_PER_FLOAT
             initStorageBuffer(stateBufferA, particleBytes)
             initStorageBuffer(stateBufferB, particleBytes)
@@ -132,9 +127,7 @@ internal class AndroidGpuParticleRenderer(
             clearStorageBuffer(stateBufferB, particleBytes)
             clearStorageBuffer(spawnBuffer, particleBytes)
             clearStorageBuffer(collisionSignalBuffer, COLLISION_SIGNAL_BYTES)
-
             mapItemTexture = createMapItemTexture()
-
             GLES31.glUseProgram(computeProgram)
             uComputeDeltaTimeSeconds = GLES31.glGetUniformLocation(computeProgram, "uDeltaTimeSeconds")
             uComputeGravity = GLES31.glGetUniformLocation(computeProgram, "uGravity")
@@ -151,7 +144,6 @@ internal class AndroidGpuParticleRenderer(
             uComputePlayerWidth = GLES31.glGetUniformLocation(computeProgram, "uPlayerWidth")
             uComputePlayerHeight = GLES31.glGetUniformLocation(computeProgram, "uPlayerHeight")
             uComputeMaxParticles = GLES31.glGetUniformLocation(computeProgram, "uMaxParticles")
-
             GLES31.glUseProgram(renderProgram)
             uRenderViewportX = GLES31.glGetUniformLocation(renderProgram, "uViewportX")
             uRenderViewportY = GLES31.glGetUniformLocation(renderProgram, "uViewportY")
@@ -162,7 +154,6 @@ internal class AndroidGpuParticleRenderer(
             uRenderMapItemSpriteHeight = GLES31.glGetUniformLocation(renderProgram, "uMapItemSpriteHeight")
             uRenderMapItemTexture = GLES31.glGetUniformLocation(renderProgram, "uMapItemTexture")
             uRenderDustPass = GLES31.glGetUniformLocation(renderProgram, "uDustPass")
-
             rendererReady = true
             logger.info { "[GPU][Renderer] GPU particle renderer initialized" }
         } catch (t: Throwable) {
@@ -180,7 +171,6 @@ internal class AndroidGpuParticleRenderer(
     override fun onDrawFrame(gl: GL10?) {
         if (!rendererReady) return
         GLES31.glClear(GLES31.GL_COLOR_BUFFER_BIT)
-
         val frame = frameProvider() ?: run {
             emptyFrameCounter++
             if (emptyFrameCounter % RENDERER_DIAGNOSTIC_LOG_EVERY_N_FRAMES == 0) {
@@ -190,13 +180,10 @@ internal class AndroidGpuParticleRenderer(
         }
         emptyFrameCounter = 0
         frameCounter++
-
         uploadSpawnBuffer(frame.sourceBuffer)
         resetCollisionSignalBuffer()
-
         val source = if (useStateAAsSource) stateBufferA else stateBufferB
         val target = if (useStateAAsSource) stateBufferB else stateBufferA
-
         GLES31.glUseProgram(computeProgram)
         GLES31.glUniform1f(uComputeDeltaTimeSeconds, frame.deltaTimeSeconds)
         GLES31.glUniform1f(uComputeGravity, frame.gravity)
@@ -213,16 +200,13 @@ internal class AndroidGpuParticleRenderer(
         GLES31.glUniform1f(uComputePlayerWidth, 0f)
         GLES31.glUniform1f(uComputePlayerHeight, 0f)
         GLES31.glUniform1i(uComputeMaxParticles, maxParticles)
-
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, 0, source)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, 1, target)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, 2, spawnBuffer)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, 3, collisionSignalBuffer)
         GLES31.glDispatchCompute(workgroupCount, 1, 1)
         GLES31.glMemoryBarrier(GLES31.GL_SHADER_STORAGE_BARRIER_BIT)
-
         readCollisionSignalBuffer()
-
         GLES31.glUseProgram(renderProgram)
         GLES31.glUniform1f(uRenderViewportX, frame.viewPortX)
         GLES31.glUniform1f(uRenderViewportY, frame.viewPortY)
@@ -234,30 +218,24 @@ internal class AndroidGpuParticleRenderer(
         GLES31.glActiveTexture(GLES31.GL_TEXTURE0)
         GLES31.glBindTexture(GLES31.GL_TEXTURE_2D, mapItemTexture)
         GLES31.glUniform1i(uRenderMapItemTexture, 0)
-
         GLES30.glBindVertexArray(vao)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, 0, target)
-
         GLES31.glUniform1i(uRenderDustPass, 0)
         GLES31.glBlendFunc(GLES31.GL_SRC_ALPHA, GLES31.GL_ONE_MINUS_SRC_ALPHA)
         GLES31.glBlendEquation(GLES31.GL_FUNC_ADD)
         GLES31.glDrawArraysInstanced(GLES31.GL_TRIANGLES, 0, 6, maxParticles)
-
         GLES31.glUniform1i(uRenderDustPass, 1)
         GLES31.glBlendFunc(GLES31.GL_ONE, GLES31.GL_ONE)
         GLES31.glBlendEquation(GLES30.GL_MAX)
         GLES31.glDrawArraysInstanced(GLES31.GL_TRIANGLES, 0, 6, maxParticles)
-
         GLES31.glBlendEquation(GLES31.GL_FUNC_ADD)
         GLES30.glBindVertexArray(0)
-
         if (frameCounter % RENDERER_DIAGNOSTIC_LOG_EVERY_N_FRAMES == 0) {
             logger.info {
                 "[GPU][Renderer] frame=$frameCounter activeParticleCount=? dt=${frame.deltaTimeSeconds} " +
                         "tickRate=${frame.tickRate} viewport=${frame.viewPortWidth}x${frame.viewPortHeight}"
             }
         }
-
         useStateAAsSource = !useStateAAsSource
         checkGlError()
     }
@@ -340,7 +318,6 @@ internal class AndroidGpuParticleRenderer(
         GLES31.glTexParameteri(GLES31.GL_TEXTURE_2D, GLES31.GL_TEXTURE_MAG_FILTER, GLES31.GL_LINEAR)
         GLES31.glTexParameteri(GLES31.GL_TEXTURE_2D, GLES31.GL_TEXTURE_WRAP_S, GLES31.GL_CLAMP_TO_EDGE)
         GLES31.glTexParameteri(GLES31.GL_TEXTURE_2D, GLES31.GL_TEXTURE_WRAP_T, GLES31.GL_CLAMP_TO_EDGE)
-
         val spriteBitmap = decodeMapItemSpriteBitmap()
         GLUtils.texImage2D(GLES31.GL_TEXTURE_2D, 0, spriteBitmap, 0)
         spriteBitmap.recycle()
@@ -421,7 +398,6 @@ internal class AndroidGpuParticleRenderer(
         GLES30.glGenVertexArrays(1, arrays, 0)
         val arrayId = arrays[0]
         GLES30.glBindVertexArray(arrayId)
-
         val unusedBuffers = IntArray(1)
         GLES31.glGenBuffers(1, unusedBuffers, 0)
         unusedAttributeBuffer = unusedBuffers[0]
@@ -431,7 +407,6 @@ internal class AndroidGpuParticleRenderer(
         GLES31.glBufferData(GLES31.GL_ARRAY_BUFFER, 2 * BYTES_PER_FLOAT, unusedData, GLES31.GL_STATIC_DRAW)
         GLES31.glEnableVertexAttribArray(0)
         GLES31.glVertexAttribPointer(0, 2, GLES31.GL_FLOAT, false, 0, 0)
-
         GLES30.glBindVertexArray(0)
         return arrayId
     }

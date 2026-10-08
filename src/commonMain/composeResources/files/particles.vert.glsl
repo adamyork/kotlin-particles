@@ -19,6 +19,9 @@ out vec2 vQuadCoordinate;
 out float vShapeFlag;
 out vec2 vUv;
 out float vParticleKind;
+out float vAge;
+
+const float blobProjectileQuadSizeMultiplier = 1.4;
 
 vec2 quadCorner(int vertexIndex) {
     switch (vertexIndex) {
@@ -45,18 +48,21 @@ void main() {
         vShapeFlag = 0.0;
         vUv = vec2(0.0, 0.0);
         vParticleKind = 0.0;
+        vAge = 0.0;
         return;
     }
 
     float particleKind = typeInfo.x;
     bool isMapItemReturn = particleKind > 2.5 && particleKind <= 3.5;
     bool isDust = particleKind > 0.5 && particleKind <= 1.5;
+    bool isBlobProjectile = particleKind > 11.5 && particleKind <= 12.5;
     bool usesUnscaledSize = isMapItemReturn || isDust;
     float widthScale = usesUnscaledSize ? 1.0 : uSizeScale;
     float baseWidth = isMapItemReturn ? uMapItemSpriteWidth : lifecycle.z;
     float baseHeight = isMapItemReturn ? uMapItemSpriteHeight : lifecycle.z;
-    float halfWidth = max(baseWidth * widthScale * 0.5, 1.0);
-    float halfHeight = max(baseHeight * widthScale * 0.5, 1.0);
+    float blobSizeMultiplier = isBlobProjectile ? blobProjectileQuadSizeMultiplier : 1.0;
+    float halfWidth = max(baseWidth * widthScale * 0.5 * blobSizeMultiplier, 1.0);
+    float halfHeight = max(baseHeight * widthScale * 0.5 * blobSizeMultiplier, 1.0);
     vec2 corner = quadCorner(gl_VertexID);
     float localX = (positionVelocity.x - uViewportX) + (corner.x * halfWidth);
     float localY = (positionVelocity.y - uViewportY) + (corner.y * halfHeight);
@@ -90,4 +96,5 @@ void main() {
     vShapeFlag = typeInfo.y;
     vUv = vec2((corner.x + 1.0) * 0.5, (corner.y + 1.0) * 0.5);
     vParticleKind = particleKind;
+    vAge = lifecycle.x;
 }
