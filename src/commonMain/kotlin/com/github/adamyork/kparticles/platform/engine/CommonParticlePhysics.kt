@@ -33,6 +33,8 @@ class CommonParticlePhysics(
     ) {
         val deltaTime = statusProvider.getDeltaTimeCoefficient()
         val gravity = physicsSettingsService.gravity
+        val spriteTicksPerFrame = (statusProvider.assetService.appProperties.engine.tickTargetPerSec.toDouble() /
+            statusProvider.assetService.appProperties.engine.spriteAnimationFramePerSec.toDouble()).coerceAtLeast(1.0)
 
         spatialGrid.beginTick(viewPort)
 
@@ -129,6 +131,7 @@ class CommonParticlePhysics(
             val endAlpha = particle.endAlpha
             particle.alphaMultiplier = progress
             particle.alpha = startAlpha + (endAlpha - startAlpha) * particle.alphaMultiplier
+            particle.frame = ((particle.age / spriteTicksPerFrame).toInt()) % particle.maxFrames
 
             if (particle.canInteract()) spatialGrid.place(particle)
         }

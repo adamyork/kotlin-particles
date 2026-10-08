@@ -94,6 +94,7 @@ class CommonParticleFactory(
         private const val ITEM_RETURN_LIFETIME: Double = 512.0
         private const val ITEM_RETURN_MASS: Double = 0.15
         private const val ITEM_RETURN_DRAG: Double = 0.001
+        private const val ANIMATED_ITEM_RETURN_MAX_FRAMES: Int = 8
 
         private const val COLLIDING_BITS_PARTICLE_COUNT: Int = 100
         private const val COLLIDING_BITS_MIN_SIZE: Double = 8.0
@@ -206,7 +207,8 @@ class CommonParticleFactory(
             ParticleEffect.BLOB_PROJECTILE -> createProjectileParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0, ParticleEffect.BLOB_PROJECTILE)
             ParticleEffect.FIREWORK_BURST -> createFireworkBurstParticles(x, y)
             ParticleEffect.FIREWORK_TAIL -> createFireworkTailParticles(viewPort)
-            ParticleEffect.ITEM_RETURN -> createItemReturnParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0)
+            ParticleEffect.ITEM_RETURN -> createItemReturnParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0, ParticleEffect.ITEM_RETURN)
+            ParticleEffect.ANIMATED_ITEM_RETURN -> createItemReturnParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0, ParticleEffect.ANIMATED_ITEM_RETURN)
             ParticleEffect.COLLIDING_BITS -> createCollidingBitsParticles(viewPort)
             ParticleEffect.GOBBLER -> createGobblerParticles(viewPort)
             ParticleEffect.BLACK_HOLE -> createBlackHoleParticles(viewPort)
@@ -569,15 +571,17 @@ class CommonParticleFactory(
         centerX: Double,
         centerY: Double,
         destinationX: Double,
-        destinationY: Double
+        destinationY: Double,
+        effect: ParticleEffect
     ): MutableList<Particle> {
         val launchAngle = atan2(destinationY - centerY, destinationX - centerX)
         val diameter = ITEM_RETURN_RADIUS * 2.0
+        val maxFrames = if (effect == ParticleEffect.ANIMATED_ITEM_RETURN) ANIMATED_ITEM_RETURN_MAX_FRAMES else 1
 
         return mutableListOf(
             Particle(
                 id = Random.nextInt().toString(16),
-                effect = ParticleEffect.ITEM_RETURN,
+                effect = effect,
                 shape = ParticleShape.CIRCLE,
                 age = 0.0,
                 delay = 0.0,
@@ -620,7 +624,9 @@ class CommonParticleFactory(
                 attraction = 0.0,
                 canCollide = false,
                 visible = true,
-                viewportBound = false
+                viewportBound = false,
+                frame = 0,
+                maxFrames = maxFrames
             )
         )
     }
@@ -1050,7 +1056,8 @@ class CommonParticleFactory(
             val isProjectile = particle.effect == ParticleEffect.PROJECTILE
             val isBlobProjectile = particle.effect == ParticleEffect.BLOB_PROJECTILE
             val isAnyProjectile = isProjectile || isBlobProjectile
-            val isMapItemReturn = particle.effect == ParticleEffect.ITEM_RETURN
+            val isAnimatedItemReturn = particle.effect == ParticleEffect.ANIMATED_ITEM_RETURN
+            val isMapItemReturn = particle.effect == ParticleEffect.ITEM_RETURN || isAnimatedItemReturn
             val isFireworkTail = particle.effect == ParticleEffect.FIREWORK_TAIL
             val isFireworkBurst = particle.effect == ParticleEffect.FIREWORK_BURST
             val isCollidingBits = particle.effect == ParticleEffect.COLLIDING_BITS
@@ -1131,7 +1138,7 @@ class CommonParticleFactory(
                 particle.effect == ParticleEffect.DUST -> 1f
                 particle.effect == ParticleEffect.PROJECTILE -> 2f
                 particle.effect == ParticleEffect.BLOB_PROJECTILE -> 12f
-                particle.effect == ParticleEffect.ITEM_RETURN -> 3f
+                particle.effect == ParticleEffect.ITEM_RETURN || particle.effect == ParticleEffect.ANIMATED_ITEM_RETURN -> 3f
                 particle.effect == ParticleEffect.FIREWORK_TAIL -> 4f
                 particle.effect == ParticleEffect.FIREWORK_BURST -> 5f
                 particle.effect == ParticleEffect.COLLISION -> 6f
@@ -1166,6 +1173,7 @@ class CommonParticleFactory(
             targetBuffer[writeIndex++] = when {
                 isStressTest -> (particle.xAcceleration + particle.xForce).toFloat()
                 isGobbler || isBlackHoleExplosion -> particle.mass.toFloat()
+                isMapItemReturn -> particle.maxFrames.toFloat()
                 else -> 0f
             }
             targetBuffer[writeIndex++] = when {

@@ -120,13 +120,14 @@ open class AndroidEngine(
         for (i in particles.indices) {
             val particle = particles[i]
             if (!particle.cullingCheck(viewPort)) continue
-            if (particle.effect == ParticleEffect.ITEM_RETURN) {
+            if (particle.effect == ParticleEffect.ITEM_RETURN || particle.effect == ParticleEffect.ANIMATED_ITEM_RETURN) {
                 if (mapItemImage is AndroidImage) {
                     val localX = particle.x.toFloat() - vpX
                     val localY = particle.y.toFloat() - vpY
                     val sourceWidth = mapItemFrameWidth.toFloat()
                     val sourceHeight = mapItemFrameHeight.toFloat()
-                    particleSrcRect.set(0, 0, mapItemFrameWidth, mapItemFrameHeight)
+                    val frameOffsetX = particle.frame * mapItemFrameWidth
+                    particleSrcRect.set(frameOffsetX, 0, frameOffsetX + mapItemFrameWidth, mapItemFrameHeight)
                     particleRectF.set(
                         localX - sourceWidth / 2f,
                         localY - sourceHeight / 2f,

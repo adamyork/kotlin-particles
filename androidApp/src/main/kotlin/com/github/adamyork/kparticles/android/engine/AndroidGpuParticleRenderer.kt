@@ -330,18 +330,10 @@ internal class AndroidGpuParticleRenderer(
                 setPixel(0, 0, android.graphics.Color.WHITE)
             }
         }
-        val fullBitmap = BitmapFactory.decodeByteArray(mapItemTextureBytes, 0, mapItemTextureBytes.size)
-            ?: return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
+        return BitmapFactory.decodeByteArray(mapItemTextureBytes, 0, mapItemTextureBytes.size)
+            ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
                 setPixel(0, 0, android.graphics.Color.WHITE)
             }
-        val cellWidth = mapItemSpriteWidth.coerceIn(1, fullBitmap.width)
-        val cellHeight = mapItemSpriteHeight.coerceIn(1, fullBitmap.height)
-        if (cellWidth == fullBitmap.width && cellHeight == fullBitmap.height) {
-            return fullBitmap
-        }
-        val croppedBitmap = Bitmap.createBitmap(fullBitmap, 0, 0, cellWidth, cellHeight)
-        fullBitmap.recycle()
-        return croppedBitmap
     }
 
     private fun createComputeProgram(): Int {

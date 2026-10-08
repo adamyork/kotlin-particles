@@ -110,7 +110,7 @@ open class WasmJsEngine(
                 particleIndex++
                 continue
             }
-            if (particle.effect == ParticleEffect.ITEM_RETURN) {
+            if (particle.effect == ParticleEffect.ITEM_RETURN || particle.effect == ParticleEffect.ANIMATED_ITEM_RETURN) {
                 itemReturnParticles.add(particle)
                 particleIndex++
                 continue
@@ -148,11 +148,12 @@ open class WasmJsEngine(
                 val particle = itemReturnParticles[itemIndex]
                 val localX = particle.x.toFloat() - viewPortOffsetX
                 val localY = particle.y.toFloat() - viewPortOffsetY
+                val frameOffsetX = particle.frame * sourceWidth
                 canvas.drawImageRect(
                     image = mapItemSkia,
-                    srcLeft = 0f,
+                    srcLeft = frameOffsetX,
                     srcTop = 0f,
-                    srcRight = sourceWidth,
+                    srcRight = frameOffsetX + sourceWidth,
                     srcBottom = sourceHeight,
                     dstLeft = localX - sourceWidth / 2f,
                     dstTop = localY - sourceHeight / 2f,

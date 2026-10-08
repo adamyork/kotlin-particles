@@ -706,6 +706,8 @@ struct VertexOutput {
 @group(0) @binding(3) var renderTexture: texture_2d<f32>;
 
 const blobProjectileQuadSizeMultiplier = 1.4;
+const itemReturnSpriteFrameCount = 8.0;
+const itemReturnSpriteTicksPerFrame = 5.0;
 
 fn blobProjectileBoundaryScale(angle: f32, age: f32) -> f32 {
   let wobbleA = sin((angle * 2.0) + (age * 0.05));
@@ -735,6 +737,7 @@ fn vertexMain(
   let lifecycle = renderParticles.data[base + 1u];
   let colorRgba = renderParticles.data[base + 2u];
   let typeInfo = renderParticles.data[base + 3u];
+  let kindDataA = renderParticles.data[base + 4u];
   var out: VertexOutput;
   if (lifecycle.w <= 0.5) {
     out.position = vec4<f32>(-2.0, -2.0, 0.0, 1.0);
@@ -788,7 +791,12 @@ fn vertexMain(
   out.color = vec4<f32>(resolvedColor, resolvedAlpha);
   out.quadCoordinate = corner;
   out.shapeFlag = typeInfo.y;
-  out.uv = vec2<f32>((corner.x + 1.0) * 0.5, (corner.y + 1.0) * 0.5);
+  let localU = (corner.x + 1.0) * 0.5;
+  let localV = (corner.y + 1.0) * 0.5;
+  let itemReturnMaxFrames = max(kindDataA.x, 1.0);
+  let itemReturnFrameIndex = floor(lifecycle.x / itemReturnSpriteTicksPerFrame) % itemReturnMaxFrames;
+  let itemReturnUvX = (localU + itemReturnFrameIndex) / itemReturnSpriteFrameCount;
+  out.uv = vec2<f32>(select(localU, itemReturnUvX, isMapItemReturn), localV);
   out.particleKind = particleKind;
   out.age = lifecycle.x;
   return out;

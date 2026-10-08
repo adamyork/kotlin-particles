@@ -11,6 +11,7 @@ enum class ParticleEffect(
     PROJECTILE("Projectile"),
     BLOB_PROJECTILE("Blob Projectile"),
     ITEM_RETURN("Item Return"),
+    ANIMATED_ITEM_RETURN("Animated Item Return"),
     COLLISION("Collision"),
     FIREWORK_TAIL("Firework Tails"),
     FIREWORK_BURST("Firework Burst"),

@@ -140,11 +140,11 @@ class WasmJsGpuParticleRenderer {
         val createdMapItemTextureView = if (mapItemTextureBytes.isNotEmpty()) {
             try {
                 createTextureViewFromEncodedBytes(
-                    gpuDevice,
-                    deviceQueue,
-                    mapItemTextureBytes.toInt8Array(),
-                    mapItemFirstCellWidth.coerceAtLeast(1),
-                    mapItemFirstCellHeight.coerceAtLeast(1)
+                    device = gpuDevice,
+                    queue = deviceQueue,
+                    bytes = mapItemTextureBytes.toInt8Array(),
+                    firstCellWidth = 0,
+                    firstCellHeight = 0
                 ).await()
             } catch (t: Throwable) {
                 logger.error(t) { "Failed to create map item return texture for WebGPU particles" }

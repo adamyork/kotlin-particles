@@ -22,6 +22,8 @@ out float vParticleKind;
 out float vAge;
 
 const float blobProjectileQuadSizeMultiplier = 1.4;
+const float itemReturnSpriteFrameCount = 8.0;
+const float itemReturnSpriteTicksPerFrame = 5.0;
 
 vec2 quadCorner(int vertexIndex) {
     switch (vertexIndex) {
@@ -40,6 +42,7 @@ void main() {
     vec4 lifecycle = particleData[base + 1u];
     vec4 colorRgba = particleData[base + 2u];
     vec4 typeInfo = particleData[base + 3u];
+    vec4 kindDataA = particleData[base + 4u];
 
     if (lifecycle.w <= 0.5) {
         gl_Position = vec4(-2.0, -2.0, 0.0, 1.0);
@@ -94,7 +97,12 @@ void main() {
     vColor = vec4(resolvedColor, resolvedAlpha);
     vQuadCoordinate = corner;
     vShapeFlag = typeInfo.y;
-    vUv = vec2((corner.x + 1.0) * 0.5, (corner.y + 1.0) * 0.5);
+    float localU = (corner.x + 1.0) * 0.5;
+    float localV = (corner.y + 1.0) * 0.5;
+    float itemReturnMaxFrames = max(kindDataA.x, 1.0);
+    float itemReturnFrameIndex = mod(floor(lifecycle.x / itemReturnSpriteTicksPerFrame), itemReturnMaxFrames);
+    float itemReturnUvX = (localU + itemReturnFrameIndex) / itemReturnSpriteFrameCount;
+    vUv = vec2(isMapItemReturn ? itemReturnUvX : localU, localV);
     vParticleKind = particleKind;
     vAge = lifecycle.x;
 }

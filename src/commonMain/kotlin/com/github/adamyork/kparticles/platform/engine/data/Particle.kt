@@ -55,7 +55,9 @@ data class Particle(
     val viewportBound: Boolean,
     var xForce: Double = 0.0,
     var yForce: Double = 0.0,
-    var gpuReservedSlot: Int = -1
+    var gpuReservedSlot: Int = -1,
+    var frame: Int = 0,
+    val maxFrames: Int = 1
 ) {
     companion object {
         private const val VISIBILITY_BUFFER = 50

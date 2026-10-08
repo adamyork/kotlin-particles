@@ -67,6 +67,7 @@ abstract class UiMain(
                 ParticleEffect.FIREWORK_BURST,
                 ParticleEffect.FIREWORK_TAIL,
                 ParticleEffect.ITEM_RETURN,
+                ParticleEffect.ANIMATED_ITEM_RETURN,
                 ParticleEffect.COLLIDING_BITS,
                 ParticleEffect.GOBBLER,
                 ParticleEffect.BLACK_HOLE,
