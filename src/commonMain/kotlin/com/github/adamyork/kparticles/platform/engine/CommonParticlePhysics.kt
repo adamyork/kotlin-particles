@@ -83,6 +83,10 @@ class CommonParticlePhysics(
                 particle.zVelocity *= dragFactor
             }
 
+            if (particle.driftAmplitude != 0.0) {
+                particle.xVelocity = particle.driftAmplitude * cos(activeAge * particle.driftFrequency + particle.driftPhase)
+            }
+
             if (particle.maxXVelocity > 0.0) {
                 particle.xVelocity = particle.xVelocity.coerceIn(-particle.maxXVelocity, particle.maxXVelocity)
             }

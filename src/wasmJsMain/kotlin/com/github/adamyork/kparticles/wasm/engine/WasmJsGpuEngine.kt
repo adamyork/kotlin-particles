@@ -8,11 +8,13 @@ import com.github.adamyork.kparticles.platform.engine.EngineException
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
 import com.github.adamyork.kparticles.platform.engine.data.CommonImage
+import com.github.adamyork.kparticles.platform.engine.data.DrawResult
 import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.service.AssetService
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.service.data.ImageAsset
+import com.github.adamyork.kparticles.wasm.engine.data.WasmJsImage
 import com.github.adamyork.kparticles.wasm.gui.WasmJsUiParticleLayer
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.browser.window
@@ -121,6 +123,22 @@ class WasmJsGpuEngine(
         gpuParticleRenderer.draw(
             viewPort = viewPort,
             sizeMultiplier = physicsSettingsService.collisionParticleSizeMultiplier
+        )
+    }
+
+    override fun draw(
+        particles: ArrayList<Particle>,
+        viewPort: ViewPort,
+        timestamp: Double
+    ): DrawResult {
+        val foregroundSurface = getOrCreateForegroundSurface(viewPort)
+        val foregroundCanvas = foregroundSurface.canvas
+        foregroundCanvas.clear(0x00000000)
+        drawParticles(particles, viewPort, foregroundCanvas, mapItemImage)
+        val foregroundImage = foregroundSurface.makeImageSnapshot()
+        runtimeService.lastPaintTime = timestamp
+        return DrawResult(
+            foregroundImage = WasmJsImage(foregroundImage)
         )
     }
 

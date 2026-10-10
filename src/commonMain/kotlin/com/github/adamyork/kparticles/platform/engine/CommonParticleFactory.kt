@@ -96,6 +96,19 @@ class CommonParticleFactory(
         private const val ITEM_RETURN_DRAG: Double = 0.001
         private const val ANIMATED_ITEM_RETURN_MAX_FRAMES: Int = 8
 
+        private const val BUBBLE_COUNT: Int = 12
+        private const val BUBBLE_MIN_RADIUS: Double = 16.0
+        private const val BUBBLE_MAX_RADIUS: Double = 48.0
+        private const val BUBBLE_ALPHA: Double = 0.6
+        private const val BUBBLE_MIN_RISE_SPEED: Double = 0.3
+        private const val BUBBLE_RISE_SPEED_RANGE: Double = 0.9
+        private const val BUBBLE_LIFETIME: Double = 3000.0
+        private const val BUBBLE_SEQUENTIAL_DELAY_STEP: Double = 25.0
+        private const val BUBBLE_DRIFT_MIN_AMPLITUDE: Double = 0.05
+        private const val BUBBLE_DRIFT_AMPLITUDE_RANGE: Double = 0.1
+        private const val BUBBLE_DRIFT_MIN_FREQUENCY: Double = 0.0015
+        private const val BUBBLE_DRIFT_FREQUENCY_RANGE: Double = 0.0015
+
         private const val COLLIDING_BITS_PARTICLE_COUNT: Int = 100
         private const val COLLIDING_BITS_MIN_SIZE: Double = 8.0
         private const val COLLIDING_BITS_SIZE_RANGE: Double = 24.0
@@ -156,6 +169,7 @@ class CommonParticleFactory(
         private const val MAX_ACTIVE_FIREWORK_BURST_PARTICLES: Int = 512
         private const val MAX_ACTIVE_FIREWORK_TAIL_PARTICLES: Int = 1024
         private const val MAX_ACTIVE_STRESS_TEST_PARTICLES: Int = 2048
+        private const val MAX_ACTIVE_BUBBLE_PARTICLES: Int = 32
     }
 
     private var colorMap: Map<ParticleEffect, Color> = emptyMap()
@@ -166,6 +180,7 @@ class CommonParticleFactory(
     private var nextStressTestGpuSlot: Int = 0
     private var nextFireworkBurstGpuSlot: Int = 0
     private var nextFireworkTailGpuSlot: Int = 0
+    private var nextBubbleGpuSlot: Int = 0
 
     override fun populateColorMap(assetService: AssetService) {
         colorMap = mapOf(
@@ -209,6 +224,7 @@ class CommonParticleFactory(
             ParticleEffect.FIREWORK_TAIL -> createFireworkTailParticles(viewPort)
             ParticleEffect.ITEM_RETURN -> createItemReturnParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0, ParticleEffect.ITEM_RETURN)
             ParticleEffect.ANIMATED_ITEM_RETURN -> createItemReturnParticles(x, y, destinationX ?: rightEdge, destinationY ?: 0.0, ParticleEffect.ANIMATED_ITEM_RETURN)
+            ParticleEffect.BUBBLE -> createBubbleParticles(viewPort)
             ParticleEffect.COLLIDING_BITS -> createCollidingBitsParticles(viewPort)
             ParticleEffect.GOBBLER -> createGobblerParticles(viewPort)
             ParticleEffect.BLACK_HOLE -> createBlackHoleParticles(viewPort)
@@ -631,6 +647,74 @@ class CommonParticleFactory(
         )
     }
 
+    private fun createBubbleParticles(viewPort: ViewPort): MutableList<Particle> {
+        val particles = mutableListOf<Particle>()
+        repeat(BUBBLE_COUNT) { bubbleIndex ->
+            val radius = Random.nextDouble() * (BUBBLE_MAX_RADIUS - BUBBLE_MIN_RADIUS) + BUBBLE_MIN_RADIUS
+            val diameter = radius * 2.0
+            val spawnX = viewPort.x + Random.nextDouble() * viewPort.width
+            val spawnY = viewPort.y + Random.nextDouble() * viewPort.height
+            val riseSpeed = Random.nextDouble() * BUBBLE_RISE_SPEED_RANGE + BUBBLE_MIN_RISE_SPEED
+            val driftAmplitude = Random.nextDouble() * BUBBLE_DRIFT_AMPLITUDE_RANGE + BUBBLE_DRIFT_MIN_AMPLITUDE
+            val driftFrequency = Random.nextDouble() * BUBBLE_DRIFT_FREQUENCY_RANGE + BUBBLE_DRIFT_MIN_FREQUENCY
+            val driftPhase = Random.nextDouble() * (2.0 * PI)
+            val sequentialDelay = bubbleIndex * BUBBLE_SEQUENTIAL_DELAY_STEP
+            particles += Particle(
+                id = Random.nextInt().toString(16),
+                effect = ParticleEffect.BUBBLE,
+                shape = ParticleShape.CIRCLE,
+                age = 0.0,
+                delay = sequentialDelay,
+                lifetime = BUBBLE_LIFETIME,
+                color = Color.White,
+                startColor = Color.White,
+                endColor = Color.White,
+                alpha = BUBBLE_ALPHA,
+                endAlpha = BUBBLE_ALPHA,
+                initialAlpha = BUBBLE_ALPHA,
+                alphaMultiplier = 0.0,
+                width = diameter,
+                height = diameter,
+                maxWidth = DEFAULT_MAX_WIDTH,
+                maxHeight = DEFAULT_MAX_HEIGHT,
+                radius = radius,
+                maxRadius = DEFAULT_MAX_RADIUS,
+                growthRate = 0.0,
+                x = spawnX,
+                y = spawnY,
+                z = 0.0,
+                originX = spawnX.roundToInt(),
+                originY = spawnY.roundToInt(),
+                originZ = 0,
+                destinationX = spawnX.roundToInt(),
+                destinationY = (spawnY - viewPort.height).roundToInt(),
+                destinationZ = 0,
+                xVelocity = 0.0,
+                yVelocity = -riseSpeed,
+                zVelocity = 0.0,
+                maxXVelocity = 0.0,
+                maxYVelocity = 0.0,
+                maxZVelocity = DEFAULT_MAX_VELOCITY,
+                xAcceleration = 0.0,
+                yAcceleration = 0.0,
+                zAcceleration = 0.0,
+                drag = 0.0,
+                mass = 0.0,
+                restitution = 0.0,
+                attraction = 0.0,
+                canCollide = false,
+                visible = true,
+                viewportBound = false,
+                driftAmplitude = driftAmplitude,
+                driftFrequency = driftFrequency,
+                driftPhase = driftPhase,
+                gpuReservedSlot = nextBubbleGpuSlot
+            )
+            nextBubbleGpuSlot = (nextBubbleGpuSlot + 1) % MAX_ACTIVE_BUBBLE_PARTICLES
+        }
+        return particles
+    }
+
     private fun createCollidingBitsParticles(
         viewPort: ViewPort
     ): MutableList<Particle> {
@@ -1038,6 +1122,8 @@ class CommonParticleFactory(
             MAX_ACTIVE_FIREWORK_TAIL_PARTICLES.coerceAtMost(remainingAfterFireworkBurst)
         val remainingAfterFireworkTail = (remainingAfterFireworkBurst - reservedFireworkTailSlots).coerceAtLeast(0)
         val reservedStressTestSlots = MAX_ACTIVE_STRESS_TEST_PARTICLES.coerceAtMost(remainingAfterFireworkTail)
+        val remainingAfterStressTest = (remainingAfterFireworkTail - reservedStressTestSlots).coerceAtLeast(0)
+        val reservedBubbleSlots = MAX_ACTIVE_BUBBLE_PARTICLES.coerceAtMost(remainingAfterStressTest)
         val firstMapItemReturnSlot = clampedMaxParticles - reservedMapItemReturnSlots
         val firstProjectileSlot = firstMapItemReturnSlot - reservedProjectileSlots
         val firstCollidingBitsSlot = firstProjectileSlot - reservedCollidingBitsSlots
@@ -1047,7 +1133,8 @@ class CommonParticleFactory(
         val firstFireworkBurstSlot = firstBlackHoleExplosionSlot - reservedFireworkBurstSlots
         val firstFireworkTailSlot = firstFireworkBurstSlot - reservedFireworkTailSlots
         val firstStressTestSlot = firstFireworkTailSlot - reservedStressTestSlots
-        val ringBufferCapacity = firstStressTestSlot.coerceAtLeast(0)
+        val firstBubbleSlot = firstStressTestSlot - reservedBubbleSlots
+        val ringBufferCapacity = firstBubbleSlot.coerceAtLeast(0)
 
         var slot = if (ringBufferCapacity > 0) startSlot.mod(ringBufferCapacity) else 0
         for (particle in mapParticles) {
@@ -1065,6 +1152,10 @@ class CommonParticleFactory(
             val isBlackHoleCore = particle.effect == ParticleEffect.BLACK_HOLE && particle.delay > 0.0
             val isBlackHoleExplosion = particle.effect == ParticleEffect.BLACK_HOLE && particle.delay <= 0.0
             val isStressTest = particle.effect == ParticleEffect.STRESS_TEST
+            val isBubble = particle.effect == ParticleEffect.BUBBLE
+            if (isBubble && !particle.visible) {
+                continue
+            }
             val slotIndex = if (isAnyProjectile && reservedProjectileSlots > 0) {
                 val projectileSlotOffset = 0
                 firstProjectileSlot + projectileSlotOffset
@@ -1085,6 +1176,8 @@ class CommonParticleFactory(
                 firstFireworkTailSlot + particle.gpuReservedSlot.mod(reservedFireworkTailSlots)
             } else if (isStressTest && reservedStressTestSlots > 0) {
                 firstStressTestSlot + particle.gpuReservedSlot.mod(reservedStressTestSlots)
+            } else if (isBubble && reservedBubbleSlots > 0) {
+                firstBubbleSlot + particle.gpuReservedSlot.mod(reservedBubbleSlots)
             } else {
                 slot
             }
@@ -1147,6 +1240,7 @@ class CommonParticleFactory(
                 isBlackHoleCore -> 9f
                 isBlackHoleExplosion -> 10f
                 isStressTest -> 11f
+                particle.effect == ParticleEffect.BUBBLE -> 13f
                 else -> 0f
             }
             targetBuffer[writeIndex++] = particleKind
@@ -1192,7 +1286,7 @@ class CommonParticleFactory(
             activeCount++
             if (!isAnyProjectile && !isMapItemReturn && !isCollidingBits && !isGobbler &&
                 !isBlackHoleCore && !isBlackHoleExplosion && !isFireworkBurst && !isFireworkTail &&
-                !isStressTest && ringBufferCapacity > 0
+                !isStressTest && !isBubble && ringBufferCapacity > 0
             ) {
                 slot = (slot + 1) % ringBufferCapacity
             }

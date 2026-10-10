@@ -68,6 +68,7 @@ abstract class UiMain(
                 ParticleEffect.FIREWORK_TAIL,
                 ParticleEffect.ITEM_RETURN,
                 ParticleEffect.ANIMATED_ITEM_RETURN,
+                ParticleEffect.BUBBLE,
                 ParticleEffect.COLLIDING_BITS,
                 ParticleEffect.GOBBLER,
                 ParticleEffect.BLACK_HOLE,
@@ -181,7 +182,10 @@ abstract class UiMain(
                             selectedParticleMode = selectedParticleMode,
                             isParticleModeMenuExpanded = isParticleModeMenuExpanded,
                             onParticleModeMenuExpandedChange = { isParticleModeMenuExpanded = it },
-                            onParticleModeSelected = { selectedParticleMode = it },
+                            onParticleModeSelected = {
+                                selectedParticleMode = it
+                                controller.setSelectedParticleEffect(it)
+                            },
                             colorScheme = colorScheme,
                             dropdownButtonColors = dropdownButtonColors,
                             dropdownMenuTextColor = dropdownMenuTextColor,
@@ -263,7 +267,10 @@ abstract class UiMain(
                                 selectedParticleMode = selectedParticleMode,
                                 isParticleModeMenuExpanded = isParticleModeMenuExpanded,
                                 onParticleModeMenuExpandedChange = { isParticleModeMenuExpanded = it },
-                                onParticleModeSelected = { selectedParticleMode = it },
+                                onParticleModeSelected = {
+                                    selectedParticleMode = it
+                                    controller.setSelectedParticleEffect(it)
+                                },
                                 colorScheme = colorScheme,
                                 dropdownButtonColors = dropdownButtonColors,
                                 dropdownMenuTextColor = dropdownMenuTextColor,

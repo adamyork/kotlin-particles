@@ -43,6 +43,17 @@ open class AndroidEngine(
     collision
 ) {
 
+    private companion object {
+        const val BUBBLE_FILL_TOP_LEFT_COLOR: Int = 0x66FFFFFF.toInt()
+        const val BUBBLE_FILL_BOTTOM_RIGHT_COLOR: Int = 0x0DFFFFFF.toInt()
+        const val BUBBLE_RIM_COLOR: Int = 0xCCFFFFFF.toInt()
+        const val BUBBLE_RIM_STROKE_WIDTH: Float = 2f
+        const val BUBBLE_HIGHLIGHT_COLOR: Int = 0xE6FFFFFF.toInt()
+        const val BUBBLE_HIGHLIGHT_TRANSPARENT_COLOR: Int = 0x00FFFFFF
+        const val BUBBLE_HIGHLIGHT_RADIUS_RATIO: Float = 0.28f
+        const val BUBBLE_HIGHLIGHT_OFFSET_RATIO: Float = 0.38f
+    }
+
     private val logger = KotlinLogging.logger {}
 
     override var foregroundSurface: Any? = null
@@ -61,6 +72,13 @@ open class AndroidEngine(
         style = Paint.Style.FILL
     }
     private val projectileBlobPath = Path()
+    private val bubbleFillPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val bubbleRimPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = BUBBLE_RIM_STROKE_WIDTH
+        color = BUBBLE_RIM_COLOR
+    }
+    private val bubbleHighlightPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private val particleSrcRect = Rect()
     private val particleRectF = RectF()
@@ -101,11 +119,70 @@ open class AndroidEngine(
         val foregroundBitmap = getOrCreateForegroundSurface(viewPort) as Bitmap
         val foregroundCanvas = Canvas(foregroundBitmap)
         foregroundCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-        drawParticles(particles, viewPort, foregroundCanvas, mapItemImage)
+        if (selectedParticleEffect == ParticleEffect.BUBBLE) {
+            val bubbleParticles = ArrayList<Particle>()
+            val remainingParticles = ArrayList<Particle>()
+            for (i in particles.indices) {
+                val particle = particles[i]
+                if (particle.effect == ParticleEffect.BUBBLE) {
+                    if (particle.visible) {
+                        bubbleParticles.add(particle)
+                    }
+                } else {
+                    remainingParticles.add(particle)
+                }
+            }
+            drawParticles(remainingParticles, viewPort, foregroundCanvas, mapItemImage)
+            if (bubbleParticles.isNotEmpty()) {
+                drawBubbles(bubbleParticles, viewPort, foregroundCanvas)
+            }
+        } else {
+            drawParticles(particles, viewPort, foregroundCanvas, mapItemImage)
+        }
         runtimeService.lastPaintTime = timestamp
         return DrawResult(
             foregroundImage = AndroidImage(foregroundBitmap),
         )
+    }
+
+    private fun drawBubbles(
+        particles: List<Particle>,
+        viewPort: ViewPort,
+        canvas: Canvas
+    ) {
+        val vpX = viewPort.x.toFloat()
+        val vpY = viewPort.y.toFloat()
+        for (i in particles.indices) {
+            val particle = particles[i]
+            val centerX = particle.x.toFloat() - vpX
+            val centerY = particle.y.toFloat() - vpY
+            val radius = particle.radius.toFloat()
+            bubbleFillPaint.shader = LinearGradient(
+                centerX - radius,
+                centerY - radius,
+                centerX + radius,
+                centerY + radius,
+                BUBBLE_FILL_TOP_LEFT_COLOR,
+                BUBBLE_FILL_BOTTOM_RIGHT_COLOR,
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawCircle(centerX, centerY, radius, bubbleFillPaint)
+            val rimRadius = radius - (BUBBLE_RIM_STROKE_WIDTH / 2f)
+            canvas.drawCircle(centerX, centerY, rimRadius, bubbleRimPaint)
+            val highlightRadius = radius * BUBBLE_HIGHLIGHT_RADIUS_RATIO
+            val highlightOffset = radius * BUBBLE_HIGHLIGHT_OFFSET_RATIO
+            val highlightCenterX = centerX - highlightOffset
+            val highlightCenterY = centerY - highlightOffset
+            bubbleHighlightPaint.shader = RadialGradient(
+                highlightCenterX,
+                highlightCenterY,
+                highlightRadius,
+                BUBBLE_HIGHLIGHT_COLOR,
+                BUBBLE_HIGHLIGHT_TRANSPARENT_COLOR,
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawCircle(highlightCenterX, highlightCenterY, highlightRadius, bubbleHighlightPaint)
+        }
     }
 
     protected open fun drawParticles(

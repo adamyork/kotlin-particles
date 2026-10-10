@@ -20,6 +20,7 @@ out float vShapeFlag;
 out vec2 vUv;
 out float vParticleKind;
 out float vAge;
+out float vPixelRadius;
 
 const float blobProjectileQuadSizeMultiplier = 1.4;
 const float itemReturnSpriteFrameCount = 8.0;
@@ -52,6 +53,7 @@ void main() {
         vUv = vec2(0.0, 0.0);
         vParticleKind = 0.0;
         vAge = 0.0;
+        vPixelRadius = 0.0;
         return;
     }
 
@@ -105,4 +107,5 @@ void main() {
     vUv = vec2(isMapItemReturn ? itemReturnUvX : localU, localV);
     vParticleKind = particleKind;
     vAge = lifecycle.x;
+    vPixelRadius = halfWidth;
 }

@@ -169,7 +169,8 @@ void main() {
                 (wasStressTest && typeInfo.w >= 4.0);
         bool isFreshSpawnInstance = spawnLifecycle.x < 1.0;
         bool isProjectileSpawn = (spawnKind > 1.5 && spawnKind <= 2.5) || (spawnKind > 11.5 && spawnKind <= 12.5);
-        bool preserveGpuState = (spawnKind > 1.5 && lifecycle.w > 0.5 && !(isProjectileSpawn && isFreshSpawnInstance)) ||
+        bool isBubbleSpawn = spawnKind > 12.5 && spawnKind <= 13.5;
+        bool preserveGpuState = (spawnKind > 1.5 && lifecycle.w > 0.5 && !(isProjectileSpawn && isFreshSpawnInstance) && !isBubbleSpawn) ||
                 (wasConsumed && !isFreshSpawnInstance);
         if (!preserveGpuState) {
             positionVelocity = spawnPositionVelocity;
@@ -514,6 +515,14 @@ void main() {
                 }
             }
         } else if (particleKind > 0.5 && particleKind <= 1.5) {
+            lifecycle.x = lifecycle.x + elapsedTicks;
+            if (lifecycle.x >= lifecycle.y) {
+                lifecycle.w = 0.0;
+            } else {
+                positionVelocity.x = positionVelocity.x + (positionVelocity.z * elapsedTicks);
+                positionVelocity.y = positionVelocity.y + (positionVelocity.w * elapsedTicks);
+            }
+        } else if (particleKind > 12.5 && particleKind <= 13.5) {
             lifecycle.x = lifecycle.x + elapsedTicks;
             if (lifecycle.x >= lifecycle.y) {
                 lifecycle.w = 0.0;

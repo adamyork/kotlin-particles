@@ -170,7 +170,8 @@ fn computeMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
         (wasStressTest && typeInfo.w >= 4.0);
     let isFreshSpawnInstance = spawnLifecycle.x < 1.0;
     let isProjectileSpawn = (spawnKind > 1.5 && spawnKind <= 2.5) || (spawnKind > 11.5 && spawnKind <= 12.5);
-    let preserveGpuState = (spawnKind > 1.5 && lifecycle.w > 0.5 && !(isProjectileSpawn && isFreshSpawnInstance)) ||
+    let isBubbleSpawn = spawnKind > 12.5 && spawnKind <= 13.5;
+    let preserveGpuState = (spawnKind > 1.5 && lifecycle.w > 0.5 && !(isProjectileSpawn && isFreshSpawnInstance) && !isBubbleSpawn) ||
         (wasConsumed && !isFreshSpawnInstance);
     if (!preserveGpuState) {
       positionVelocity = spawnPositionVelocity;
@@ -523,6 +524,14 @@ fn computeMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
         positionVelocity.x = positionVelocity.x + (positionVelocity.z * elapsedTicks);
         positionVelocity.y = positionVelocity.y + (positionVelocity.w * elapsedTicks);
       }
+    } else if (particleKind > 12.5 && particleKind <= 13.5) {
+      lifecycle.x = lifecycle.x + elapsedTicks;
+      if (lifecycle.x >= lifecycle.y) {
+        lifecycle.w = 0.0;
+      } else {
+        positionVelocity.x = positionVelocity.x + (positionVelocity.z * elapsedTicks);
+        positionVelocity.y = positionVelocity.y + (positionVelocity.w * elapsedTicks);
+      }
     } else if (particleKind > 10.5 && particleKind <= 11.5) {
       const stressTestAttractionPerMass = 10.0;
       let myDelay = kindDataB.x;
@@ -698,6 +707,7 @@ struct VertexOutput {
   @location(3) uv: vec2<f32>,
   @location(4) particleKind: f32,
   @location(5) age: f32,
+  @location(6) pixelRadius: f32,
 };
 
 @group(0) @binding(0) var<storage, read> renderParticles: ParticleBuffer;
@@ -747,6 +757,7 @@ fn vertexMain(
     out.uv = vec2<f32>(0.0, 0.0);
     out.particleKind = 0.0;
     out.age = 0.0;
+    out.pixelRadius = 0.0;
     return out;
   }
   let scale = renderUniforms.renderScale.x;
@@ -799,6 +810,7 @@ fn vertexMain(
   out.uv = vec2<f32>(select(localU, itemReturnUvX, isMapItemReturn), localV);
   out.particleKind = particleKind;
   out.age = lifecycle.x;
+  out.pixelRadius = halfWidth;
   return out;
 }
 
@@ -813,6 +825,43 @@ fn shouldDiscardBlobProjectile(quadCoordinate: vec2<f32>, age: f32) -> bool {
   return pixelDistance > boundaryScale;
 }
 
+const bubbleFillTopLeftAlpha = 0.4;
+const bubbleFillBottomRightAlpha = 0.051;
+const bubbleRimAlpha = 0.8;
+const bubbleRimStrokeWidthPixels = 2.0;
+const bubbleHighlightAlpha = 0.9;
+const bubbleHighlightRadiusRatio = 0.28;
+const bubbleHighlightOffsetRatio = 0.38;
+
+fn bubbleFragmentColor(quadCoordinate: vec2<f32>, pixelRadius: f32) -> vec4<f32> {
+  let distanceFromCenter = length(quadCoordinate);
+  if (distanceFromCenter > 1.0) {
+    return vec4<f32>(0.0, 0.0, 0.0, 0.0);
+  }
+  let diagonal = (quadCoordinate.x + quadCoordinate.y) * 0.5;
+  let gradientProgress = clamp((diagonal + 1.0) * 0.5, 0.0, 1.0);
+  let fillAlpha = mix(bubbleFillTopLeftAlpha, bubbleFillBottomRightAlpha, gradientProgress);
+  var outColor = vec4<f32>(1.0, 1.0, 1.0, fillAlpha);
+  let rimStrokeWidthNormalized = bubbleRimStrokeWidthPixels / max(pixelRadius, 1.0);
+  let rimInnerEdge = 1.0 - rimStrokeWidthNormalized;
+  if (distanceFromCenter >= rimInnerEdge) {
+    outColor = vec4<f32>(
+      mix(outColor.rgb, vec3<f32>(1.0, 1.0, 1.0), bubbleRimAlpha),
+      outColor.a + (bubbleRimAlpha * (1.0 - outColor.a))
+    );
+  }
+  let highlightCenter = vec2<f32>(-bubbleHighlightOffsetRatio, -bubbleHighlightOffsetRatio);
+  let highlightDistance = length(quadCoordinate - highlightCenter) / bubbleHighlightRadiusRatio;
+  if (highlightDistance < 1.0) {
+    let highlightSourceAlpha = bubbleHighlightAlpha * (1.0 - highlightDistance);
+    outColor = vec4<f32>(
+      mix(outColor.rgb, vec3<f32>(1.0, 1.0, 1.0), highlightSourceAlpha),
+      outColor.a + (highlightSourceAlpha * (1.0 - outColor.a))
+    );
+  }
+  return outColor;
+}
+
 @fragment
 fn fragmentMainNonDust(
   @location(0) color: vec4<f32>,
@@ -820,7 +869,8 @@ fn fragmentMainNonDust(
   @location(2) shapeFlag: f32,
   @location(3) uv: vec2<f32>,
   @location(4) particleKind: f32,
-  @location(5) age: f32
+  @location(5) age: f32,
+  @location(6) pixelRadius: f32
 ) -> @location(0) vec4<f32> {
   let isDust = particleKind > 0.5 && particleKind <= 1.5;
   if (isDust) {
@@ -835,6 +885,9 @@ fn fragmentMainNonDust(
       return vec4<f32>(0.0, 0.0, 0.0, 0.0);
     }
     return color;
+  }
+  if (particleKind > 12.5 && particleKind <= 13.5) {
+    return bubbleFragmentColor(quadCoordinate, pixelRadius);
   }
   if (shouldDiscardCircle(shapeFlag, quadCoordinate)) {
     return vec4<f32>(0.0, 0.0, 0.0, 0.0);

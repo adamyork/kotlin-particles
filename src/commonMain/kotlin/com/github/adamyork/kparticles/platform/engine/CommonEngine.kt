@@ -7,6 +7,7 @@ import com.github.adamyork.kparticles.platform.engine.data.CommonImage
 import com.github.adamyork.kparticles.platform.engine.data.CompletedParticleResult
 import com.github.adamyork.kparticles.platform.engine.data.DrawResult
 import com.github.adamyork.kparticles.platform.engine.data.Particle
+import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
 import com.github.adamyork.kparticles.platform.service.AssetService
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.service.data.ImageAsset
@@ -29,6 +30,8 @@ abstract class CommonEngine @AppScope @Inject constructor(
     private val logger = KotlinLogging.logger {}
 
     protected val completedParticleResults: ArrayList<CompletedParticleResult> = ArrayList()
+
+    override var selectedParticleEffect: ParticleEffect? = null
 
     abstract var mapItemImage: CommonImage
 

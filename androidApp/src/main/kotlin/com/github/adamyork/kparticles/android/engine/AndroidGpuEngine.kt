@@ -10,6 +10,7 @@ import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
 import com.github.adamyork.kparticles.platform.engine.data.CommonImage
 import com.github.adamyork.kparticles.platform.engine.data.Particle
+import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
 import com.github.adamyork.kparticles.platform.service.AssetService
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import com.github.adamyork.kparticles.platform.service.RuntimeService
@@ -80,7 +81,7 @@ class AndroidGpuEngine(
         if (spawnedParticleCount > 0) {
             nextGpuSpawnSlot = (nextGpuSpawnSlot + spawnedParticleCount) % gpuParticleBufferCapacity
         }
-        particles.clear()
+        particles.removeAll { particle -> !(particle.effect == ParticleEffect.BUBBLE && !particle.visible) }
         val tunedSpeed = physicsSettingsService.collisionParticleSpeedCoefficient.toFloat().coerceAtLeast(0.05f)
         androidPendingGpuFrame = AndroidPendingGpuFrame(
             activeParticleCount = spawnedParticleCount,

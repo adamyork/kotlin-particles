@@ -54,6 +54,25 @@ open class WasmJsEngine(
     override val particlePaint = Paint().apply { isAntiAlias = false; mode = PaintMode.FILL }
     override val mapItemReturnPaint = Paint().apply { isAntiAlias = true }
     private val projectileBlobPaint = Paint().apply { isAntiAlias = true; mode = PaintMode.FILL }
+    private val bubbleFillPaint = Paint().apply { isAntiAlias = true }
+    private val bubbleRimPaint = Paint().apply {
+        isAntiAlias = true
+        mode = PaintMode.STROKE
+        color = BUBBLE_RIM_COLOR
+        strokeWidth = BUBBLE_RIM_STROKE_WIDTH
+    }
+    private val bubbleHighlightPaint = Paint().apply { isAntiAlias = true }
+
+    private companion object {
+        const val BUBBLE_FILL_TOP_LEFT_COLOR: Int = 0x66FFFFFF.toInt()
+        const val BUBBLE_FILL_BOTTOM_RIGHT_COLOR: Int = 0x0DFFFFFF.toInt()
+        const val BUBBLE_RIM_COLOR: Int = 0xCCFFFFFF.toInt()
+        const val BUBBLE_RIM_STROKE_WIDTH: Float = 2f
+        const val BUBBLE_HIGHLIGHT_COLOR: Int = 0xE6FFFFFF.toInt()
+        const val BUBBLE_HIGHLIGHT_TRANSPARENT_COLOR: Int = 0x00FFFFFF
+        const val BUBBLE_HIGHLIGHT_RADIUS_RATIO: Float = 0.28f
+        const val BUBBLE_HIGHLIGHT_OFFSET_RATIO: Float = 0.38f
+    }
 
     override fun getOrCreateForegroundSurface(viewPort: ViewPort): Surface =
         (foregroundSurface as Surface?) ?: Surface.makeRaster(ImageInfo.makeN32Premul(viewPort.width, viewPort.height))
@@ -83,12 +102,81 @@ open class WasmJsEngine(
         val foregroundSurface = getOrCreateForegroundSurface(viewPort)
         val foregroundCanvas = foregroundSurface.canvas
         foregroundCanvas.clear(0x00000000)
-        drawParticles(particles, viewPort, foregroundCanvas, mapItemImage)
+        if (selectedParticleEffect == ParticleEffect.BUBBLE) {
+            val bubbleParticles = ArrayList<Particle>()
+            val remainingParticles = ArrayList<Particle>()
+            var particleIndex = 0
+            while (particleIndex < particles.size) {
+                val particle = particles[particleIndex]
+                if (particle.effect == ParticleEffect.BUBBLE) {
+                    if (particle.visible) {
+                        bubbleParticles.add(particle)
+                    }
+                } else {
+                    remainingParticles.add(particle)
+                }
+                particleIndex++
+            }
+            drawParticles(remainingParticles, viewPort, foregroundCanvas, mapItemImage)
+            if (bubbleParticles.isNotEmpty()) {
+                drawBubbles(bubbleParticles, viewPort, foregroundCanvas)
+            }
+        } else {
+            drawParticles(particles, viewPort, foregroundCanvas, mapItemImage)
+        }
         val foregroundImage = foregroundSurface.makeImageSnapshot()
         runtimeService.lastPaintTime = timestamp
         return DrawResult(
             foregroundImage = WasmJsImage(foregroundImage),
         )
+    }
+
+    private fun drawBubbles(
+        particles: List<Particle>,
+        viewPort: ViewPort,
+        canvas: Canvas
+    ) {
+        val viewPortOffsetX = viewPort.x.toFloat()
+        val viewPortOffsetY = viewPort.y.toFloat()
+        var particleIndex = 0
+        while (particleIndex < particles.size) {
+            val particle = particles[particleIndex]
+            val centerX = particle.x.toFloat() - viewPortOffsetX
+            val centerY = particle.y.toFloat() - viewPortOffsetY
+            val radius = particle.radius.toFloat()
+            val fillShader = Shader.makeLinearGradient(
+                centerX - radius,
+                centerY - radius,
+                centerX + radius,
+                centerY + radius,
+                intArrayOf(BUBBLE_FILL_TOP_LEFT_COLOR, BUBBLE_FILL_BOTTOM_RIGHT_COLOR)
+            )
+            try {
+                bubbleFillPaint.shader = fillShader
+                canvas.drawCircle(centerX, centerY, radius, bubbleFillPaint)
+            } finally {
+                fillShader.close()
+            }
+            val rimRadius = radius - (BUBBLE_RIM_STROKE_WIDTH / 2f)
+            canvas.drawCircle(centerX, centerY, rimRadius, bubbleRimPaint)
+            val highlightRadius = radius * BUBBLE_HIGHLIGHT_RADIUS_RATIO
+            val highlightOffset = radius * BUBBLE_HIGHLIGHT_OFFSET_RATIO
+            val highlightCenterX = centerX - highlightOffset
+            val highlightCenterY = centerY - highlightOffset
+            val highlightShader = Shader.makeRadialGradient(
+                highlightCenterX,
+                highlightCenterY,
+                highlightRadius,
+                intArrayOf(BUBBLE_HIGHLIGHT_COLOR, BUBBLE_HIGHLIGHT_TRANSPARENT_COLOR)
+            )
+            try {
+                bubbleHighlightPaint.shader = highlightShader
+                canvas.drawCircle(highlightCenterX, highlightCenterY, highlightRadius, bubbleHighlightPaint)
+            } finally {
+                highlightShader.close()
+            }
+            particleIndex++
+        }
     }
 
     protected open fun drawParticles(

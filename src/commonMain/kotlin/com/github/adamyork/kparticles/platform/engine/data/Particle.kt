@@ -57,7 +57,10 @@ data class Particle(
     var yForce: Double = 0.0,
     var gpuReservedSlot: Int = -1,
     var frame: Int = 0,
-    val maxFrames: Int = 1
+    val maxFrames: Int = 1,
+    val driftAmplitude: Double = 0.0,
+    val driftFrequency: Double = 0.0,
+    val driftPhase: Double = 0.0
 ) {
     companion object {
         private const val VISIBILITY_BUFFER = 50

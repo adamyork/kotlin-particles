@@ -138,9 +138,12 @@ class UiController(
     }
 
 
+    fun setSelectedParticleEffect(effect: ParticleEffect) {
+        engine.selectedParticleEffect = effect
+    }
+
     fun createParticles(type: ParticleEffect) {
         val viewPort = stateElements.viewPort
-        logger.info { "createParticles: type=$type, viewport: x=${viewPort.x} y=${viewPort.y} w=${viewPort.width} h=${viewPort.height}" }
         val centerX = viewPort.x + (viewPort.width / 2.0)
         val centerY = viewPort.y + (viewPort.height / 2.0)
         val destinationX = viewPort.x + (viewPort.width * 0.75)
