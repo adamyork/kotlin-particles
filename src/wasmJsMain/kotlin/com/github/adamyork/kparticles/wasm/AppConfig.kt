@@ -2,6 +2,7 @@ package com.github.adamyork.kparticles.wasm
 
 
 import com.github.adamyork.kparticles.platform.AppScope
+import com.github.adamyork.kparticles.platform.engine.ParticleEffectGeneratorConfig
 import com.github.adamyork.kparticles.wasm.common.CommonConfig
 import com.github.adamyork.kparticles.wasm.engine.EngineConfig
 import com.github.adamyork.kparticles.wasm.gui.GuiConfig
@@ -14,4 +15,4 @@ import me.tatarka.inject.annotations.Component
  */
 @AppScope
 @Component
-abstract class AppConfig : GuiConfig, ServiceConfig, EngineConfig, CommonConfig
+abstract class AppConfig : GuiConfig, ServiceConfig, EngineConfig, CommonConfig, ParticleEffectGeneratorConfig
