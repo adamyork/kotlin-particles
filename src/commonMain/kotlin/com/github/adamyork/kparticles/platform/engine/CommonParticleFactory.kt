@@ -1137,6 +1137,7 @@ class CommonParticleFactory(
         val ringBufferCapacity = firstBubbleSlot.coerceAtLeast(0)
 
         var slot = if (ringBufferCapacity > 0) startSlot.mod(ringBufferCapacity) else 0
+        @Suppress("DestructuringDeclaration")
         for (particle in mapParticles) {
             if (activeCount >= clampedMaxParticles) break
 
@@ -1280,7 +1281,7 @@ class CommonParticleFactory(
             targetBuffer[writeIndex++] = if (isStressTest) particle.delay.toFloat() else 0f
             targetBuffer[writeIndex++] = 0f
             targetBuffer[writeIndex++] = 0f
-            targetBuffer[writeIndex++] = 0f
+            targetBuffer[writeIndex] = 0f
             dirtySlotFlags[slotIndex] = true
             writtenSlotFlags[slotIndex] = true
             activeCount++

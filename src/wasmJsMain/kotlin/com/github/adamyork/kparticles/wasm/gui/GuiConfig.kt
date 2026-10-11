@@ -4,8 +4,8 @@ import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.gui.CommonScreenDimensionsService
 import com.github.adamyork.kparticles.platform.gui.ScreenDimensionsService
 import com.github.adamyork.kparticles.platform.gui.TestBed
-import com.github.adamyork.sparrow.platform.gui.CommonTestBedColorScheme
-import com.github.adamyork.sparrow.platform.gui.TestBedColorScheme
+import com.github.adamyork.kparticles.platform.gui.CommonTestBedColorScheme
+import com.github.adamyork.kparticles.platform.gui.TestBedColorScheme
 import me.tatarka.inject.annotations.Provides
 
 /**

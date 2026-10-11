@@ -1,5 +1,6 @@
 package com.github.adamyork.kparticles.android.engine
 
+import android.graphics.Canvas
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.engine.Collision
@@ -9,6 +10,7 @@ import com.github.adamyork.kparticles.platform.engine.CommonSpatialGrid
 import com.github.adamyork.kparticles.platform.engine.Engine
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
+import com.github.adamyork.kparticles.platform.engine.Renderers
 import com.github.adamyork.kparticles.platform.engine.SpatialGrid
 import me.tatarka.inject.annotations.Provides
 
@@ -38,5 +40,8 @@ interface EngineConfig {
     @Provides
     fun provideSpatialGrid(impl: CommonSpatialGrid): SpatialGrid = impl
 
+    @AppScope
+    @Provides
+    fun provideRenderers(impl: AndroidCpuRenderers): Renderers<Canvas> = impl
 
 }

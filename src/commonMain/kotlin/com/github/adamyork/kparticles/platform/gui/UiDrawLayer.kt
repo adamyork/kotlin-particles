@@ -1,22 +1,14 @@
 package com.github.adamyork.kparticles.platform.gui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.github.adamyork.kparticles.platform.engine.EngineException
 import com.github.adamyork.kparticles.platform.engine.data.CommonImage
-import com.github.adamyork.kparticles.platform.gui.data.ScreenDimensions
 
 /**
  * Author: Adam York

@@ -4,9 +4,9 @@ package com.github.adamyork.kparticles.platform.engine.data
  * Author: Adam York
  * Copyright (c) Adam York
  */
-data class ParticleVector(
-    var x: Double = 0.0,
-    var y: Double = 0.0,
-    var z: Double = 0.0
-)
-
+enum class RenderType {
+    SIMPLE_SHAPE,
+    COMPLEX_SHAPE,
+    SPRITE,
+    ANIMATED_SPRITE
+}

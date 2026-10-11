@@ -3,7 +3,6 @@ package com.github.adamyork.kparticles.android.engine
 import android.content.Context
 import android.graphics.SurfaceTexture
 import android.opengl.*
-import android.view.MotionEvent
 import android.view.TextureView
 import com.github.adamyork.kparticles.android.engine.data.AndroidGpuParticleFrame
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
@@ -48,8 +47,6 @@ class AndroidGpuParticleRuntime {
     private var eglDisplay: EGLDisplay = EGL14.EGL_NO_DISPLAY
     private var eglContext: EGLContext = EGL14.EGL_NO_CONTEXT
     private var eglSurface: EGLSurface = EGL14.EGL_NO_SURFACE
-
-    fun observeHasActiveParticles(): StateFlow<Boolean> = hasActiveParticlesFlow
 
     fun setAsActiveRuntime() {
         activeRuntime = this
@@ -145,9 +142,7 @@ class AndroidGpuParticleRuntime {
     fun createTextureView(context: Context): TextureView {
         logger.info { "[GPU][Runtime] Creating TextureView (enabled=$enabled, maxParticles=$maxParticles)" }
         val glRenderer = renderer ?: createRenderer().also { renderer = it }
-        return object : TextureView(context) {
-            override fun onTouchEvent(event: MotionEvent?) = false
-        }.apply {
+        return TextureView(context).apply {
             isOpaque = false
             isClickable = false
             isFocusable = false

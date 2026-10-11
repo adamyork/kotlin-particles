@@ -5,9 +5,12 @@ import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.data.CommonImage
 import com.github.adamyork.kparticles.platform.engine.data.CompletedParticleResult
+import com.github.adamyork.kparticles.platform.engine.data.DrawFunctionData
 import com.github.adamyork.kparticles.platform.engine.data.DrawResult
 import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
+import com.github.adamyork.kparticles.platform.engine.data.RenderType
+import com.github.adamyork.kparticles.platform.engine.data.SpriteSheet
 import com.github.adamyork.kparticles.platform.service.AssetService
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.service.data.ImageAsset
@@ -18,13 +21,14 @@ import me.tatarka.inject.annotations.Inject
  * Author: Adam York
  * Copyright (c) Adam York
  */
-abstract class CommonEngine @AppScope @Inject constructor(
+abstract class CommonEngine<CanvasType> @AppScope @Inject constructor(
     val particlePhysics: ParticlePhysics,
     val particleFactory: ParticleFactory,
     val assetService: AssetService,
     val runtimeService: RuntimeService,
     val platformInterop: PlatformInterop,
     val collision: Collision,
+    protected val renderers: Renderers<CanvasType>,
 ) : Engine {
 
     private val logger = KotlinLogging.logger {}
@@ -35,14 +39,29 @@ abstract class CommonEngine @AppScope @Inject constructor(
 
     abstract var mapItemImage: CommonImage
 
+    protected var spriteSheet: SpriteSheet? = null
+
     abstract var foregroundSurface: Any?
 
     abstract val mapElementPaint: Any
-    abstract val particlePaint: Any
-    abstract val mapItemReturnPaint: Any
 
     abstract fun getOrCreateForegroundSurface(viewPort: ViewPort): Any
 
+    protected open fun drawParticles(
+        particles: List<Particle>,
+        viewPort: ViewPort,
+        canvas: CanvasType
+    ) {
+        // TODO: flagged for potential perf optimization - filter and groupBy allocate a new list and map every tick
+        val particlesByRenderType = particles
+            .filter { it.cullingCheck(viewPort) }
+            .groupBy { it.effect.renderType }
+        for (renderType in RenderType.entries) {
+            val renderTypeParticles = particlesByRenderType[renderType] ?: continue
+            val drawFunctionData = DrawFunctionData(renderTypeParticles, viewPort, canvas, spriteSheet)
+            renderers.getForType(renderType)(drawFunctionData)
+        }
+    }
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         throw EngineException("must implemented")
     }

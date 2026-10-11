@@ -4,6 +4,7 @@ import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.engine.*
 import me.tatarka.inject.annotations.Provides
+import org.jetbrains.skia.Canvas
 
 /**
  * Author: Adam York
@@ -34,5 +35,9 @@ interface EngineConfig {
     @AppScope
     @Provides
     fun provideSpatialGrid(impl: CommonSpatialGrid): SpatialGrid = impl
+
+    @AppScope
+    @Provides
+    fun provideRenderers(impl: WasmCpuRenderers): Renderers<Canvas> = impl
 
 }

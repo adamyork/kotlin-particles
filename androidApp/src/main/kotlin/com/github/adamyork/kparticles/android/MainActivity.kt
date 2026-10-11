@@ -12,7 +12,7 @@ import com.github.adamyork.kparticles.android.gui.AndroidPortraitGui
 import com.github.adamyork.kparticles.platform.LogConfig
 import com.github.adamyork.kparticles.platform.gui.TestBed
 import com.github.adamyork.kparticles.platform.gui.UiScaffold
-import com.github.adamyork.sparrow.platform.gui.TestBedColorScheme
+import com.github.adamyork.kparticles.platform.gui.TestBedColorScheme
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.github.oshai.kotlinlogging.Level
 import kotlinx.coroutines.launch

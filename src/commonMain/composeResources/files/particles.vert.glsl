@@ -33,8 +33,9 @@ vec2 quadCorner(int vertexIndex) {
         case 2: return vec2(1.0, 1.0);
         case 3: return vec2(-1.0, -1.0);
         case 4: return vec2(1.0, 1.0);
-        default: return vec2(-1.0, 1.0);
+        default: break;
     }
+    return vec2(-1.0, 1.0);
 }
 
 void main() {

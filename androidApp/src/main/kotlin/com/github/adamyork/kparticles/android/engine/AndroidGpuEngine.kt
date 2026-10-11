@@ -8,9 +8,10 @@ import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.Collision
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
-import com.github.adamyork.kparticles.platform.engine.data.CommonImage
+import com.github.adamyork.kparticles.platform.engine.data.DrawFunctionData
 import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
+import com.github.adamyork.kparticles.platform.engine.data.RenderType
 import com.github.adamyork.kparticles.platform.service.AssetService
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import com.github.adamyork.kparticles.platform.service.RuntimeService
@@ -31,24 +32,25 @@ class AndroidGpuEngine(
     assetService: AssetService,
     runtimeService: RuntimeService,
     platformInterop: PlatformInterop,
-    particleFactory: ParticleFactory
+    particleFactory: ParticleFactory,
+    private val gpuRenderers: AndroidGpuRenderers
 ) : AndroidEngine(
     particlePhysics,
     collision,
     particleFactory,
     assetService,
     runtimeService,
-    platformInterop
+    platformInterop,
+    gpuRenderers
 ) {
 
     private val logger = KotlinLogging.logger {}
 
-    private val gpuParticleBufferCapacity = ParticleFactory.DEFAULT_GPU_PARTICLE_CAPACITY
-    private val gpuParticleSpawnBuffer = particleFactory.createGpuParticleComputeBuffer(gpuParticleBufferCapacity)
-    private val gpuParticleRuntime = AndroidGpuParticleRuntime()
+    private val gpuParticleBufferCapacity = gpuRenderers.gpuParticleBufferCapacity
+    private val gpuParticleSpawnBuffer = gpuRenderers.gpuParticleSpawnBuffer
+    private val gpuParticleRuntime = gpuRenderers.gpuParticleRuntime
     private var nextGpuSpawnSlot: Int = 0
     private var previousGpuWrittenSlots: List<Int> = emptyList()
-    private var androidPendingGpuFrame: AndroidPendingGpuFrame? = null
 
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         logger.info { "Initializing GPU engine" }
@@ -83,7 +85,7 @@ class AndroidGpuEngine(
         }
         particles.removeAll { particle -> !(particle.effect == ParticleEffect.BUBBLE && !particle.visible) }
         val tunedSpeed = physicsSettingsService.collisionParticleSpeedCoefficient.toFloat().coerceAtLeast(0.05f)
-        androidPendingGpuFrame = AndroidPendingGpuFrame(
+        gpuRenderers.pendingGpuFrame = AndroidPendingGpuFrame(
             activeParticleCount = spawnedParticleCount,
             viewPortWidth = viewPort.width.toFloat(),
             viewPortHeight = viewPort.height.toFloat(),
@@ -97,26 +99,11 @@ class AndroidGpuEngine(
     }
 
     override fun drawParticles(
-        particles: ArrayList<Particle>,
+        particles: List<Particle>,
         viewPort: ViewPort,
-        canvas: Canvas,
-        mapItemImage: CommonImage?
+        canvas: Canvas
     ) {
-        val frame = androidPendingGpuFrame ?: return
-        androidPendingGpuFrame = null
-        gpuParticleRuntime.submitFrame(
-            activeParticleCount = frame.activeParticleCount,
-            sourceBuffer = gpuParticleSpawnBuffer,
-            viewPort = viewPort,
-            viewPortWidth = frame.viewPortWidth,
-            viewPortHeight = frame.viewPortHeight,
-            sizeMultiplier = physicsSettingsService.collisionParticleSizeMultiplier,
-            deltaTimeSeconds = frame.deltaTimeSeconds,
-            gravity = frame.gravity,
-            tickRate = frame.tickRate,
-            simulationSpeed = frame.simulationSpeed,
-            gravityBoost = frame.gravityBoost,
-            lifetimeDecay = frame.lifetimeDecay
-        )
+        renderers.getForType(RenderType.SIMPLE_SHAPE)(DrawFunctionData(particles, viewPort, canvas, spriteSheet))
     }
+
 }

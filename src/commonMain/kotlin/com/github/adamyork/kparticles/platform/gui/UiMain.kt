@@ -76,11 +76,9 @@ abstract class UiMain(
             )
         }
         var selectedParticleMode by remember { mutableStateOf(particleModes.first()) }
-        var isParticleModeMenuExpanded by remember { mutableStateOf(false) }
         val allTasksCompleted = controller.allTasksCompleted()
         val gameLifeCycleState = runtimeService.lifeCycleState
         val focusManager = LocalFocusManager.current
-        val colorScheme = MaterialTheme.colorScheme
         val overlayBg = Color(0xB3000000)
         val showLabels = !isLoadingChecklistVisible && (
                 gameLifeCycleState == LifeCycleState.INITIALIZED ||
@@ -88,15 +86,6 @@ abstract class UiMain(
                 )
         val overlayTextColor = Color.White
         val controlsShape = RoundedCornerShape(8.dp)
-        val createButtonColors = ButtonDefaults.buttonColors(
-            containerColor = colorScheme.primary,
-            contentColor = colorScheme.onPrimary
-        )
-        val dropdownButtonColors = ButtonDefaults.outlinedButtonColors(
-            containerColor = colorScheme.surface,
-            contentColor = colorScheme.onSurface
-        )
-        val dropdownMenuTextColor = colorScheme.primary
         val density = LocalDensity.current
         var viewportTopInRootPx by remember { mutableFloatStateOf(0f) }
 
@@ -177,25 +166,13 @@ abstract class UiMain(
 
                 if (gameLifeCycleState != LifeCycleState.INITIALIZING && controlsPlacement == ControlsPlacement.INLINE) {
                     Box(modifier = Modifier.padding(top = 20.dp)) {
-                        UiParticleControls().Build(
+                        UiDropDown().Build(
+                            controller = controller,
+                            platformInterop = platformInterop,
                             particleModes = particleModes,
                             selectedParticleMode = selectedParticleMode,
-                            isParticleModeMenuExpanded = isParticleModeMenuExpanded,
-                            onParticleModeMenuExpandedChange = { isParticleModeMenuExpanded = it },
-                            onParticleModeSelected = {
-                                selectedParticleMode = it
-                                controller.setSelectedParticleEffect(it)
-                            },
-                            colorScheme = colorScheme,
-                            dropdownButtonColors = dropdownButtonColors,
-                            dropdownMenuTextColor = dropdownMenuTextColor,
-                            createButtonColors = createButtonColors,
-                            controlsShape = controlsShape,
-                            onCreateClicked = {
-                                controller.createParticles(selectedParticleMode)
-                                focusManager.clearFocus(force = true)
-                                platformInterop.requestKeyboardFocus()
-                            }
+                            onParticleModeSelected = { selectedParticleMode = it },
+                            controlsShape = controlsShape
                         )
                     }
                 }
@@ -262,25 +239,13 @@ abstract class UiMain(
                                 .background(overlayBg, controlsShape)
                                 .padding(horizontal = 12.dp, vertical = 10.dp)
                         ) {
-                            UiParticleControls().Build(
+                            UiDropDown().Build(
+                                controller = controller,
+                                platformInterop = platformInterop,
                                 particleModes = particleModes,
                                 selectedParticleMode = selectedParticleMode,
-                                isParticleModeMenuExpanded = isParticleModeMenuExpanded,
-                                onParticleModeMenuExpandedChange = { isParticleModeMenuExpanded = it },
-                                onParticleModeSelected = {
-                                    selectedParticleMode = it
-                                    controller.setSelectedParticleEffect(it)
-                                },
-                                colorScheme = colorScheme,
-                                dropdownButtonColors = dropdownButtonColors,
-                                dropdownMenuTextColor = dropdownMenuTextColor,
-                                createButtonColors = createButtonColors,
-                                controlsShape = controlsShape,
-                                onCreateClicked = {
-                                    controller.createParticles(selectedParticleMode)
-                                    focusManager.clearFocus(force = true)
-                                    platformInterop.requestKeyboardFocus()
-                                }
+                                onParticleModeSelected = { selectedParticleMode = it },
+                                controlsShape = controlsShape
                             )
                         }
                     }

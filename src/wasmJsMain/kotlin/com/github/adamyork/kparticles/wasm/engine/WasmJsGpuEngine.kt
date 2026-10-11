@@ -7,14 +7,13 @@ import com.github.adamyork.kparticles.platform.engine.Collision
 import com.github.adamyork.kparticles.platform.engine.EngineException
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
-import com.github.adamyork.kparticles.platform.engine.data.CommonImage
-import com.github.adamyork.kparticles.platform.engine.data.DrawResult
+import com.github.adamyork.kparticles.platform.engine.data.DrawFunctionData
 import com.github.adamyork.kparticles.platform.engine.data.Particle
+import com.github.adamyork.kparticles.platform.engine.data.RenderType
 import com.github.adamyork.kparticles.platform.service.AssetService
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.service.data.ImageAsset
-import com.github.adamyork.kparticles.wasm.engine.data.WasmJsImage
 import com.github.adamyork.kparticles.wasm.gui.WasmJsUiParticleLayer
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.browser.window
@@ -38,14 +37,16 @@ class WasmJsGpuEngine(
     assetService: AssetService,
     runtimeService: RuntimeService,
     platformInterop: PlatformInterop,
-    collision: Collision
+    collision: Collision,
+    gpuRenderers: WasmGpuRenderers
 ) : WasmJsEngine(
     particlePhysics,
     particleFactory,
     assetService,
     runtimeService,
     platformInterop,
-    collision
+    collision,
+    gpuRenderers
 ) {
 
     private companion object {
@@ -55,7 +56,7 @@ class WasmJsGpuEngine(
 
     private val logger = KotlinLogging.logger {}
 
-    private val gpuParticleRenderer = WasmJsGpuParticleRenderer()
+    private val gpuParticleRenderer = gpuRenderers.gpuParticleRenderer
     private val gpuParticleBufferCapacity = ParticleFactory.DEFAULT_GPU_PARTICLE_CAPACITY
     private val gpuParticleSpawnBuffer = particleFactory.createGpuParticleComputeBuffer(gpuParticleBufferCapacity)
     private var gpuRendererReady: Boolean = false
@@ -115,33 +116,12 @@ class WasmJsGpuEngine(
     }
 
     override fun drawParticles(
-        particles: ArrayList<Particle>,
+        particles: List<Particle>,
         viewPort: ViewPort,
-        canvas: Canvas,
-        mapItemImage: CommonImage?
+        canvas: Canvas
     ) {
-        gpuParticleRenderer.draw(
-            viewPort = viewPort,
-            sizeMultiplier = physicsSettingsService.collisionParticleSizeMultiplier
-        )
+        renderers.getForType(RenderType.SIMPLE_SHAPE)(DrawFunctionData(particles, viewPort, canvas, spriteSheet))
     }
-
-    override fun draw(
-        particles: ArrayList<Particle>,
-        viewPort: ViewPort,
-        timestamp: Double
-    ): DrawResult {
-        val foregroundSurface = getOrCreateForegroundSurface(viewPort)
-        val foregroundCanvas = foregroundSurface.canvas
-        foregroundCanvas.clear(0x00000000)
-        drawParticles(particles, viewPort, foregroundCanvas, mapItemImage)
-        val foregroundImage = foregroundSurface.makeImageSnapshot()
-        runtimeService.lastPaintTime = timestamp
-        return DrawResult(
-            foregroundImage = WasmJsImage(foregroundImage)
-        )
-    }
-
     private suspend fun waitForOverlayCanvasReady(): HTMLCanvasElement? {
         val deadline = window.performance.now() + OVERLAY_CANVAS_WAIT_TIMEOUT_MS
         while (window.performance.now() < deadline) {

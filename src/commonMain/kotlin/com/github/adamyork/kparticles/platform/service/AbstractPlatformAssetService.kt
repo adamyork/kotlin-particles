@@ -1,6 +1,5 @@
 package com.github.adamyork.kparticles.platform.service
 
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import com.charleskorn.kaml.Yaml
 import com.github.adamyork.kparticles.platform.AppProperties
@@ -25,12 +24,6 @@ abstract class AbstractPlatformAssetService(
 
     companion object {
         fun getTmpImageBitmap(): ImageBitmap = ImageBitmap(1, 1)
-        private val COLOR_MAP = mapOf(
-            "green" to Color.Green, "white" to Color.White, "blue" to Color.Blue,
-            "darkgray" to Color.DarkGray, "red" to Color.Red, "gray" to Color.Gray,
-            "lightgray" to Color.LightGray, "yellow" to Color.Yellow,
-            "magenta" to Color.Magenta, "black" to Color.Black
-        )
     }
 
     protected val logger = KotlinLogging.logger {}

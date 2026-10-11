@@ -14,10 +14,4 @@ abstract class CommonTileCollision(
     particlePhysics: ParticlePhysics,
     spatialGrid: SpatialGrid,
     physicsSettingsService: PhysicsSettingsService,
-) : BaseCollision(particlePhysics, spatialGrid, physicsSettingsService) {
-
-    companion object {
-        private const val TILE_SIZE: Int = 16
-    }
-
-}
+) : BaseCollision(particlePhysics, spatialGrid, physicsSettingsService)

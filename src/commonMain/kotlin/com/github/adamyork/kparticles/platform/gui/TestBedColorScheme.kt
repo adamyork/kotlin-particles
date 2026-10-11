@@ -1,4 +1,4 @@
-package com.github.adamyork.sparrow.platform.gui
+package com.github.adamyork.kparticles.platform.gui
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Typography

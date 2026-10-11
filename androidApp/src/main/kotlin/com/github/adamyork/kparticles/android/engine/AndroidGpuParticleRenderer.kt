@@ -2,11 +2,14 @@ package com.github.adamyork.kparticles.android.engine
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.opengl.GLES20
 import android.opengl.GLES30
 import android.opengl.GLES31
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.set
 import com.github.adamyork.kparticles.android.engine.data.AndroidGpuParticleFrame
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.ByteBuffer
@@ -326,13 +329,13 @@ internal class AndroidGpuParticleRenderer(
 
     private fun decodeMapItemSpriteBitmap(): Bitmap {
         if (mapItemTextureBytes.isEmpty()) {
-            return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
-                setPixel(0, 0, android.graphics.Color.WHITE)
+            return createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
+                this[0, 0] = Color.WHITE
             }
         }
         return BitmapFactory.decodeByteArray(mapItemTextureBytes, 0, mapItemTextureBytes.size)
-            ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
-                setPixel(0, 0, android.graphics.Color.WHITE)
+            ?: createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
+                this[0, 0] = Color.WHITE
             }
     }
 
