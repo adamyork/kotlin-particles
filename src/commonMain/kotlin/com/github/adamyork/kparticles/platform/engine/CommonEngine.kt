@@ -41,6 +41,9 @@ abstract class CommonEngine<CanvasType> @AppScope @Inject constructor(
 
     protected var spriteSheet: SpriteSheet? = null
 
+    private val particlesByRenderType: Map<RenderType, ArrayList<Particle>> =
+        RenderType.entries.associateWith { ArrayList() }
+
     abstract var foregroundSurface: Any?
 
     abstract val mapElementPaint: Any
@@ -52,14 +55,23 @@ abstract class CommonEngine<CanvasType> @AppScope @Inject constructor(
         viewPort: ViewPort,
         canvas: CanvasType
     ) {
-        // TODO: flagged for potential perf optimization - filter and groupBy allocate a new list and map every tick
-        val particlesByRenderType = particles
-            .filter { it.cullingCheck(viewPort) }
-            .groupBy { it.effect.renderType }
+        groupVisibleParticlesByRenderType(particles, viewPort)
         for (renderType in RenderType.entries) {
-            val renderTypeParticles = particlesByRenderType[renderType] ?: continue
+            val renderTypeParticles = particlesByRenderType.getValue(renderType)
+            if (renderTypeParticles.isEmpty()) continue
             val drawFunctionData = DrawFunctionData(renderTypeParticles, viewPort, canvas, spriteSheet)
             renderers.getForType(renderType)(drawFunctionData)
+        }
+    }
+
+    private fun groupVisibleParticlesByRenderType(particles: List<Particle>, viewPort: ViewPort) {
+        for (renderTypeParticles in particlesByRenderType.values) {
+            renderTypeParticles.clear()
+        }
+        for (particle in particles) {
+            if (particle.cullingCheck(viewPort)) {
+                particlesByRenderType.getValue(particle.effect.renderType).add(particle)
+            }
         }
     }
     override suspend fun initialize(collectibleAsset: ImageAsset) {

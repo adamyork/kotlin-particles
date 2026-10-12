@@ -3,10 +3,10 @@ package com.github.adamyork.kparticles.android.engine
 import android.graphics.*
 import com.github.adamyork.kparticles.android.engine.data.AndroidImage
 import com.github.adamyork.kparticles.platform.AppScope
-import com.github.adamyork.kparticles.platform.engine.CommonParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticleDrawFunction
 import com.github.adamyork.kparticles.platform.engine.Renderers
 import com.github.adamyork.kparticles.platform.engine.data.*
+import com.github.adamyork.kparticles.platform.engine.effect.BlobProjectileGenerator
 import me.tatarka.inject.annotations.Inject
 import kotlin.math.PI
 import kotlin.math.cos
@@ -201,17 +201,17 @@ class AndroidCpuRenderers : Renderers<Canvas> {
         val centerY = (particle.y.toFloat() - viewPortOffsetY) + (particle.height.toFloat() * 0.5f)
         val baseRadius = particle.radius.toFloat()
         val age = particle.age.toFloat()
-        val lobeCount = CommonParticleFactory.PROJECTILE_BLOB_LOBE_COUNT
+        val lobeCount = BlobProjectileGenerator.PROJECTILE_BLOB_LOBE_COUNT
         val lobePointXs = FloatArray(lobeCount)
         val lobePointYs = FloatArray(lobeCount)
         var lobeIndex = 0
         while (lobeIndex < lobeCount) {
             val lobeAngle = (lobeIndex.toFloat() / lobeCount.toFloat()) * (2f * PI.toFloat())
-            val lobeFrequency = CommonParticleFactory.PROJECTILE_BLOB_BASE_FREQUENCY +
-                    (lobeIndex * CommonParticleFactory.PROJECTILE_BLOB_FREQUENCY_STEP)
-            val lobePhase = lobeIndex * CommonParticleFactory.PROJECTILE_BLOB_PHASE_STEP
+            val lobeFrequency = BlobProjectileGenerator.PROJECTILE_BLOB_BASE_FREQUENCY +
+                    (lobeIndex * BlobProjectileGenerator.PROJECTILE_BLOB_FREQUENCY_STEP)
+            val lobePhase = lobeIndex * BlobProjectileGenerator.PROJECTILE_BLOB_PHASE_STEP
             val lobeWobble = sin((age * lobeFrequency) + lobePhase)
-            val lobeRadius = baseRadius * (1f + (CommonParticleFactory.PROJECTILE_BLOB_AMPLITUDE_RATIO * lobeWobble))
+            val lobeRadius = baseRadius * (1f + (BlobProjectileGenerator.PROJECTILE_BLOB_AMPLITUDE_RATIO * lobeWobble))
             lobePointXs[lobeIndex] = centerX + (cos(lobeAngle) * lobeRadius)
             lobePointYs[lobeIndex] = centerY + (sin(lobeAngle) * lobeRadius)
             lobeIndex++
@@ -234,7 +234,7 @@ class AndroidCpuRenderers : Renderers<Canvas> {
             val previousIndex = (lobeIndex - 1 + lobeCount) % lobeCount
             val nextIndex = (lobeIndex + 1) % lobeCount
             val afterNextIndex = (lobeIndex + 2) % lobeCount
-            val tension = CommonParticleFactory.PROJECTILE_BLOB_SPLINE_TENSION
+            val tension = BlobProjectileGenerator.PROJECTILE_BLOB_SPLINE_TENSION
             val controlPoint1X =
                 lobePointXs[lobeIndex] + (lobePointXs[nextIndex] - lobePointXs[previousIndex]) / tension
             val controlPoint1Y =

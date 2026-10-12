@@ -10,4 +10,9 @@ import me.tatarka.inject.annotations.Inject
  */
 @AppScope
 @Inject
-class ProjectileGenerator : BaseProjectileGenerator(ParticleEffect.PROJECTILE)
+class ProjectileGenerator : AbstractProjectileGenerator(ParticleEffect.PROJECTILE, PROJECTILE_GPU_KIND) {
+
+    private companion object {
+        private const val PROJECTILE_GPU_KIND: Float = 2f
+    }
+}

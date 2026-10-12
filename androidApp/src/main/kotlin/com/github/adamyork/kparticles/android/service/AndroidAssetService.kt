@@ -7,6 +7,7 @@ import com.github.adamyork.kotlin_particles.generated.resources.Res
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.service.AbstractPlatformAssetService
 import com.github.adamyork.kparticles.platform.service.LoadingProgressListener
+import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import com.github.adamyork.kparticles.platform.service.data.ImageAndBytes
 import com.github.adamyork.kparticles.platform.service.data.ImageAsset
 import io.ktor.client.*
@@ -26,7 +27,8 @@ import me.tatarka.inject.annotations.Inject
 @Inject
 class AndroidAssetService(
     httpClient: HttpClient,
-) : AbstractPlatformAssetService(httpClient) {
+    physicsSettingsService: PhysicsSettingsService
+) : AbstractPlatformAssetService(httpClient, physicsSettingsService) {
 
     override suspend fun initialize(listener: LoadingProgressListener) {
         val bytes = withContext(Dispatchers.IO) {
@@ -50,7 +52,7 @@ class AndroidAssetService(
         val bytes = withContext(Dispatchers.IO) {
             Res.readBytes("files/particles.wgsl")
         }
-        val source = bytes.decodeToString()
+        val source = injectShaderConstants(bytes.decodeToString())
         particleShaderSource = source
         return source
     }
@@ -65,9 +67,9 @@ class AndroidAssetService(
         val fragmentBytes = withContext(Dispatchers.IO) {
             Res.readBytes("files/particles.frag.glsl")
         }
-        particleComputeShaderSource = computeBytes.decodeToString()
-        particleVertexShaderSource = vertexBytes.decodeToString()
-        particleFragmentShaderSource = fragmentBytes.decodeToString()
+        particleComputeShaderSource = injectShaderConstants(computeBytes.decodeToString())
+        particleVertexShaderSource = injectShaderConstants(vertexBytes.decodeToString())
+        particleFragmentShaderSource = injectShaderConstants(fragmentBytes.decodeToString())
     }
 
 

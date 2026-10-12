@@ -14,7 +14,7 @@ import me.tatarka.inject.annotations.Inject
  */
 @AppScope
 @Inject
-class DustGenerator : BaseGenerator(ParticleEffect.DUST) {
+class DustGenerator : AbstractGenerator(ParticleEffect.DUST) {
 
     private companion object {
         private const val DUST_PUFF_COUNT: Int = 16
@@ -29,18 +29,13 @@ class DustGenerator : BaseGenerator(ParticleEffect.DUST) {
         private const val DUST_LIFETIME: Double = 128.0
         private const val DUST_INITIAL_ALPHA: Double = 0.85
         private const val DUST_END_ALPHA: Double = 0.0
+        private const val DUST_GPU_KIND: Float = 1f
     }
 
     private var color: Color = Color.White
 
     override fun populateColor(assetService: AssetService) {
-        val configuredColor = assetService.appProperties.particle.player.movement.color
-        color = Color(
-            configuredColor.r.toFloat() / 255f,
-            configuredColor.g.toFloat() / 255f,
-            configuredColor.b.toFloat() / 255f,
-            configuredColor.a.toFloat() / 255f
-        )
+        color = createColor(assetService.appProperties.particle.player.movement.color)
     }
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
@@ -59,6 +54,12 @@ class DustGenerator : BaseGenerator(ParticleEffect.DUST) {
         return particles
     }
 
+    override fun gpuKind(particle: Particle): Float = DUST_GPU_KIND
+
+    override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
+        targetBuffer[parameterIndex + 1] = particle.endAlpha.toFloat()
+    }
+
     private fun createDustPuff(x: Double, y: Double, radius: Double): Particle {
         val destinationAngle = Random.nextDouble() * PI * 2
         val destinationDistance = DUST_MIN_TRAVEL_DISTANCE + Random.nextDouble() * DUST_TRAVEL_DISTANCE_RANGE
@@ -68,54 +69,25 @@ class DustGenerator : BaseGenerator(ParticleEffect.DUST) {
         val deltaY = destinationY - y
         val length = hypot(deltaX, deltaY).takeIf { it > 0 } ?: 1.0
         val speed = DUST_MIN_SPEED + Random.nextDouble() * DUST_SPEED_RANGE
-        val dustPuffColor = color
         val diameter = radius * 2.0
         return Particle(
-            id = Random.nextInt().toString(16),
             effect = ParticleEffect.DUST,
             shape = ParticleShape.CIRCLE,
-            age = 0.0,
-            delay = 0.0,
             lifetime = DUST_LIFETIME,
-            color = dustPuffColor,
-            startColor = dustPuffColor,
-            endColor = dustPuffColor,
+            color = color,
             alpha = DUST_INITIAL_ALPHA,
             endAlpha = DUST_END_ALPHA,
-            initialAlpha = DUST_INITIAL_ALPHA,
-            alphaMultiplier = 0.0,
             width = diameter,
             height = diameter,
-            maxWidth = DEFAULT_MAX_WIDTH,
-            maxHeight = DEFAULT_MAX_HEIGHT,
             radius = radius,
-            maxRadius = DEFAULT_MAX_RADIUS,
-            growthRate = 0.0,
             x = x,
             y = y,
-            z = 0.0,
             originX = x.roundToInt(),
             originY = y.roundToInt(),
-            originZ = 0,
             destinationX = destinationX.roundToInt(),
             destinationY = destinationY.roundToInt(),
-            destinationZ = 0,
             xVelocity = (deltaX / length) * speed,
-            yVelocity = (deltaY / length) * speed,
-            zVelocity = 0.0,
-            maxXVelocity = DEFAULT_MAX_VELOCITY,
-            maxYVelocity = DEFAULT_MAX_VELOCITY,
-            maxZVelocity = DEFAULT_MAX_VELOCITY,
-            xAcceleration = 0.0,
-            yAcceleration = 0.0,
-            zAcceleration = 0.0,
-            drag = 0.0,
-            mass = 0.0,
-            restitution = 0.0,
-            attraction = 0.0,
-            canCollide = false,
-            visible = true,
-            viewportBound = false
+            yVelocity = (deltaY / length) * speed
         )
     }
 }

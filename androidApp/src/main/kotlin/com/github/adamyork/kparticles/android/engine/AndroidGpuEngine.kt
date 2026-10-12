@@ -84,6 +84,7 @@ class AndroidGpuEngine(
             nextGpuSpawnSlot = (nextGpuSpawnSlot + spawnedParticleCount) % gpuParticleBufferCapacity
         }
         particles.removeAll { particle -> !(particle.effect == ParticleEffect.BUBBLE && !particle.visible) }
+        val shatterSlotRange = particleFactory.gpuSlotRange(ParticleEffect.SHATTER, gpuParticleBufferCapacity)
         val tunedSpeed = physicsSettingsService.collisionParticleSpeedCoefficient.toFloat().coerceAtLeast(0.05f)
         gpuRenderers.pendingGpuFrame = AndroidPendingGpuFrame(
             activeParticleCount = spawnedParticleCount,
@@ -94,7 +95,9 @@ class AndroidGpuEngine(
             tickRate = assetService.appProperties.engine.tickTargetPerSec.toFloat(),
             simulationSpeed = (1f + (tunedSpeed * 8f)).coerceAtLeast(1f),
             gravityBoost = (1.5f + (tunedSpeed * 6f)).coerceAtLeast(1f),
-            lifetimeDecay = (1f + (tunedSpeed * 6f)).coerceAtLeast(1f)
+            lifetimeDecay = (1f + (tunedSpeed * 6f)).coerceAtLeast(1f),
+            shatterPoolFirstSlot = if (shatterSlotRange.isEmpty()) 0 else shatterSlotRange.first,
+            shatterPoolSlotCount = if (shatterSlotRange.isEmpty()) 0 else shatterSlotRange.last - shatterSlotRange.first + 1
         )
     }
 

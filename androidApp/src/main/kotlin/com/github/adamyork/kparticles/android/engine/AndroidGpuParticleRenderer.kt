@@ -74,6 +74,8 @@ internal class AndroidGpuParticleRenderer(
     private var uComputePlayerWidth = -1
     private var uComputePlayerHeight = -1
     private var uComputeMaxParticles = -1
+    private var uComputeShatterPoolFirstSlot = -1
+    private var uComputeShatterPoolSlotCount = -1
 
     private var uRenderViewportX = -1
     private var uRenderViewportY = -1
@@ -147,6 +149,8 @@ internal class AndroidGpuParticleRenderer(
             uComputePlayerWidth = GLES31.glGetUniformLocation(computeProgram, "uPlayerWidth")
             uComputePlayerHeight = GLES31.glGetUniformLocation(computeProgram, "uPlayerHeight")
             uComputeMaxParticles = GLES31.glGetUniformLocation(computeProgram, "uMaxParticles")
+            uComputeShatterPoolFirstSlot = GLES31.glGetUniformLocation(computeProgram, "uShatterPoolFirstSlot")
+            uComputeShatterPoolSlotCount = GLES31.glGetUniformLocation(computeProgram, "uShatterPoolSlotCount")
             GLES31.glUseProgram(renderProgram)
             uRenderViewportX = GLES31.glGetUniformLocation(renderProgram, "uViewportX")
             uRenderViewportY = GLES31.glGetUniformLocation(renderProgram, "uViewportY")
@@ -203,6 +207,8 @@ internal class AndroidGpuParticleRenderer(
         GLES31.glUniform1f(uComputePlayerWidth, 0f)
         GLES31.glUniform1f(uComputePlayerHeight, 0f)
         GLES31.glUniform1i(uComputeMaxParticles, maxParticles)
+        GLES31.glUniform1i(uComputeShatterPoolFirstSlot, frame.shatterPoolFirstSlot)
+        GLES31.glUniform1i(uComputeShatterPoolSlotCount, frame.shatterPoolSlotCount)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, 0, source)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, 1, target)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, 2, spawnBuffer)

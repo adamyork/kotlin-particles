@@ -16,5 +16,7 @@ internal class AndroidGpuParticleFrame(
     val tickRate: Float,
     val simulationSpeed: Float,
     val gravityBoost: Float,
-    val lifetimeDecay: Float
+    val lifetimeDecay: Float,
+    val shatterPoolFirstSlot: Int,
+    val shatterPoolSlotCount: Int
 )

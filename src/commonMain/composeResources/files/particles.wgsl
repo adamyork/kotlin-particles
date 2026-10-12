@@ -26,6 +26,10 @@ struct ComputeUniforms {
   playerY: f32,
   playerWidth: f32,
   playerHeight: f32,
+  shatterPoolFirstSlot: f32,
+  shatterPoolSlotCount: f32,
+  paddingA: f32,
+  paddingB: f32,
 };
 
 @group(0) @binding(0) var<storage, read> computeSourceParticles: ParticleBuffer;
@@ -142,6 +146,48 @@ fn applyGenericAttraction(
   return result;
 }
 
+const shatterMaxVelocity = {{SHATTER_MAXIMUM_VELOCITY}};
+const shatterMinFragmentRadius = {{SHATTER_MINIMUM_FRAGMENT_RADIUS}};
+const shatterMinFragmentCount = {{SHATTER_MINIMUM_FRAGMENT_COUNT}};
+const shatterMaxFragmentCount = {{SHATTER_MAXIMUM_FRAGMENT_COUNT}};
+const shatterMomentumPerFragment = {{SHATTER_MOMENTUM_PER_FRAGMENT}};
+const shatterSpreadSpeed = {{SHATTER_SPREAD_SPEED}};
+const noShatterParent = 0xFFFFFFFFu;
+
+fn findShatterParent(index: u32, poolFirst: u32, poolCount: u32) -> vec2<u32> {
+  var dormantRank = 0u;
+  for (var poolOffset = 0u; poolOffset < poolCount; poolOffset = poolOffset + 1u) {
+    let slot = poolFirst + poolOffset;
+    if (slot >= index) {
+      break;
+    }
+    let slotBase = slot * 6u;
+    if (computeSourceParticles.data[slotBase + 1u].w <= 0.5 && computeSpawnParticles.data[slotBase + 1u].w <= 0.5) {
+      dormantRank = dormantRank + 1u;
+    }
+  }
+  var claimedChildren = 0u;
+  for (var poolOffset = 0u; poolOffset < poolCount; poolOffset = poolOffset + 1u) {
+    let slot = poolFirst + poolOffset;
+    let slotBase = slot * 6u;
+    let slotLifecycle = computeSourceParticles.data[slotBase + 1u];
+    let slotTypeInfo = computeSourceParticles.data[slotBase + 3u];
+    if (slotLifecycle.w <= 0.5 || slotTypeInfo.x <= 13.5 || slotTypeInfo.x > 14.5) {
+      continue;
+    }
+    let requestedFragments = computeSourceParticles.data[slotBase + 4u].z;
+    if (requestedFragments < shatterMinFragmentCount) {
+      continue;
+    }
+    let childCount = u32(requestedFragments) - 1u;
+    if (dormantRank < claimedChildren + childCount) {
+      return vec2<u32>(slot, dormantRank - claimedChildren + 1u);
+    }
+    claimedChildren = claimedChildren + childCount;
+  }
+  return vec2<u32>(noShatterParent, 0u);
+}
+
 @compute @workgroup_size(64)
 fn computeMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
   let index = globalInvocationId.x;
@@ -180,6 +226,33 @@ fn computeMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
       typeInfo = spawnTypeInfo;
       kindDataA = spawnKindDataA;
       kindDataB = spawnKindDataB;
+    }
+  }
+  let shatterPoolFirst = u32(computeUniforms.shatterPoolFirstSlot);
+  let shatterPoolCount = u32(computeUniforms.shatterPoolSlotCount);
+  if (lifecycle.w <= 0.5 && index >= shatterPoolFirst && index < shatterPoolFirst + shatterPoolCount) {
+    let shatterParent = findShatterParent(index, shatterPoolFirst, shatterPoolCount);
+    if (shatterParent.x != noShatterParent) {
+      let parentBase = shatterParent.x * 6u;
+      let parentPositionVelocity = computeSourceParticles.data[parentBase + 0u];
+      let parentLifecycle = computeSourceParticles.data[parentBase + 1u];
+      let parentTypeInfo = computeSourceParticles.data[parentBase + 3u];
+      let parentKindDataA = computeSourceParticles.data[parentBase + 4u];
+      let parentKindDataB = computeSourceParticles.data[parentBase + 5u];
+      let fragmentCount = parentKindDataA.z;
+      let fragmentSize = parentLifecycle.z / fragmentCount;
+      let fragmentOffset = f32(shatterParent.y) - ((fragmentCount - 1.0) * 0.5);
+      positionVelocity = vec4<f32>(
+        parentPositionVelocity.x + (parentKindDataB.x * fragmentSize * fragmentOffset),
+        parentPositionVelocity.y + (parentKindDataB.y * fragmentSize * fragmentOffset),
+        parentPositionVelocity.z + (parentKindDataB.x * shatterSpreadSpeed * 2.0 * fragmentOffset),
+        parentPositionVelocity.w + (parentKindDataB.y * shatterSpreadSpeed * 2.0 * fragmentOffset)
+      );
+      lifecycle = vec4<f32>(parentLifecycle.x, parentLifecycle.y, fragmentSize, 1.0);
+      colorRgba = computeSourceParticles.data[parentBase + 2u];
+      typeInfo = vec4<f32>(parentTypeInfo.x, parentTypeInfo.y, parentTypeInfo.z, parentTypeInfo.w / fragmentCount);
+      kindDataA = vec4<f32>(parentKindDataA.x, 0.0, 0.0, 0.0);
+      kindDataB = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     }
   }
   if (lifecycle.w > 0.5) {
@@ -532,6 +605,110 @@ fn computeMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
         positionVelocity.x = positionVelocity.x + (positionVelocity.z * elapsedTicks);
         positionVelocity.y = positionVelocity.y + (positionVelocity.w * elapsedTicks);
       }
+    } else if (particleKind > 13.5 && particleKind <= 14.5) {
+      lifecycle.x = lifecycle.x + elapsedTicks;
+      if (lifecycle.x >= lifecycle.y) {
+        lifecycle.w = 0.0;
+      } else {
+        let pendingFragmentCount = kindDataA.z;
+        let isExecutingSplit = pendingFragmentCount >= shatterMinFragmentCount;
+        if (isExecutingSplit) {
+          let executedFragmentSize = lifecycle.z / pendingFragmentCount;
+          let executedCenterOffset = (pendingFragmentCount - 1.0) * 0.5;
+          positionVelocity.x = positionVelocity.x - (kindDataB.x * executedFragmentSize * executedCenterOffset);
+          positionVelocity.y = positionVelocity.y - (kindDataB.y * executedFragmentSize * executedCenterOffset);
+          positionVelocity.z = positionVelocity.z - (kindDataB.x * shatterSpreadSpeed * 2.0 * executedCenterOffset);
+          positionVelocity.w = positionVelocity.w - (kindDataB.y * shatterSpreadSpeed * 2.0 * executedCenterOffset);
+          lifecycle.z = executedFragmentSize;
+          typeInfo.w = typeInfo.w / pendingFragmentCount;
+          kindDataA.z = 0.0;
+        }
+        let myHardness = typeInfo.z;
+        let myMass = typeInfo.w;
+        let myRestitution = kindDataA.x;
+        let myRadius = max(lifecycle.z * 0.5, 1.0);
+        var splitMomentum = -1.0;
+        var splitNormal = vec2<f32>(1.0, 0.0);
+        for (var poolOffset = 0u; poolOffset < shatterPoolCount; poolOffset = poolOffset + 1u) {
+          let otherIndex = shatterPoolFirst + poolOffset;
+          if (otherIndex == index) {
+            continue;
+          }
+          let otherBase = otherIndex * 6u;
+          let otherLifecycle = computeSourceParticles.data[otherBase + 1u];
+          if (otherLifecycle.w <= 0.5) {
+            continue;
+          }
+          let otherTypeInfo = computeSourceParticles.data[otherBase + 3u];
+          if (otherTypeInfo.x <= 13.5 || otherTypeInfo.x > 14.5) {
+            continue;
+          }
+          let otherPositionVelocity = computeSourceParticles.data[otherBase + 0u];
+          let otherRadius = max(otherLifecycle.z * 0.5, 1.0);
+          let deltaX = otherPositionVelocity.x - positionVelocity.x;
+          let deltaY = otherPositionVelocity.y - positionVelocity.y;
+          let distance = sqrt((deltaX * deltaX) + (deltaY * deltaY));
+          let combinedRadius = myRadius + otherRadius;
+          if (distance <= 0.0 || distance >= combinedRadius) {
+            continue;
+          }
+          let otherMass = otherTypeInfo.w;
+          let totalMass = myMass + otherMass;
+          if (totalMass <= 0.0) {
+            continue;
+          }
+          let normalX = deltaX / distance;
+          let normalY = deltaY / distance;
+          let overlap = combinedRadius - distance;
+          positionVelocity.x = positionVelocity.x - (normalX * overlap * (otherMass / totalMass));
+          positionVelocity.y = positionVelocity.y - (normalY * overlap * (otherMass / totalMass));
+          let relativeVelocityX = positionVelocity.z - otherPositionVelocity.z;
+          let relativeVelocityY = positionVelocity.w - otherPositionVelocity.w;
+          let impulse = 2.0 * ((normalX * relativeVelocityX) + (normalY * relativeVelocityY)) / totalMass;
+          let restitution = min(myRestitution, computeSourceParticles.data[otherBase + 4u].x);
+          positionVelocity.z = positionVelocity.z - (impulse * otherMass * normalX * (1.0 + restitution));
+          positionVelocity.w = positionVelocity.w - (impulse * otherMass * normalY * (1.0 + restitution));
+          let otherMomentum = otherMass * length(otherPositionVelocity.zw);
+          if (otherTypeInfo.z > myHardness && otherMomentum >= splitMomentum) {
+            splitMomentum = otherMomentum;
+            splitNormal = vec2<f32>(normalX, normalY);
+          }
+        }
+        if (!isExecutingSplit && splitMomentum >= 0.0) {
+          let requestedFragments = clamp(floor(splitMomentum / shatterMomentumPerFragment), shatterMinFragmentCount, shatterMaxFragmentCount);
+          let fittingFragments = floor(myRadius / shatterMinFragmentRadius);
+          let splitFragmentCount = min(requestedFragments, fittingFragments);
+          if (splitFragmentCount >= shatterMinFragmentCount) {
+            kindDataA.z = splitFragmentCount;
+            kindDataB.x = -splitNormal.y;
+            kindDataB.y = splitNormal.x;
+          }
+        }
+        positionVelocity.z = clamp(positionVelocity.z, -shatterMaxVelocity, shatterMaxVelocity);
+        positionVelocity.w = clamp(positionVelocity.w, -shatterMaxVelocity, shatterMaxVelocity);
+        positionVelocity.x = positionVelocity.x + (positionVelocity.z * elapsedTicks);
+        positionVelocity.y = positionVelocity.y + (positionVelocity.w * elapsedTicks);
+        let halfSize = max(lifecycle.z * 0.5, 1.0);
+        let boundaryRestitutionFactor = myRestitution * (1.0 / (1.0 + myMass));
+        let minX = computeUniforms.viewportX + halfSize;
+        let maxX = computeUniforms.viewportX + computeUniforms.viewportWidth - halfSize;
+        let minY = computeUniforms.viewportY + halfSize;
+        let maxY = computeUniforms.viewportY + computeUniforms.viewportHeight - halfSize;
+        if (positionVelocity.x < minX) {
+          positionVelocity.x = minX + (minX - positionVelocity.x);
+          positionVelocity.z = -positionVelocity.z * boundaryRestitutionFactor;
+        } else if (positionVelocity.x > maxX) {
+          positionVelocity.x = maxX - (positionVelocity.x - maxX);
+          positionVelocity.z = -positionVelocity.z * boundaryRestitutionFactor;
+        }
+        if (positionVelocity.y < minY) {
+          positionVelocity.y = minY + (minY - positionVelocity.y);
+          positionVelocity.w = -positionVelocity.w * boundaryRestitutionFactor;
+        } else if (positionVelocity.y > maxY) {
+          positionVelocity.y = maxY - (positionVelocity.y - maxY);
+          positionVelocity.w = -positionVelocity.w * boundaryRestitutionFactor;
+        }
+      }
     } else if (particleKind > 10.5 && particleKind <= 11.5) {
       const stressTestAttractionPerMass = 10.0;
       let myDelay = kindDataB.x;
@@ -766,7 +943,8 @@ fn vertexMain(
   let isMapItemReturn = particleKind > 2.5 && particleKind <= 3.5;
   let isDust = particleKind > 0.5 && particleKind <= 1.5;
   let isBlobProjectile = particleKind > 11.5 && particleKind <= 12.5;
-  let usesUnscaledSize = isMapItemReturn || isDust;
+  let isShatter = particleKind > 13.5 && particleKind <= 14.5;
+  let usesUnscaledSize = isMapItemReturn || isDust || isShatter;
   let widthScale = select(sizeScale, 1.0, usesUnscaledSize);
   let baseWidth = select(lifecycle.z, renderUniforms.renderScale.z, isMapItemReturn);
   let baseHeight = select(lifecycle.z, renderUniforms.renderScale.w, isMapItemReturn);

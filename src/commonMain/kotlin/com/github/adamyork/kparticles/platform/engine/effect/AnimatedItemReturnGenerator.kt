@@ -10,4 +10,10 @@ import me.tatarka.inject.annotations.Inject
  */
 @AppScope
 @Inject
-class AnimatedItemReturnGenerator : BaseItemReturnGenerator(ParticleEffect.ANIMATED_ITEM_RETURN)
+class AnimatedItemReturnGenerator :
+    AbstractItemReturnGenerator(ParticleEffect.ANIMATED_ITEM_RETURN, ANIMATED_ITEM_RETURN_MAX_FRAMES) {
+
+    private companion object {
+        private const val ANIMATED_ITEM_RETURN_MAX_FRAMES: Int = 8
+    }
+}

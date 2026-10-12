@@ -89,7 +89,9 @@ class AndroidGpuParticleRuntime {
         tickRate: Float,
         simulationSpeed: Float,
         gravityBoost: Float,
-        lifetimeDecay: Float
+        lifetimeDecay: Float,
+        shatterPoolFirstSlot: Int,
+        shatterPoolSlotCount: Int
     ) {
         if (!enabled) return
         hasActiveParticlesFlow.value = activeParticleCount > 0
@@ -106,7 +108,9 @@ class AndroidGpuParticleRuntime {
                 tickRate = tickRate.coerceAtLeast(1f),
                 simulationSpeed = simulationSpeed.coerceAtLeast(1f),
                 gravityBoost = gravityBoost.coerceAtLeast(1f),
-                lifetimeDecay = lifetimeDecay.coerceAtLeast(1f)
+                lifetimeDecay = lifetimeDecay.coerceAtLeast(1f),
+                shatterPoolFirstSlot = shatterPoolFirstSlot,
+                shatterPoolSlotCount = shatterPoolSlotCount
             )
         )
         textureViewRef?.get()?.let { view ->

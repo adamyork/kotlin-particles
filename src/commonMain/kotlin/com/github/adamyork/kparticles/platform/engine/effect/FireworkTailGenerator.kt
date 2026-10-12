@@ -1,7 +1,6 @@
 package com.github.adamyork.kparticles.platform.engine.effect
 
 import com.github.adamyork.kparticles.platform.AppScope
-import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.data.*
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import kotlin.math.*
@@ -16,7 +15,7 @@ import me.tatarka.inject.annotations.Inject
 @Inject
 class FireworkTailGenerator(
     private val physicsSettingsService: PhysicsSettingsService
-) : BaseGenerator(ParticleEffect.FIREWORK_TAIL) {
+) : AbstractGenerator(ParticleEffect.FIREWORK_TAIL) {
 
     private companion object {
         private const val FIREWORK_TAIL_PARTICLE_COUNT: Int = 256
@@ -28,9 +27,13 @@ class FireworkTailGenerator(
         private const val FIREWORK_TAIL_MIN_RADIUS: Double = 8.0
         private const val FIREWORK_TAIL_RADIUS_RANGE: Double = 8.0
         private const val FIREWORK_TAIL_VELOCITY_HEADROOM: Double = 1.2
+        private const val FIREWORK_TAIL_MAX_ACTIVE_PARTICLES: Int = 1024
+        private const val FIREWORK_TAIL_GPU_KIND: Float = 4f
     }
 
-    private var nextFireworkTailGpuSlot: Int = 0
+    private val fireworkTailGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(FIREWORK_TAIL_MAX_ACTIVE_PARTICLES)
+
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(fireworkTailGpuSlotGroup)
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val viewPort = request.viewPort
@@ -61,56 +64,36 @@ class FireworkTailGenerator(
                 round(delayOrder[particleIndex] * staggerFrames + (Random.nextDouble() - 0.5) * FIREWORK_TAIL_DELAY_JITTER_RANGE)
             )
             particles += Particle(
-                id = Random.nextInt().toString(16),
                 effect = ParticleEffect.FIREWORK_TAIL,
                 shape = ParticleShape.CIRCLE,
-                age = 0.0,
                 delay = delay,
                 lifetime = timeToDestination,
                 color = startColor,
-                startColor = startColor,
                 endColor = endColor,
-                alpha = 1.0,
-                endAlpha = 1.0,
-                initialAlpha = 1.0,
-                alphaMultiplier = 0.0,
                 width = diameter,
                 height = diameter,
-                maxWidth = DEFAULT_MAX_WIDTH,
-                maxHeight = DEFAULT_MAX_HEIGHT,
                 radius = radius,
-                maxRadius = DEFAULT_MAX_RADIUS,
-                growthRate = 0.0,
                 x = xPosition,
                 y = originY,
-                z = 0.0,
                 originX = xPosition.roundToInt(),
                 originY = originY.roundToInt(),
-                originZ = 0,
                 destinationX = xPosition.roundToInt(),
                 destinationY = randomDestinationY.roundToInt(),
-                destinationZ = 0,
-                xVelocity = 0.0,
                 yVelocity = -launchVelocity,
-                zVelocity = 0.0,
-                maxXVelocity = DEFAULT_MAX_VELOCITY,
                 maxYVelocity = launchVelocity * FIREWORK_TAIL_VELOCITY_HEADROOM,
-                maxZVelocity = DEFAULT_MAX_VELOCITY,
-                xAcceleration = 0.0,
-                yAcceleration = 0.0,
-                zAcceleration = 0.0,
-                drag = 0.0,
                 mass = FIREWORK_TAIL_MASS,
-                restitution = 0.0,
-                attraction = 0.0,
-                canCollide = false,
-                visible = true,
-                viewportBound = false,
-                gpuReservedSlot = nextFireworkTailGpuSlot
+                gpuReservedSlot = fireworkTailGpuSlotGroup.claimNextSlot()
             )
-            nextFireworkTailGpuSlot = (nextFireworkTailGpuSlot + 1) % MAX_ACTIVE_FIREWORK_TAIL_PARTICLES
         }
-
         return particles
+    }
+
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = fireworkTailGpuSlotGroup
+
+    override fun gpuKind(particle: Particle): Float = FIREWORK_TAIL_GPU_KIND
+
+    override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
+        targetBuffer[parameterIndex] = particle.maxYVelocity.toFloat()
+        targetBuffer[parameterIndex + 1] = particle.delay.toFloat()
     }
 }

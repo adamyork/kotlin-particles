@@ -1,10 +1,10 @@
 package com.github.adamyork.kparticles.wasm.engine
 
 import com.github.adamyork.kparticles.platform.AppScope
-import com.github.adamyork.kparticles.platform.engine.CommonParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticleDrawFunction
 import com.github.adamyork.kparticles.platform.engine.Renderers
 import com.github.adamyork.kparticles.platform.engine.data.*
+import com.github.adamyork.kparticles.platform.engine.effect.BlobProjectileGenerator
 import com.github.adamyork.kparticles.wasm.engine.data.WasmJsImage
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
@@ -223,17 +223,17 @@ class WasmCpuRenderers : Renderers<Canvas> {
         val centerY = particle.y.toFloat() - viewPortOffsetY
         val baseRadius = particle.radius.toFloat()
         val age = particle.age.toFloat()
-        val lobePointXs = FloatArray(CommonParticleFactory.PROJECTILE_BLOB_LOBE_COUNT)
-        val lobePointYs = FloatArray(CommonParticleFactory.PROJECTILE_BLOB_LOBE_COUNT)
+        val lobePointXs = FloatArray(BlobProjectileGenerator.PROJECTILE_BLOB_LOBE_COUNT)
+        val lobePointYs = FloatArray(BlobProjectileGenerator.PROJECTILE_BLOB_LOBE_COUNT)
         var lobeIndex = 0
-        while (lobeIndex < CommonParticleFactory.PROJECTILE_BLOB_LOBE_COUNT) {
+        while (lobeIndex < BlobProjectileGenerator.PROJECTILE_BLOB_LOBE_COUNT) {
             val lobeAngle =
-                (lobeIndex.toFloat() / CommonParticleFactory.PROJECTILE_BLOB_LOBE_COUNT.toFloat()) * (2f * PI.toFloat())
+                (lobeIndex.toFloat() / BlobProjectileGenerator.PROJECTILE_BLOB_LOBE_COUNT.toFloat()) * (2f * PI.toFloat())
             val lobeFrequency =
-                CommonParticleFactory.PROJECTILE_BLOB_BASE_FREQUENCY + (lobeIndex * CommonParticleFactory.PROJECTILE_BLOB_FREQUENCY_STEP)
-            val lobePhase = lobeIndex * CommonParticleFactory.PROJECTILE_BLOB_PHASE_STEP
+                BlobProjectileGenerator.PROJECTILE_BLOB_BASE_FREQUENCY + (lobeIndex * BlobProjectileGenerator.PROJECTILE_BLOB_FREQUENCY_STEP)
+            val lobePhase = lobeIndex * BlobProjectileGenerator.PROJECTILE_BLOB_PHASE_STEP
             val lobeWobble = sin((age * lobeFrequency) + lobePhase)
-            val lobeRadius = baseRadius * (1f + (CommonParticleFactory.PROJECTILE_BLOB_AMPLITUDE_RATIO * lobeWobble))
+            val lobeRadius = baseRadius * (1f + (BlobProjectileGenerator.PROJECTILE_BLOB_AMPLITUDE_RATIO * lobeWobble))
             lobePointXs[lobeIndex] = centerX + (cos(lobeAngle) * lobeRadius)
             lobePointYs[lobeIndex] = centerY + (sin(lobeAngle) * lobeRadius)
             lobeIndex++
@@ -260,13 +260,13 @@ class WasmCpuRenderers : Renderers<Canvas> {
             val nextIndex = (lobeIndex + 1) % lobeCount
             val afterNextIndex = (lobeIndex + 2) % lobeCount
             val controlPoint1X =
-                lobePointXs[lobeIndex] + (lobePointXs[nextIndex] - lobePointXs[previousIndex]) / CommonParticleFactory.PROJECTILE_BLOB_SPLINE_TENSION
+                lobePointXs[lobeIndex] + (lobePointXs[nextIndex] - lobePointXs[previousIndex]) / BlobProjectileGenerator.PROJECTILE_BLOB_SPLINE_TENSION
             val controlPoint1Y =
-                lobePointYs[lobeIndex] + (lobePointYs[nextIndex] - lobePointYs[previousIndex]) / CommonParticleFactory.PROJECTILE_BLOB_SPLINE_TENSION
+                lobePointYs[lobeIndex] + (lobePointYs[nextIndex] - lobePointYs[previousIndex]) / BlobProjectileGenerator.PROJECTILE_BLOB_SPLINE_TENSION
             val controlPoint2X =
-                lobePointXs[nextIndex] - (lobePointXs[afterNextIndex] - lobePointXs[lobeIndex]) / CommonParticleFactory.PROJECTILE_BLOB_SPLINE_TENSION
+                lobePointXs[nextIndex] - (lobePointXs[afterNextIndex] - lobePointXs[lobeIndex]) / BlobProjectileGenerator.PROJECTILE_BLOB_SPLINE_TENSION
             val controlPoint2Y =
-                lobePointYs[nextIndex] - (lobePointYs[afterNextIndex] - lobePointYs[lobeIndex]) / CommonParticleFactory.PROJECTILE_BLOB_SPLINE_TENSION
+                lobePointYs[nextIndex] - (lobePointYs[afterNextIndex] - lobePointYs[lobeIndex]) / BlobProjectileGenerator.PROJECTILE_BLOB_SPLINE_TENSION
             builder.cubicTo(
                 controlPoint1X,
                 controlPoint1Y,

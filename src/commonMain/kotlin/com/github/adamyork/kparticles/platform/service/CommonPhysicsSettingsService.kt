@@ -32,5 +32,11 @@ class CommonPhysicsSettingsService : PhysicsSettingsService {
     override var mapItemReturnParticleSpeed: Double = 30.0
     override var dustParticleSpeedCoefficient: Double = .25
     override var spatialGridCellSize: Double = 64.0
+    override var shatterMinimumFragmentRadius: Double = 3.0
+    override var shatterMinimumFragmentCount: Int = 2
+    override var shatterMaximumFragmentCount: Int = 8
+    override var shatterMomentumPerFragment: Double = 1.5
+    override var shatterSpreadSpeed: Double = 1.0
+    override var shatterMaxVelocity: Double = 10.0
 
 }

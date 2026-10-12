@@ -27,4 +27,10 @@ interface PhysicsSettingsService {
     var mapItemReturnParticleSpeed: Double
     var dustParticleSpeedCoefficient: Double
     var spatialGridCellSize: Double
+    var shatterMinimumFragmentRadius: Double
+    var shatterMinimumFragmentCount: Int
+    var shatterMaximumFragmentCount: Int
+    var shatterMomentumPerFragment: Double
+    var shatterSpreadSpeed: Double
+    var shatterMaxVelocity: Double
 }

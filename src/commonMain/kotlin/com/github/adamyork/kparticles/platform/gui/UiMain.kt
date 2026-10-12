@@ -72,7 +72,8 @@ abstract class UiMain(
                 ParticleEffect.COLLIDING_BITS,
                 ParticleEffect.GOBBLER,
                 ParticleEffect.BLACK_HOLE,
-                ParticleEffect.STRESS_TEST
+                ParticleEffect.STRESS_TEST,
+                ParticleEffect.SHATTER
             )
         }
         var selectedParticleMode by remember { mutableStateOf(particleModes.first()) }

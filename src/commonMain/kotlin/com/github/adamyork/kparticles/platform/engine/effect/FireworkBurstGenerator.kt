@@ -12,7 +12,7 @@ import me.tatarka.inject.annotations.Inject
  */
 @AppScope
 @Inject
-class FireworkBurstGenerator : BaseGenerator(ParticleEffect.FIREWORK_BURST) {
+class FireworkBurstGenerator : AbstractGenerator(ParticleEffect.FIREWORK_BURST) {
 
     private companion object {
         private const val FIREWORK_BURST_PARTICLE_COUNT: Int = 100
@@ -23,9 +23,13 @@ class FireworkBurstGenerator : BaseGenerator(ParticleEffect.FIREWORK_BURST) {
         private const val FIREWORK_BURST_MASS: Double = 0.02
         private const val FIREWORK_BURST_Y_ACCELERATION: Double = 0.05
         private const val FIREWORK_BURST_DRAG: Double = 0.02
+        private const val FIREWORK_BURST_MAX_ACTIVE_PARTICLES: Int = 512
+        private const val FIREWORK_BURST_GPU_KIND: Float = 5f
     }
 
-    private var nextFireworkBurstGpuSlot: Int = 0
+    private val fireworkBurstGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(FIREWORK_BURST_MAX_ACTIVE_PARTICLES)
+
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(fireworkBurstGpuSlotGroup)
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val centerX = request.x
@@ -37,55 +41,35 @@ class FireworkBurstGenerator : BaseGenerator(ParticleEffect.FIREWORK_BURST) {
             val speed = Random.nextDouble() * FIREWORK_BURST_SPEED_RANGE + FIREWORK_BURST_MIN_SPEED
             val diameter = FIREWORK_BURST_RADIUS * 2.0
             particles += Particle(
-                id = Random.nextInt().toString(16),
                 effect = ParticleEffect.FIREWORK_BURST,
                 shape = ParticleShape.CIRCLE,
-                age = 0.0,
-                delay = 0.0,
                 lifetime = FIREWORK_BURST_LIFETIME,
                 color = startColor,
-                startColor = startColor,
                 endColor = endColor,
-                alpha = 1.0,
-                endAlpha = 1.0,
-                initialAlpha = 1.0,
-                alphaMultiplier = 0.0,
                 width = diameter,
                 height = diameter,
-                maxWidth = DEFAULT_MAX_WIDTH,
-                maxHeight = DEFAULT_MAX_HEIGHT,
                 radius = FIREWORK_BURST_RADIUS,
-                maxRadius = DEFAULT_MAX_RADIUS,
-                growthRate = 0.0,
                 x = centerX,
                 y = centerY,
-                z = 0.0,
-                originX = 0,
-                originY = 0,
-                originZ = 0,
-                destinationX = 0,
-                destinationY = 0,
-                destinationZ = 0,
                 xVelocity = cos(angle) * speed,
                 yVelocity = sin(angle) * speed,
-                zVelocity = 0.0,
-                maxXVelocity = DEFAULT_MAX_VELOCITY,
-                maxYVelocity = DEFAULT_MAX_VELOCITY,
-                maxZVelocity = DEFAULT_MAX_VELOCITY,
-                xAcceleration = 0.0,
                 yAcceleration = FIREWORK_BURST_Y_ACCELERATION,
-                zAcceleration = 0.0,
                 drag = FIREWORK_BURST_DRAG,
                 mass = FIREWORK_BURST_MASS,
-                restitution = 0.0,
-                attraction = 0.0,
-                canCollide = false,
-                visible = true,
-                viewportBound = false,
-                gpuReservedSlot = nextFireworkBurstGpuSlot
+                gpuReservedSlot = fireworkBurstGpuSlotGroup.claimNextSlot()
             )
-            nextFireworkBurstGpuSlot = (nextFireworkBurstGpuSlot + 1) % MAX_ACTIVE_FIREWORK_BURST_PARTICLES
         }
         return particles
+    }
+
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = fireworkBurstGpuSlotGroup
+
+    override fun gpuKind(particle: Particle): Float = FIREWORK_BURST_GPU_KIND
+
+    override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
+        val endColorRed = (particle.endColor.red * 255f).roundToInt().coerceIn(0, 255)
+        val endColorGreen = (particle.endColor.green * 255f).roundToInt().coerceIn(0, 255)
+        val endColorBlue = (particle.endColor.blue * 255f).roundToInt().coerceIn(0, 255)
+        targetBuffer[parameterIndex] = ((endColorRed * 65536) + (endColorGreen * 256) + endColorBlue).toFloat()
     }
 }

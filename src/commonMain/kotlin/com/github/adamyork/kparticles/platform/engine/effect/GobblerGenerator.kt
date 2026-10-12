@@ -1,7 +1,6 @@
 package com.github.adamyork.kparticles.platform.engine.effect
 
 import com.github.adamyork.kparticles.platform.AppScope
-import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.data.*
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import kotlin.math.*
@@ -16,7 +15,7 @@ import me.tatarka.inject.annotations.Inject
 @Inject
 class GobblerGenerator(
     private val physicsSettingsService: PhysicsSettingsService
-) : BaseGenerator(ParticleEffect.GOBBLER) {
+) : AbstractGenerator(ParticleEffect.GOBBLER) {
 
     private companion object {
         private const val GOBBLER_PARTICLE_COUNT: Int = 16
@@ -30,9 +29,13 @@ class GobblerGenerator(
         private const val GOBBLER_MAX_VELOCITY: Double = 6.0
         private const val GOBBLER_MASS_PER_RADIUS_SQUARED: Double = 1.0 / 20480.0
         private const val GOBBLER_ATTRACTION_PER_MASS: Double = 480.0
+        private const val GOBBLER_MAX_ACTIVE_PARTICLES: Int = 64
+        private const val GOBBLER_GPU_KIND: Float = 8f
     }
 
-    private var nextGobblerGpuSlot: Int = 0
+    private val gobblerGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(GOBBLER_MAX_ACTIVE_PARTICLES)
+
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(gobblerGpuSlotGroup)
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val viewPort = request.viewPort
@@ -48,59 +51,44 @@ class GobblerGenerator(
             val diameter = radius * 2.0
             val mass = radius * radius * GOBBLER_MASS_PER_RADIUS_SQUARED
             val attraction = mass * GOBBLER_ATTRACTION_PER_MASS
-            val color = randomColor()
             particles += Particle(
-                id = Random.nextInt().toString(16),
                 effect = ParticleEffect.GOBBLER,
                 shape = ParticleShape.CIRCLE,
-                age = 0.0,
-                delay = 0.0,
                 lifetime = GOBBLER_LIFETIME,
-                color = color,
-                startColor = color,
-                endColor = color,
-                alpha = 1.0,
-                endAlpha = 1.0,
-                initialAlpha = 1.0,
-                alphaMultiplier = 0.0,
+                color = randomColor(),
                 width = diameter,
                 height = diameter,
-                maxWidth = DEFAULT_MAX_WIDTH,
-                maxHeight = DEFAULT_MAX_HEIGHT,
                 radius = radius,
-                maxRadius = DEFAULT_MAX_RADIUS,
-                growthRate = 0.0,
                 x = startX,
                 y = startY,
-                z = 0.0,
                 originX = startX.roundToInt(),
                 originY = startY.roundToInt(),
-                originZ = 0,
                 destinationX = destinationX.roundToInt(),
                 destinationY = destinationY.roundToInt(),
-                destinationZ = 0,
                 xVelocity = cos(angle) * speed,
                 yVelocity = sin(angle) * speed,
-                zVelocity = 0.0,
                 maxXVelocity = GOBBLER_MAX_VELOCITY,
                 maxYVelocity = GOBBLER_MAX_VELOCITY,
                 maxZVelocity = GOBBLER_MAX_VELOCITY,
-                xAcceleration = 0.0,
-                yAcceleration = 0.0,
-                zAcceleration = 0.0,
                 drag = GOBBLER_DRAG,
                 mass = mass,
                 restitution = GOBBLER_RESTITUTION,
                 attraction = attraction,
                 canCollide = true,
-                visible = true,
                 viewportBound = true,
-                xForce = 0.0,
                 yForce = -physicsSettingsService.gravity * min(1.0, mass),
-                gpuReservedSlot = nextGobblerGpuSlot
+                gpuReservedSlot = gobblerGpuSlotGroup.claimNextSlot()
             )
-            nextGobblerGpuSlot = (nextGobblerGpuSlot + 1) % MAX_ACTIVE_GOBBLER_PARTICLES
         }
         return particles
+    }
+
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gobblerGpuSlotGroup
+
+    override fun gpuKind(particle: Particle): Float = GOBBLER_GPU_KIND
+
+    override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
+        targetBuffer[parameterIndex + 2] = particle.mass.toFloat()
+        targetBuffer[parameterIndex + 3] = particle.attraction.toFloat()
     }
 }

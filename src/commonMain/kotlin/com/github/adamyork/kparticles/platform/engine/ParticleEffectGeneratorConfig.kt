@@ -13,6 +13,7 @@ import com.github.adamyork.kparticles.platform.engine.effect.GobblerGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.ItemReturnGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.ProjectileGenerator
+import com.github.adamyork.kparticles.platform.engine.effect.ShatterGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.StressTestGenerator
 import me.tatarka.inject.annotations.IntoSet
 import me.tatarka.inject.annotations.Provides
@@ -74,5 +75,9 @@ interface ParticleEffectGeneratorConfig {
     @Provides
     @IntoSet
     fun provideStressTest(impl: StressTestGenerator): ParticleEffectGenerator = impl
+
+    @Provides
+    @IntoSet
+    fun provideShatter(impl: ShatterGenerator): ParticleEffectGenerator = impl
 
 }

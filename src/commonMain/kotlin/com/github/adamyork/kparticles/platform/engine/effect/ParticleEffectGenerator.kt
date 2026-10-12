@@ -9,10 +9,23 @@ import com.github.adamyork.kparticles.platform.service.AssetService
  */
 interface ParticleEffectGenerator {
 
+    companion object {
+        const val GPU_FLOATS_PER_PARTICLE: Int = 24
+    }
+
     val effect: ParticleEffect
+
+    val gpuSlotGroups: List<GpuSlotGroup>
+        get() = emptyList()
 
     fun populateColor(assetService: AssetService) {}
 
     fun create(request: ParticleEffectRequest): MutableList<Particle>
+
+    fun gpuSlotGroup(particle: Particle): GpuSlotGroup? = null
+
+    fun shouldWriteGpuParticle(particle: Particle): Boolean = true
+
+    fun writeGpuParticle(particle: Particle, targetBuffer: FloatArray, baseIndex: Int)
 
 }

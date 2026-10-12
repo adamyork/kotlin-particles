@@ -2,7 +2,6 @@ package com.github.adamyork.kparticles.platform.engine.effect
 
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
-import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.data.*
 import kotlin.math.*
 import kotlin.random.Random
@@ -16,7 +15,7 @@ import me.tatarka.inject.annotations.Inject
 @Inject
 class StressTestGenerator(
     private val platformInterop: PlatformInterop
-) : BaseGenerator(ParticleEffect.STRESS_TEST) {
+) : AbstractGenerator(ParticleEffect.STRESS_TEST) {
 
     private companion object {
         private const val STRESS_TEST_PARTICLE_COUNT_CPU: Int = 256
@@ -24,9 +23,14 @@ class StressTestGenerator(
         private const val STRESS_TEST_COLOR_PALETTE_SIZE: Int = 50
         private val STRESS_TEST_ALPHA_OPTIONS = doubleArrayOf(0.25, 0.5, 1.0)
         private const val STRESS_TEST_ATTRACTION_PER_MASS: Double = 10.0
+        private const val STRESS_TEST_MAX_ACTIVE_PARTICLES: Int = 2048
+        private const val STRESS_TEST_GPU_KIND: Float = 11f
+        private const val STRESS_TEST_VIEWPORT_BOUND_BAND: Float = 2f
     }
 
-    private var nextStressTestGpuSlot: Int = 0
+    private val stressTestGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(STRESS_TEST_MAX_ACTIVE_PARTICLES)
+
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(stressTestGpuSlotGroup)
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val viewPort = request.viewPort
@@ -42,18 +46,15 @@ class StressTestGenerator(
             val spawnY = viewPort.y + Random.nextDouble() * viewPort.height
             val destinationX = viewPort.x + Random.nextDouble() * viewPort.width
             val destinationY = viewPort.y + Random.nextDouble() * viewPort.height
-
             val width = 4.0 + Random.nextDouble() * 20.0
             val height = 4.0 + Random.nextDouble() * 20.0
             val radius = 2.0 + Random.nextDouble() * 14.0
             val growthRate = if (Random.nextBoolean()) 0.0 else -0.1 + Random.nextDouble() * 0.4
-
             val angle = Random.nextDouble() * PI * 2
             val speed = Random.nextDouble() * 6.0
             val xAcceleration = if (Random.nextBoolean()) 0.0 else -0.1 + Random.nextDouble() * 0.2
             val yAcceleration = if (Random.nextBoolean()) 0.0 else -0.1 + Random.nextDouble() * 0.2
             val zAcceleration = if (Random.nextBoolean()) 0.0 else -0.1 + Random.nextDouble() * 0.2
-
             val drag = if (Random.nextBoolean()) 0.0 else Random.nextDouble() * 0.05
             val mass = Random.nextDouble() * 2.0
             val attraction = mass * STRESS_TEST_ATTRACTION_PER_MASS
@@ -62,21 +63,13 @@ class StressTestGenerator(
             val delay = if (Random.nextBoolean()) 0.0 else Random.nextDouble() * 60.0
             val particleColor = colorPalette[Random.nextInt(colorPalette.size)]
             val particleAlpha = STRESS_TEST_ALPHA_OPTIONS[Random.nextInt(STRESS_TEST_ALPHA_OPTIONS.size)]
-
             particles += Particle(
-                id = Random.nextInt().toString(16),
                 effect = ParticleEffect.STRESS_TEST,
                 shape = if (Random.nextBoolean()) ParticleShape.CIRCLE else ParticleShape.RECT,
-                age = 0.0,
                 delay = delay,
                 lifetime = 200.0 + Random.nextDouble() * 600.0,
                 color = particleColor,
-                startColor = particleColor,
-                endColor = particleColor,
                 alpha = particleAlpha,
-                endAlpha = particleAlpha,
-                initialAlpha = particleAlpha,
-                alphaMultiplier = 0.0,
                 width = width,
                 height = height,
                 maxWidth = width + Random.nextDouble() * 20.0,
@@ -86,13 +79,10 @@ class StressTestGenerator(
                 growthRate = growthRate,
                 x = spawnX,
                 y = spawnY,
-                z = 0.0,
                 originX = spawnX.roundToInt(),
                 originY = spawnY.roundToInt(),
-                originZ = 0,
                 destinationX = destinationX.roundToInt(),
                 destinationY = destinationY.roundToInt(),
-                destinationZ = 0,
                 xVelocity = cos(angle) * speed,
                 yVelocity = sin(angle) * speed,
                 zVelocity = -1.0 + Random.nextDouble() * 2.0,
@@ -107,14 +97,27 @@ class StressTestGenerator(
                 restitution = Random.nextDouble(),
                 attraction = attraction,
                 canCollide = Random.nextBoolean(),
-                visible = true,
                 viewportBound = Random.nextBoolean(),
                 xForce = xForce,
                 yForce = yForce,
-                gpuReservedSlot = nextStressTestGpuSlot
+                gpuReservedSlot = stressTestGpuSlotGroup.claimNextSlot()
             )
-            nextStressTestGpuSlot = (nextStressTestGpuSlot + 1) % MAX_ACTIVE_STRESS_TEST_PARTICLES
         }
         return particles
+    }
+
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = stressTestGpuSlotGroup
+
+    override fun gpuKind(particle: Particle): Float = STRESS_TEST_GPU_KIND
+
+    override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
+        val viewportBoundBand = if (particle.viewportBound) STRESS_TEST_VIEWPORT_BOUND_BAND else 0f
+        targetBuffer[parameterIndex] = if (particle.canCollide) particle.mass.toFloat() else -particle.mass.toFloat()
+        targetBuffer[parameterIndex + 1] = particle.restitution.toFloat() + viewportBoundBand
+        targetBuffer[parameterIndex + 2] = (particle.xAcceleration + particle.xForce).toFloat()
+        targetBuffer[parameterIndex + 3] = (particle.yAcceleration + particle.yForce).toFloat()
+        targetBuffer[parameterIndex + 4] = particle.drag.toFloat()
+        targetBuffer[parameterIndex + 5] = particle.maxXVelocity.toFloat()
+        targetBuffer[parameterIndex + 6] = particle.delay.toFloat()
     }
 }

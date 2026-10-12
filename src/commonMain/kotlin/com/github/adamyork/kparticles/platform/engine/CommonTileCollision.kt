@@ -14,4 +14,4 @@ abstract class CommonTileCollision(
     particlePhysics: ParticlePhysics,
     spatialGrid: SpatialGrid,
     physicsSettingsService: PhysicsSettingsService,
-) : BaseCollision(particlePhysics, spatialGrid, physicsSettingsService)
+) : AbstractCollision(particlePhysics, spatialGrid, physicsSettingsService)

@@ -2,6 +2,7 @@ package com.github.adamyork.kparticles.wasm.engine
 
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
+import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
 import com.github.adamyork.kparticles.wasm.common.*
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.browser.window
@@ -27,7 +28,7 @@ class WasmJsGpuParticleRenderer {
         private const val COLLISION_READBACK_BUFFER_COUNT = 3
         private const val FLOATS_PER_PARTICLE = 24
         private const val BYTES_PER_FLOAT = 4
-        private const val COMPUTE_UNIFORM_FLOATS = 16
+        private const val COMPUTE_UNIFORM_FLOATS = 20
         private const val RENDER_UNIFORM_FLOATS = 8
         private const val COMPUTE_ENTRY_POINT = "computeMain"
         private const val VERTEX_ENTRY_POINT = "vertexMain"
@@ -312,6 +313,9 @@ class WasmJsGpuParticleRenderer {
         computeUniformData[9] = viewPort.y.toFloat()
         computeUniformData[10] = viewPort.width.toFloat()
         computeUniformData[11] = viewPort.height.toFloat()
+        val shatterSlotRange = particleFactory.gpuSlotRange(ParticleEffect.SHATTER, maxParticles)
+        computeUniformData[16] = if (shatterSlotRange.isEmpty()) 0f else shatterSlotRange.first.toFloat()
+        computeUniformData[17] = if (shatterSlotRange.isEmpty()) 0f else (shatterSlotRange.last - shatterSlotRange.first + 1).toFloat()
         writeFloatArrayBuffer(gpuQueue, computeUniform, computeUniformData)
 
         val (collisionResetBuffer, collisionResetView) = getOrCreateCollisionResetScratch()

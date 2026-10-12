@@ -33,6 +33,8 @@ uniform float uPlayerY;
 uniform float uPlayerWidth;
 uniform float uPlayerHeight;
 uniform int uMaxParticles;
+uniform int uShatterPoolFirstSlot;
+uniform int uShatterPoolSlotCount;
 
 const float blackHoleCoreVisibilityDelay = 60.0;
 
@@ -142,6 +144,48 @@ AttractionResult applyGenericAttraction(
     return result;
 }
 
+const float shatterMaxVelocity = {{SHATTER_MAXIMUM_VELOCITY}};
+const float shatterMinFragmentRadius = {{SHATTER_MINIMUM_FRAGMENT_RADIUS}};
+const float shatterMinFragmentCount = {{SHATTER_MINIMUM_FRAGMENT_COUNT}};
+const float shatterMaxFragmentCount = {{SHATTER_MAXIMUM_FRAGMENT_COUNT}};
+const float shatterMomentumPerFragment = {{SHATTER_MOMENTUM_PER_FRAGMENT}};
+const float shatterSpreadSpeed = {{SHATTER_SPREAD_SPEED}};
+const uint noShatterParent = 0xFFFFFFFFu;
+
+uvec2 findShatterParent(uint index, uint poolFirst, uint poolCount) {
+    uint dormantRank = 0u;
+    for (uint poolOffset = 0u; poolOffset < poolCount; poolOffset = poolOffset + 1u) {
+        uint slot = poolFirst + poolOffset;
+        if (slot >= index) {
+            break;
+        }
+        uint slotBase = slot * 6u;
+        if (sourceData[slotBase + 1u].w <= 0.5 && spawnData[slotBase + 1u].w <= 0.5) {
+            dormantRank = dormantRank + 1u;
+        }
+    }
+    uint claimedChildren = 0u;
+    for (uint poolOffset = 0u; poolOffset < poolCount; poolOffset = poolOffset + 1u) {
+        uint slot = poolFirst + poolOffset;
+        uint slotBase = slot * 6u;
+        vec4 slotLifecycle = sourceData[slotBase + 1u];
+        vec4 slotTypeInfo = sourceData[slotBase + 3u];
+        if (slotLifecycle.w <= 0.5 || slotTypeInfo.x <= 13.5 || slotTypeInfo.x > 14.5) {
+            continue;
+        }
+        float requestedFragments = sourceData[slotBase + 4u].z;
+        if (requestedFragments < shatterMinFragmentCount) {
+            continue;
+        }
+        uint childCount = uint(requestedFragments) - 1u;
+        if (dormantRank < claimedChildren + childCount) {
+            return uvec2(slot, dormantRank - claimedChildren + 1u);
+        }
+        claimedChildren = claimedChildren + childCount;
+    }
+    return uvec2(noShatterParent, 0u);
+}
+
 void main() {
     uint index = gl_GlobalInvocationID.x;
     uint maxParticleCount = uint(uMaxParticles);
@@ -179,6 +223,33 @@ void main() {
             typeInfo = spawnTypeInfo;
             kindDataA = spawnKindDataA;
             kindDataB = spawnKindDataB;
+        }
+    }
+    uint shatterPoolFirst = uint(max(uShatterPoolFirstSlot, 0));
+    uint shatterPoolCount = uint(max(uShatterPoolSlotCount, 0));
+    if (lifecycle.w <= 0.5 && index >= shatterPoolFirst && index < shatterPoolFirst + shatterPoolCount) {
+        uvec2 shatterParent = findShatterParent(index, shatterPoolFirst, shatterPoolCount);
+        if (shatterParent.x != noShatterParent) {
+            uint parentBase = shatterParent.x * 6u;
+            vec4 parentPositionVelocity = sourceData[parentBase + 0u];
+            vec4 parentLifecycle = sourceData[parentBase + 1u];
+            vec4 parentTypeInfo = sourceData[parentBase + 3u];
+            vec4 parentKindDataA = sourceData[parentBase + 4u];
+            vec4 parentKindDataB = sourceData[parentBase + 5u];
+            float fragmentCount = parentKindDataA.z;
+            float fragmentSize = parentLifecycle.z / fragmentCount;
+            float fragmentOffset = float(shatterParent.y) - ((fragmentCount - 1.0) * 0.5);
+            positionVelocity = vec4(
+                parentPositionVelocity.x + (parentKindDataB.x * fragmentSize * fragmentOffset),
+                parentPositionVelocity.y + (parentKindDataB.y * fragmentSize * fragmentOffset),
+                parentPositionVelocity.z + (parentKindDataB.x * shatterSpreadSpeed * 2.0 * fragmentOffset),
+                parentPositionVelocity.w + (parentKindDataB.y * shatterSpreadSpeed * 2.0 * fragmentOffset)
+            );
+            lifecycle = vec4(parentLifecycle.x, parentLifecycle.y, fragmentSize, 1.0);
+            colorRgba = sourceData[parentBase + 2u];
+            typeInfo = vec4(parentTypeInfo.x, parentTypeInfo.y, parentTypeInfo.z, parentTypeInfo.w / fragmentCount);
+            kindDataA = vec4(parentKindDataA.x, 0.0, 0.0, 0.0);
+            kindDataB = vec4(0.0, 0.0, 0.0, 0.0);
         }
     }
     if (lifecycle.w > 0.5) {
@@ -529,6 +600,110 @@ void main() {
             } else {
                 positionVelocity.x = positionVelocity.x + (positionVelocity.z * elapsedTicks);
                 positionVelocity.y = positionVelocity.y + (positionVelocity.w * elapsedTicks);
+            }
+        } else if (particleKind > 13.5 && particleKind <= 14.5) {
+            lifecycle.x = lifecycle.x + elapsedTicks;
+            if (lifecycle.x >= lifecycle.y) {
+                lifecycle.w = 0.0;
+            } else {
+                float pendingFragmentCount = kindDataA.z;
+                bool isExecutingSplit = pendingFragmentCount >= shatterMinFragmentCount;
+                if (isExecutingSplit) {
+                    float executedFragmentSize = lifecycle.z / pendingFragmentCount;
+                    float executedCenterOffset = (pendingFragmentCount - 1.0) * 0.5;
+                    positionVelocity.x = positionVelocity.x - (kindDataB.x * executedFragmentSize * executedCenterOffset);
+                    positionVelocity.y = positionVelocity.y - (kindDataB.y * executedFragmentSize * executedCenterOffset);
+                    positionVelocity.z = positionVelocity.z - (kindDataB.x * shatterSpreadSpeed * 2.0 * executedCenterOffset);
+                    positionVelocity.w = positionVelocity.w - (kindDataB.y * shatterSpreadSpeed * 2.0 * executedCenterOffset);
+                    lifecycle.z = executedFragmentSize;
+                    typeInfo.w = typeInfo.w / pendingFragmentCount;
+                    kindDataA.z = 0.0;
+                }
+                float myHardness = typeInfo.z;
+                float myMass = typeInfo.w;
+                float myRestitution = kindDataA.x;
+                float myRadius = max(lifecycle.z * 0.5, 1.0);
+                float splitMomentum = -1.0;
+                vec2 splitNormal = vec2(1.0, 0.0);
+                for (uint poolOffset = 0u; poolOffset < shatterPoolCount; poolOffset = poolOffset + 1u) {
+                    uint otherIndex = shatterPoolFirst + poolOffset;
+                    if (otherIndex == index) {
+                        continue;
+                    }
+                    uint otherBase = otherIndex * 6u;
+                    vec4 otherLifecycle = sourceData[otherBase + 1u];
+                    if (otherLifecycle.w <= 0.5) {
+                        continue;
+                    }
+                    vec4 otherTypeInfo = sourceData[otherBase + 3u];
+                    if (otherTypeInfo.x <= 13.5 || otherTypeInfo.x > 14.5) {
+                        continue;
+                    }
+                    vec4 otherPositionVelocity = sourceData[otherBase + 0u];
+                    float otherRadius = max(otherLifecycle.z * 0.5, 1.0);
+                    float deltaX = otherPositionVelocity.x - positionVelocity.x;
+                    float deltaY = otherPositionVelocity.y - positionVelocity.y;
+                    float distance = sqrt((deltaX * deltaX) + (deltaY * deltaY));
+                    float combinedRadius = myRadius + otherRadius;
+                    if (distance <= 0.0 || distance >= combinedRadius) {
+                        continue;
+                    }
+                    float otherMass = otherTypeInfo.w;
+                    float totalMass = myMass + otherMass;
+                    if (totalMass <= 0.0) {
+                        continue;
+                    }
+                    float normalX = deltaX / distance;
+                    float normalY = deltaY / distance;
+                    float overlap = combinedRadius - distance;
+                    positionVelocity.x = positionVelocity.x - (normalX * overlap * (otherMass / totalMass));
+                    positionVelocity.y = positionVelocity.y - (normalY * overlap * (otherMass / totalMass));
+                    float relativeVelocityX = positionVelocity.z - otherPositionVelocity.z;
+                    float relativeVelocityY = positionVelocity.w - otherPositionVelocity.w;
+                    float impulse = 2.0 * ((normalX * relativeVelocityX) + (normalY * relativeVelocityY)) / totalMass;
+                    float restitution = min(myRestitution, sourceData[otherBase + 4u].x);
+                    positionVelocity.z = positionVelocity.z - (impulse * otherMass * normalX * (1.0 + restitution));
+                    positionVelocity.w = positionVelocity.w - (impulse * otherMass * normalY * (1.0 + restitution));
+                    float otherMomentum = otherMass * length(otherPositionVelocity.zw);
+                    if (otherTypeInfo.z > myHardness && otherMomentum >= splitMomentum) {
+                        splitMomentum = otherMomentum;
+                        splitNormal = vec2(normalX, normalY);
+                    }
+                }
+                if (!isExecutingSplit && splitMomentum >= 0.0) {
+                    float requestedFragments = clamp(floor(splitMomentum / shatterMomentumPerFragment), shatterMinFragmentCount, shatterMaxFragmentCount);
+                    float fittingFragments = floor(myRadius / shatterMinFragmentRadius);
+                    float splitFragmentCount = min(requestedFragments, fittingFragments);
+                    if (splitFragmentCount >= shatterMinFragmentCount) {
+                        kindDataA.z = splitFragmentCount;
+                        kindDataB.x = -splitNormal.y;
+                        kindDataB.y = splitNormal.x;
+                    }
+                }
+                positionVelocity.z = clamp(positionVelocity.z, -shatterMaxVelocity, shatterMaxVelocity);
+                positionVelocity.w = clamp(positionVelocity.w, -shatterMaxVelocity, shatterMaxVelocity);
+                positionVelocity.x = positionVelocity.x + (positionVelocity.z * elapsedTicks);
+                positionVelocity.y = positionVelocity.y + (positionVelocity.w * elapsedTicks);
+                float halfSize = max(lifecycle.z * 0.5, 1.0);
+                float boundaryRestitutionFactor = myRestitution * (1.0 / (1.0 + myMass));
+                float minX = uViewportX + halfSize;
+                float maxX = uViewportX + uViewportWidth - halfSize;
+                float minY = uViewportY + halfSize;
+                float maxY = uViewportY + uViewportHeight - halfSize;
+                if (positionVelocity.x < minX) {
+                    positionVelocity.x = minX + (minX - positionVelocity.x);
+                    positionVelocity.z = -positionVelocity.z * boundaryRestitutionFactor;
+                } else if (positionVelocity.x > maxX) {
+                    positionVelocity.x = maxX - (positionVelocity.x - maxX);
+                    positionVelocity.z = -positionVelocity.z * boundaryRestitutionFactor;
+                }
+                if (positionVelocity.y < minY) {
+                    positionVelocity.y = minY + (minY - positionVelocity.y);
+                    positionVelocity.w = -positionVelocity.w * boundaryRestitutionFactor;
+                } else if (positionVelocity.y > maxY) {
+                    positionVelocity.y = maxY - (positionVelocity.y - maxY);
+                    positionVelocity.w = -positionVelocity.w * boundaryRestitutionFactor;
+                }
             }
         } else if (particleKind > 10.5 && particleKind <= 11.5) {
             const float stressTestAttractionPerMass = 10.0;

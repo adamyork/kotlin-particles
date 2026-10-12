@@ -10,4 +10,15 @@ import me.tatarka.inject.annotations.Inject
  */
 @AppScope
 @Inject
-class BlobProjectileGenerator : BaseProjectileGenerator(ParticleEffect.BLOB_PROJECTILE)
+class BlobProjectileGenerator : AbstractProjectileGenerator(ParticleEffect.BLOB_PROJECTILE, BLOB_PROJECTILE_GPU_KIND) {
+
+    companion object {
+        const val PROJECTILE_BLOB_LOBE_COUNT: Int = 7
+        const val PROJECTILE_BLOB_AMPLITUDE_RATIO: Float = 0.22f
+        const val PROJECTILE_BLOB_BASE_FREQUENCY: Float = 0.05f
+        const val PROJECTILE_BLOB_FREQUENCY_STEP: Float = 0.015f
+        const val PROJECTILE_BLOB_PHASE_STEP: Float = 1.1f
+        const val PROJECTILE_BLOB_SPLINE_TENSION: Float = 6f
+        private const val BLOB_PROJECTILE_GPU_KIND: Float = 12f
+    }
+}

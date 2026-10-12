@@ -42,7 +42,9 @@ class AndroidGpuRenderers(
                 tickRate = frame.tickRate,
                 simulationSpeed = frame.simulationSpeed,
                 gravityBoost = frame.gravityBoost,
-                lifetimeDecay = frame.lifetimeDecay
+                lifetimeDecay = frame.lifetimeDecay,
+                shatterPoolFirstSlot = frame.shatterPoolFirstSlot,
+                shatterPoolSlotCount = frame.shatterPoolSlotCount
             )
         }
     }

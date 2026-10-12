@@ -23,6 +23,8 @@ interface ParticleFactory {
         throw EngineException("GPU particle compute buffer is not implemented for this engine")
     }
 
+    fun gpuSlotRange(effect: ParticleEffect, maxParticles: Int): IntRange = IntRange.EMPTY
+
     fun create(
         type: ParticleEffect,
         x: Double,

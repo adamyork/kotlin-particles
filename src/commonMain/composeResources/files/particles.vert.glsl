@@ -62,7 +62,8 @@ void main() {
     bool isMapItemReturn = particleKind > 2.5 && particleKind <= 3.5;
     bool isDust = particleKind > 0.5 && particleKind <= 1.5;
     bool isBlobProjectile = particleKind > 11.5 && particleKind <= 12.5;
-    bool usesUnscaledSize = isMapItemReturn || isDust;
+    bool isShatter = particleKind > 13.5 && particleKind <= 14.5;
+    bool usesUnscaledSize = isMapItemReturn || isDust || isShatter;
     float widthScale = usesUnscaledSize ? 1.0 : uSizeScale;
     float baseWidth = isMapItemReturn ? uMapItemSpriteWidth : lifecycle.z;
     float baseHeight = isMapItemReturn ? uMapItemSpriteHeight : lifecycle.z;
