@@ -21,6 +21,7 @@ enum class ParticleEffect(
     GOBBLER("Gobbler", RenderType.SIMPLE_SHAPE),
     BLACK_HOLE("Black Hole", RenderType.SIMPLE_SHAPE),
     STRESS_TEST("Stress Test", RenderType.SIMPLE_SHAPE),
-    SHATTER("Shatter", RenderType.SIMPLE_SHAPE)
+    SHATTER("Shatter", RenderType.SIMPLE_SHAPE),
+    DRIPS("Drips", RenderType.COMPLEX_SHAPE)
 }
 

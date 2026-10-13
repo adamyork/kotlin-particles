@@ -55,7 +55,6 @@ class WasmJsInterop : PlatformInterop {
     }
 
     override fun isGpuEngineSupported(platformData: Any?): Boolean {
-        //return false
         return hasWebGpuSupport()
     }
 

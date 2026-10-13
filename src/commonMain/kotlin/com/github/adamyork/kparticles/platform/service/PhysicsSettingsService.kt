@@ -33,4 +33,12 @@ interface PhysicsSettingsService {
     var shatterMomentumPerFragment: Double
     var shatterSpreadSpeed: Double
     var shatterMaxVelocity: Double
+    var dripSpeed: Double
+    var dripTrailRadiusRatio: Double
+    var dripNeckLengthRatio: Double
+    var dripGlossIntensity: Double
+    var dripGlossStripeOffsetRatio: Double
+    var dripGlossStripeWidthRatio: Double
+    var dripGlossSpecularRadiusRatio: Double
+    var dripGlossSpecularOffsetRatio: Double
 }

@@ -73,7 +73,8 @@ abstract class UiMain(
                 ParticleEffect.GOBBLER,
                 ParticleEffect.BLACK_HOLE,
                 ParticleEffect.STRESS_TEST,
-                ParticleEffect.SHATTER
+                ParticleEffect.SHATTER,
+                ParticleEffect.DRIPS
             )
         }
         var selectedParticleMode by remember { mutableStateOf(particleModes.first()) }

@@ -5,10 +5,14 @@ import com.github.adamyork.kparticles.platform.engine.ParticleDrawFunction
 import com.github.adamyork.kparticles.platform.engine.Renderers
 import com.github.adamyork.kparticles.platform.engine.data.*
 import com.github.adamyork.kparticles.platform.engine.effect.BlobProjectileGenerator
+import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import com.github.adamyork.kparticles.wasm.engine.data.WasmJsImage
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
 import kotlin.math.PI
+import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -18,7 +22,9 @@ import kotlin.math.sin
  */
 @AppScope
 @Inject
-class WasmCpuRenderers : Renderers<Canvas> {
+class WasmCpuRenderers(
+    private val physicsSettingsService: PhysicsSettingsService
+) : Renderers<Canvas> {
 
     private companion object {
         const val BUBBLE_FILL_TOP_LEFT_COLOR: Int = 0x66FFFFFF.toInt()
@@ -29,6 +35,8 @@ class WasmCpuRenderers : Renderers<Canvas> {
         const val BUBBLE_HIGHLIGHT_TRANSPARENT_COLOR: Int = 0x00FFFFFF
         const val BUBBLE_HIGHLIGHT_RADIUS_RATIO: Float = 0.28f
         const val BUBBLE_HIGHLIGHT_OFFSET_RATIO: Float = 0.38f
+        const val DRIP_MINIMUM_LENGTH: Float = 0.0001f
+        const val DRIP_STRIPE_ALPHA_SCALE: Float = 0.5f
     }
 
     private val particlePaint = Paint().apply { isAntiAlias = false; mode = PaintMode.FILL }
@@ -42,6 +50,18 @@ class WasmCpuRenderers : Renderers<Canvas> {
         strokeWidth = BUBBLE_RIM_STROKE_WIDTH
     }
     private val bubbleHighlightPaint = Paint().apply { isAntiAlias = true }
+    private val dripPaint = Paint().apply {
+        isAntiAlias = true
+        mode = PaintMode.STROKE
+        strokeCap = PaintStrokeCap.ROUND
+    }
+    private val dripFillPaint = Paint().apply { isAntiAlias = true }
+    private val dripGlossStripePaint = Paint().apply {
+        isAntiAlias = true
+        mode = PaintMode.STROKE
+        strokeCap = PaintStrokeCap.ROUND
+    }
+    private val dripGlossSpecularPaint = Paint().apply { isAntiAlias = true }
 
     private val simpleShapeDrawFunction: ParticleDrawFunction<Canvas> = ::drawSimpleShapes
     private val complexShapeDrawFunction: ParticleDrawFunction<Canvas> = ::drawComplexShapes
@@ -123,6 +143,10 @@ class WasmCpuRenderers : Renderers<Canvas> {
                 }
 
                 ParticleEffect.BLOB_PROJECTILE -> drawProjectileBlob(particle, viewPortOffsetX, viewPortOffsetY, canvas)
+                ParticleEffect.DRIPS -> if (particle.visible) {
+                    drawDrip(particle, viewPortOffsetX, viewPortOffsetY, canvas)
+                }
+
                 else -> Unit
             }
             particleIndex++
@@ -210,6 +234,84 @@ class WasmCpuRenderers : Renderers<Canvas> {
             canvas.drawCircle(highlightCenterX, highlightCenterY, highlightRadius, bubbleHighlightPaint)
         } finally {
             highlightShader.close()
+        }
+    }
+
+    private fun drawDrip(
+        particle: Particle,
+        viewPortOffsetX: Float,
+        viewPortOffsetY: Float,
+        canvas: Canvas
+    ) {
+        val headProgress = particle.travelProgress().toFloat()
+        val originX = particle.originX.toFloat() - viewPortOffsetX
+        val originY = particle.originY.toFloat() - viewPortOffsetY
+        val headX = originX + (particle.destinationX - particle.originX).toFloat() * headProgress
+        val headY = originY + (particle.destinationY - particle.originY).toFloat() * headProgress
+        val beadRadius = particle.radius.toFloat()
+        val trailRadius = beadRadius * physicsSettingsService.dripTrailRadiusRatio.toFloat()
+        val streakLength = hypot(headX - originX, headY - originY)
+        val directionX = if (streakLength > DRIP_MINIMUM_LENGTH) (headX - originX) / streakLength else 0f
+        val directionY = if (streakLength > DRIP_MINIMUM_LENGTH) (headY - originY) / streakLength else 1f
+        val perpendicularX = -directionY
+        val perpendicularY = directionX
+        val neckSetting = max(beadRadius * physicsSettingsService.dripNeckLengthRatio.toFloat(), DRIP_MINIMUM_LENGTH)
+        val neckLength = min(streakLength, neckSetting)
+        val tailRadius = beadRadius + (trailRadius - beadRadius) * (streakLength / neckSetting).coerceIn(0f, 1f)
+        val neckStartX = headX - directionX * neckLength
+        val neckStartY = headY - directionY * neckLength
+        val dripColor = Color.makeARGB(
+            (particle.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255),
+            (particle.color.red * 255).toInt().coerceIn(0, 255),
+            (particle.color.green * 255).toInt().coerceIn(0, 255),
+            (particle.color.blue * 255).toInt().coerceIn(0, 255)
+        )
+        dripPaint.color = dripColor
+        dripPaint.strokeWidth = tailRadius * 2f
+        canvas.drawLine(originX, originY, neckStartX, neckStartY, dripPaint)
+        val neckBuilder = PathBuilder()
+        neckBuilder.moveTo(neckStartX + perpendicularX * tailRadius, neckStartY + perpendicularY * tailRadius)
+        neckBuilder.lineTo(headX + perpendicularX * beadRadius, headY + perpendicularY * beadRadius)
+        neckBuilder.lineTo(headX - perpendicularX * beadRadius, headY - perpendicularY * beadRadius)
+        neckBuilder.lineTo(neckStartX - perpendicularX * tailRadius, neckStartY - perpendicularY * tailRadius)
+        neckBuilder.closePath()
+        val neckPath = neckBuilder.detach()
+        dripFillPaint.color = dripColor
+        canvas.drawPath(neckPath, dripFillPaint)
+        neckPath.close()
+        canvas.drawCircle(headX, headY, beadRadius, dripFillPaint)
+        val glossIntensity = physicsSettingsService.dripGlossIntensity.toFloat()
+        if (streakLength - neckLength > 0.5f) {
+            val stripeOffset = trailRadius * physicsSettingsService.dripGlossStripeOffsetRatio.toFloat()
+            dripGlossStripePaint.color =
+                Color.makeARGB((glossIntensity * DRIP_STRIPE_ALPHA_SCALE * 255f).toInt().coerceIn(0, 255), 255, 255, 255)
+            dripGlossStripePaint.strokeWidth = trailRadius * physicsSettingsService.dripGlossStripeWidthRatio.toFloat() * 2f
+            canvas.drawLine(
+                originX + perpendicularX * stripeOffset,
+                originY + perpendicularY * stripeOffset,
+                neckStartX + perpendicularX * stripeOffset,
+                neckStartY + perpendicularY * stripeOffset,
+                dripGlossStripePaint
+            )
+        }
+        val specularOffset = beadRadius * physicsSettingsService.dripGlossSpecularOffsetRatio.toFloat()
+        val specularCenterX = headX - directionX * specularOffset + perpendicularX * specularOffset
+        val specularCenterY = headY - directionY * specularOffset + perpendicularY * specularOffset
+        val specularRadius = beadRadius * physicsSettingsService.dripGlossSpecularRadiusRatio.toFloat()
+        val specularShader = Shader.makeRadialGradient(
+            specularCenterX,
+            specularCenterY,
+            specularRadius,
+            intArrayOf(
+                Color.makeARGB((glossIntensity * 255f).toInt().coerceIn(0, 255), 255, 255, 255),
+                Color.makeARGB(0, 255, 255, 255)
+            )
+        )
+        try {
+            dripGlossSpecularPaint.shader = specularShader
+            canvas.drawCircle(specularCenterX, specularCenterY, specularRadius, dripGlossSpecularPaint)
+        } finally {
+            specularShader.close()
         }
     }
 

@@ -12,6 +12,14 @@ in float vPixelRadius;
 uniform sampler2D uMapItemTexture;
 uniform bool uDustPass;
 
+const float dripTrailRadiusRatio = {{DRIPS_TRAIL_RADIUS_RATIO}};
+const float dripNeckLengthRatio = {{DRIPS_NECK_LENGTH_RATIO}};
+const float dripGlossIntensity = {{DRIPS_GLOSS_INTENSITY}};
+const float dripGlossStripeOffsetRatio = {{DRIPS_GLOSS_STRIPE_OFFSET_RATIO}};
+const float dripGlossStripeWidthRatio = {{DRIPS_GLOSS_STRIPE_WIDTH_RATIO}};
+const float dripGlossSpecularRadiusRatio = {{DRIPS_GLOSS_SPECULAR_RADIUS_RATIO}};
+const float dripGlossSpecularOffsetRatio = {{DRIPS_GLOSS_SPECULAR_OFFSET_RATIO}};
+
 out vec4 fragColor;
 
 const float blobProjectileQuadSizeMultiplier = 1.4;
@@ -106,6 +114,41 @@ void main() {
     }
     if (vParticleKind > 12.5 && vParticleKind <= 13.5) {
         fragColor = bubbleFragmentColor(vQuadCoordinate, vPixelRadius);
+        return;
+    }
+    if (vParticleKind > 14.5 && vParticleKind <= 15.5) {
+        float beadRadius = vUv.y;
+        float trailRadius = beadRadius * dripTrailRadiusRatio;
+        float streakLength = max(2.0 * (vUv.x - vUv.y), 0.0);
+        float neckSetting = max(beadRadius * dripNeckLengthRatio, 0.0001);
+        float neckLength = min(streakLength, neckSetting);
+        float tailRadius = mix(beadRadius, trailRadius, clamp(streakLength / neckSetting, 0.0, 1.0));
+        float axisPosition = (vQuadCoordinate.x * vUv.x) + (streakLength * 0.5);
+        float perpendicularPosition = vQuadCoordinate.y * vUv.y;
+        bool isInside = false;
+        if (axisPosition < 0.0) {
+            isInside = length(vec2(axisPosition, perpendicularPosition)) <= tailRadius;
+        } else if (axisPosition > streakLength) {
+            isInside = length(vec2(axisPosition - streakLength, perpendicularPosition)) <= beadRadius;
+        } else {
+            float neckProgress = clamp((axisPosition - (streakLength - neckLength)) / max(neckLength, 0.0001), 0.0, 1.0);
+            isInside = abs(perpendicularPosition) <= mix(tailRadius, beadRadius, neckProgress);
+        }
+        if (!isInside) {
+            fragColor = vec4(0.0, 0.0, 0.0, 0.0);
+            return;
+        }
+        float stripeGloss = 0.0;
+        if (axisPosition >= 0.0 && axisPosition <= streakLength - neckLength) {
+            float stripeWidth = max(trailRadius * dripGlossStripeWidthRatio, 0.0001);
+            stripeGloss = clamp(1.0 - abs(perpendicularPosition - (trailRadius * dripGlossStripeOffsetRatio)) / stripeWidth, 0.0, 1.0);
+        }
+        float specularOffset = beadRadius * dripGlossSpecularOffsetRatio;
+        vec2 specularCenter = vec2(streakLength - specularOffset, specularOffset);
+        float specularRadius = max(beadRadius * dripGlossSpecularRadiusRatio, 0.0001);
+        float specularGloss = clamp(1.0 - length(vec2(axisPosition, perpendicularPosition) - specularCenter) / specularRadius, 0.0, 1.0);
+        float glossAmount = clamp(max(stripeGloss, specularGloss) * dripGlossIntensity, 0.0, 1.0);
+        fragColor = vec4(mix(vColor.rgb, vec3(1.0, 1.0, 1.0), glossAmount), vColor.a);
         return;
     }
     if (shouldDiscardCircle(vShapeFlag, vQuadCoordinate)) {

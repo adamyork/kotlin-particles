@@ -6,6 +6,7 @@ import com.github.adamyork.kparticles.platform.engine.effect.BlobProjectileGener
 import com.github.adamyork.kparticles.platform.engine.effect.BubbleGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.CollidingBitsGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.CollisionGenerator
+import com.github.adamyork.kparticles.platform.engine.effect.DripsGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.DustGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.FireworkBurstGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.FireworkTailGenerator
@@ -79,5 +80,9 @@ interface ParticleEffectGeneratorConfig {
     @Provides
     @IntoSet
     fun provideShatter(impl: ShatterGenerator): ParticleEffectGenerator = impl
+
+    @Provides
+    @IntoSet
+    fun provideDrips(impl: DripsGenerator): ParticleEffectGenerator = impl
 
 }

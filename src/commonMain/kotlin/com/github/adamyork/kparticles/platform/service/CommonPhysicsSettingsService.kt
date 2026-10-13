@@ -38,5 +38,13 @@ class CommonPhysicsSettingsService : PhysicsSettingsService {
     override var shatterMomentumPerFragment: Double = 1.5
     override var shatterSpreadSpeed: Double = 1.0
     override var shatterMaxVelocity: Double = 10.0
+    override var dripSpeed: Double = 1.25
+    override var dripTrailRadiusRatio: Double = 0.45
+    override var dripNeckLengthRatio: Double = 3.0
+    override var dripGlossIntensity: Double = 0.6
+    override var dripGlossStripeOffsetRatio: Double = 0.45
+    override var dripGlossStripeWidthRatio: Double = 0.2
+    override var dripGlossSpecularRadiusRatio: Double = 0.3
+    override var dripGlossSpecularOffsetRatio: Double = 0.4
 
 }

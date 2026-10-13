@@ -45,7 +45,14 @@ abstract class AbstractPlatformAssetService(
             "SHATTER_MAXIMUM_FRAGMENT_COUNT" to physicsSettingsService.shatterMaximumFragmentCount.toDouble(),
             "SHATTER_MOMENTUM_PER_FRAGMENT" to physicsSettingsService.shatterMomentumPerFragment,
             "SHATTER_SPREAD_SPEED" to physicsSettingsService.shatterSpreadSpeed,
-            "SHATTER_MAXIMUM_VELOCITY" to physicsSettingsService.shatterMaxVelocity
+            "SHATTER_MAXIMUM_VELOCITY" to physicsSettingsService.shatterMaxVelocity,
+            "DRIPS_TRAIL_RADIUS_RATIO" to physicsSettingsService.dripTrailRadiusRatio,
+            "DRIPS_NECK_LENGTH_RATIO" to physicsSettingsService.dripNeckLengthRatio,
+            "DRIPS_GLOSS_INTENSITY" to physicsSettingsService.dripGlossIntensity,
+            "DRIPS_GLOSS_STRIPE_OFFSET_RATIO" to physicsSettingsService.dripGlossStripeOffsetRatio,
+            "DRIPS_GLOSS_STRIPE_WIDTH_RATIO" to physicsSettingsService.dripGlossStripeWidthRatio,
+            "DRIPS_GLOSS_SPECULAR_RADIUS_RATIO" to physicsSettingsService.dripGlossSpecularRadiusRatio,
+            "DRIPS_GLOSS_SPECULAR_OFFSET_RATIO" to physicsSettingsService.dripGlossSpecularOffsetRatio
         )
         return Regex("\\{\\{([A-Z0-9_]+)\\}\\}").replace(shaderSource) { placeholderMatch ->
             val placeholderName = placeholderMatch.groupValues[1]

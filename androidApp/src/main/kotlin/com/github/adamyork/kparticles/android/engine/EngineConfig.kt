@@ -14,6 +14,10 @@ import com.github.adamyork.kparticles.platform.engine.Renderers
 import com.github.adamyork.kparticles.platform.engine.SpatialGrid
 import me.tatarka.inject.annotations.Provides
 
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
 interface EngineConfig {
 
     @AppScope

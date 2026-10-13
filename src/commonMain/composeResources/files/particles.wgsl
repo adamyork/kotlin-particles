@@ -153,6 +153,13 @@ const shatterMaxFragmentCount = {{SHATTER_MAXIMUM_FRAGMENT_COUNT}};
 const shatterMomentumPerFragment = {{SHATTER_MOMENTUM_PER_FRAGMENT}};
 const shatterSpreadSpeed = {{SHATTER_SPREAD_SPEED}};
 const noShatterParent = 0xFFFFFFFFu;
+const dripTrailRadiusRatio = {{DRIPS_TRAIL_RADIUS_RATIO}};
+const dripNeckLengthRatio = {{DRIPS_NECK_LENGTH_RATIO}};
+const dripGlossIntensity = {{DRIPS_GLOSS_INTENSITY}};
+const dripGlossStripeOffsetRatio = {{DRIPS_GLOSS_STRIPE_OFFSET_RATIO}};
+const dripGlossStripeWidthRatio = {{DRIPS_GLOSS_STRIPE_WIDTH_RATIO}};
+const dripGlossSpecularRadiusRatio = {{DRIPS_GLOSS_SPECULAR_RADIUS_RATIO}};
+const dripGlossSpecularOffsetRatio = {{DRIPS_GLOSS_SPECULAR_OFFSET_RATIO}};
 
 fn findShatterParent(index: u32, poolFirst: u32, poolCount: u32) -> vec2<u32> {
   var dormantRank = 0u;
@@ -605,6 +612,11 @@ fn computeMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
         positionVelocity.x = positionVelocity.x + (positionVelocity.z * elapsedTicks);
         positionVelocity.y = positionVelocity.y + (positionVelocity.w * elapsedTicks);
       }
+    } else if (particleKind > 14.5 && particleKind <= 15.5) {
+      lifecycle.x = lifecycle.x + elapsedTicks;
+      if (lifecycle.x >= lifecycle.y + typeInfo.z) {
+        lifecycle.w = 0.0;
+      }
     } else if (particleKind > 13.5 && particleKind <= 14.5) {
       lifecycle.x = lifecycle.x + elapsedTicks;
       if (lifecycle.x >= lifecycle.y) {
@@ -926,7 +938,8 @@ fn vertexMain(
   let typeInfo = renderParticles.data[base + 3u];
   let kindDataA = renderParticles.data[base + 4u];
   var out: VertexOutput;
-  if (lifecycle.w <= 0.5) {
+  let isDelayedDrip = typeInfo.x > 14.5 && typeInfo.x <= 15.5 && lifecycle.x < typeInfo.z;
+  if (lifecycle.w <= 0.5 || isDelayedDrip) {
     out.position = vec4<f32>(-2.0, -2.0, 0.0, 1.0);
     out.color = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     out.quadCoordinate = vec2<f32>(0.0, 0.0);
@@ -944,7 +957,8 @@ fn vertexMain(
   let isDust = particleKind > 0.5 && particleKind <= 1.5;
   let isBlobProjectile = particleKind > 11.5 && particleKind <= 12.5;
   let isShatter = particleKind > 13.5 && particleKind <= 14.5;
-  let usesUnscaledSize = isMapItemReturn || isDust || isShatter;
+  let isDrip = particleKind > 14.5 && particleKind <= 15.5;
+  let usesUnscaledSize = isMapItemReturn || isDust || isShatter || isDrip;
   let widthScale = select(sizeScale, 1.0, usesUnscaledSize);
   let baseWidth = select(lifecycle.z, renderUniforms.renderScale.z, isMapItemReturn);
   let baseHeight = select(lifecycle.z, renderUniforms.renderScale.w, isMapItemReturn);
@@ -952,8 +966,24 @@ fn vertexMain(
   let halfWidth = max(baseWidth * widthScale * scale * 0.5 * blobSizeMultiplier, 1.0);
   let halfHeight = max(baseHeight * widthScale * scale * 0.5 * blobSizeMultiplier, 1.0);
   let corner = quadCorner(vertexIndex);
-  let localX = ((positionVelocity.x - renderUniforms.viewport.x) * scale) + (corner.x * halfWidth);
-  let localY = ((positionVelocity.y - renderUniforms.viewport.y) * scale) + (corner.y * halfHeight);
+  var quadCenter = positionVelocity.xy;
+  var quadOffset = vec2<f32>(corner.x * halfWidth, corner.y * halfHeight);
+  var dripHalfLength = 0.0;
+  if (isDrip) {
+    let dripDistance = length(positionVelocity.zw - positionVelocity.xy);
+    let dripTravelTime = clamp((lifecycle.x - typeInfo.z) / max(typeInfo.w, 0.0001), 0.0, 1.0);
+    let dripHeadProgress = select(1.0, smoothstep(0.0, 1.0, dripTravelTime), dripDistance > 0.0001);
+    let dripHead = positionVelocity.xy + ((positionVelocity.zw - positionVelocity.xy) * dripHeadProgress);
+    let dripTail = positionVelocity.xy;
+    let dripAxis = (dripHead - dripTail) * scale;
+    let dripLength = length(dripAxis);
+    let dripDirection = select(vec2<f32>(0.0, 1.0), dripAxis / max(dripLength, 0.0001), dripLength > 0.0001);
+    dripHalfLength = (dripLength * 0.5) + halfWidth;
+    quadCenter = (dripHead + dripTail) * 0.5;
+    quadOffset = (dripDirection * (corner.x * dripHalfLength)) + (vec2<f32>(-dripDirection.y, dripDirection.x) * (corner.y * halfWidth));
+  }
+  let localX = ((quadCenter.x - renderUniforms.viewport.x) * scale) + quadOffset.x;
+  let localY = ((quadCenter.y - renderUniforms.viewport.y) * scale) + quadOffset.y;
   let x = (localX / renderUniforms.viewport.z) * 2.0 - 1.0;
   let y = (localY / renderUniforms.viewport.w) * 2.0 - 1.0;
   let lifetime = max(lifecycle.y, 1.0);
@@ -985,7 +1015,11 @@ fn vertexMain(
   let itemReturnMaxFrames = max(kindDataA.x, 1.0);
   let itemReturnFrameIndex = floor(lifecycle.x / itemReturnSpriteTicksPerFrame) % itemReturnMaxFrames;
   let itemReturnUvX = (localU + itemReturnFrameIndex) / itemReturnSpriteFrameCount;
-  out.uv = vec2<f32>(select(localU, itemReturnUvX, isMapItemReturn), localV);
+  var resolvedUv = vec2<f32>(select(localU, itemReturnUvX, isMapItemReturn), localV);
+  if (isDrip) {
+    resolvedUv = vec2<f32>(dripHalfLength, halfWidth);
+  }
+  out.uv = resolvedUv;
   out.particleKind = particleKind;
   out.age = lifecycle.x;
   out.pixelRadius = halfWidth;
@@ -1066,6 +1100,39 @@ fn fragmentMainNonDust(
   }
   if (particleKind > 12.5 && particleKind <= 13.5) {
     return bubbleFragmentColor(quadCoordinate, pixelRadius);
+  }
+  if (particleKind > 14.5 && particleKind <= 15.5) {
+    let beadRadius = uv.y;
+    let trailRadius = beadRadius * dripTrailRadiusRatio;
+    let streakLength = max(2.0 * (uv.x - uv.y), 0.0);
+    let neckSetting = max(beadRadius * dripNeckLengthRatio, 0.0001);
+    let neckLength = min(streakLength, neckSetting);
+    let tailRadius = mix(beadRadius, trailRadius, clamp(streakLength / neckSetting, 0.0, 1.0));
+    let axisPosition = (quadCoordinate.x * uv.x) + (streakLength * 0.5);
+    let perpendicularPosition = quadCoordinate.y * uv.y;
+    var isInside = false;
+    if (axisPosition < 0.0) {
+      isInside = length(vec2<f32>(axisPosition, perpendicularPosition)) <= tailRadius;
+    } else if (axisPosition > streakLength) {
+      isInside = length(vec2<f32>(axisPosition - streakLength, perpendicularPosition)) <= beadRadius;
+    } else {
+      let neckProgress = clamp((axisPosition - (streakLength - neckLength)) / max(neckLength, 0.0001), 0.0, 1.0);
+      isInside = abs(perpendicularPosition) <= mix(tailRadius, beadRadius, neckProgress);
+    }
+    if (!isInside) {
+      return vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    }
+    var stripeGloss = 0.0;
+    if (axisPosition >= 0.0 && axisPosition <= streakLength - neckLength) {
+      let stripeWidth = max(trailRadius * dripGlossStripeWidthRatio, 0.0001);
+      stripeGloss = clamp(1.0 - abs(perpendicularPosition - (trailRadius * dripGlossStripeOffsetRatio)) / stripeWidth, 0.0, 1.0);
+    }
+    let specularOffset = beadRadius * dripGlossSpecularOffsetRatio;
+    let specularCenter = vec2<f32>(streakLength - specularOffset, specularOffset);
+    let specularRadius = max(beadRadius * dripGlossSpecularRadiusRatio, 0.0001);
+    let specularGloss = clamp(1.0 - length(vec2<f32>(axisPosition, perpendicularPosition) - specularCenter) / specularRadius, 0.0, 1.0);
+    let glossAmount = clamp(max(stripeGloss, specularGloss) * dripGlossIntensity, 0.0, 1.0);
+    return vec4<f32>(mix(color.rgb, vec3<f32>(1.0, 1.0, 1.0), glossAmount), color.a);
   }
   if (shouldDiscardCircle(shapeFlag, quadCoordinate)) {
     return vec4<f32>(0.0, 0.0, 0.0, 0.0);

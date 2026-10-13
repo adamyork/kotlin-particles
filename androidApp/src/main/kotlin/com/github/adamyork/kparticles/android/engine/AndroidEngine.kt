@@ -22,6 +22,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.tatarka.inject.annotations.Inject
 
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
 @AppScope
 @Inject
 open class AndroidEngine(

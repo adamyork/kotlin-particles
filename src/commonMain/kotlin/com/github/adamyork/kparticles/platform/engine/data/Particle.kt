@@ -2,6 +2,7 @@ package com.github.adamyork.kparticles.platform.engine.data
 
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
+import kotlin.math.hypot
 import kotlin.random.Random
 
 /**
@@ -62,7 +63,8 @@ data class Particle(
     val maxFrames: Int = 1,
     val driftAmplitude: Double = 0.0,
     val driftFrequency: Double = 0.0,
-    val driftPhase: Double = 0.0
+    val driftPhase: Double = 0.0,
+    val travelTicks: Double = 0.0
 ) {
     companion object {
         const val DEFAULT_MAX_WIDTH: Double = 10.0
@@ -78,6 +80,13 @@ data class Particle(
                 localCord.y > -VISIBILITY_BUFFER &&
                 localCord.x > -VISIBILITY_BUFFER &&
                 localCord.x < viewPort.width + VISIBILITY_BUFFER
+    }
+
+    fun travelProgress(): Double {
+        val travelDistance = hypot((destinationX - originX).toDouble(), (destinationY - originY).toDouble())
+        if (travelDistance <= 0.0 || travelTicks <= 0.0) return 1.0
+        val travelTime = ((age - delay) / travelTicks).coerceIn(0.0, 1.0)
+        return travelTime * travelTime * (3.0 - 2.0 * travelTime)
     }
 
     fun canInteract(): Boolean = canCollide || attraction > 0.0

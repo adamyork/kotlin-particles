@@ -11,6 +11,10 @@ import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import me.tatarka.inject.annotations.Inject
 import java.util.concurrent.atomic.AtomicInteger
 
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
 @AppScope
 @Inject
 class AndroidInterop : PlatformInterop {
@@ -42,7 +46,6 @@ class AndroidInterop : PlatformInterop {
     }
 
     override fun hidePlatformLoader() {
-        // No Android platform loader to hide.
     }
 
     override fun getPlatformNowTime(): Double {
@@ -72,7 +75,6 @@ class AndroidInterop : PlatformInterop {
     }
 
     override fun requestKeyboardFocus() {
-        // Android activity-level key dispatch does not require explicit focus management.
     }
 
     private fun resolveActivityManager(context: Context): ActivityManager? {

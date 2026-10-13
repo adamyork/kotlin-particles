@@ -601,6 +601,11 @@ void main() {
                 positionVelocity.x = positionVelocity.x + (positionVelocity.z * elapsedTicks);
                 positionVelocity.y = positionVelocity.y + (positionVelocity.w * elapsedTicks);
             }
+        } else if (particleKind > 14.5 && particleKind <= 15.5) {
+            lifecycle.x = lifecycle.x + elapsedTicks;
+            if (lifecycle.x >= lifecycle.y + typeInfo.z) {
+                lifecycle.w = 0.0;
+            }
         } else if (particleKind > 13.5 && particleKind <= 14.5) {
             lifecycle.x = lifecycle.x + elapsedTicks;
             if (lifecycle.x >= lifecycle.y) {
