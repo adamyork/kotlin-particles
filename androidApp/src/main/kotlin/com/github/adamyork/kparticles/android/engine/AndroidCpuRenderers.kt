@@ -10,10 +10,12 @@ import com.github.adamyork.kparticles.platform.engine.effect.BlobProjectileGener
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
 import kotlin.math.PI
+import kotlin.math.ceil
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
@@ -37,6 +39,10 @@ class AndroidCpuRenderers(
         const val BUBBLE_HIGHLIGHT_OFFSET_RATIO: Float = 0.38f
         const val DRIP_MINIMUM_LENGTH: Float = 0.0001f
         const val DRIP_STRIPE_ALPHA_SCALE: Float = 0.5f
+        const val DRIP_SPECULAR_IMAGE_SIZE: Int = 64
+        const val BUBBLE_IMAGE_PADDING: Int = 4
+        const val BUBBLE_IMAGE_CACHE_LIMIT: Int = 128
+        const val RADIANS_TO_DEGREES: Float = (180.0 / PI).toFloat()
     }
 
     private val particlePaint: Paint = Paint().apply {
@@ -73,6 +79,9 @@ class AndroidCpuRenderers(
 
     private val particleSrcRect = Rect()
     private val particleRectF = RectF()
+    private val bubbleBitmaps = HashMap<Int, Bitmap>()
+    private var dripSpecularBitmap: Bitmap? = null
+    private var dripSpecularAlpha = -1
 
     private val simpleShapeDrawFunction: ParticleDrawFunction<Canvas> = ::drawSimpleShapes
     private val complexShapeDrawFunction: ParticleDrawFunction<Canvas> = ::drawComplexShapes
@@ -87,52 +96,62 @@ class AndroidCpuRenderers(
     }
 
     private fun drawSimpleShapes(drawFunctionData: DrawFunctionData<Canvas>) {
-        val particles = drawFunctionData.particles
+        val generators = drawFunctionData.generators
         val viewPort = drawFunctionData.viewPort
         val canvas = drawFunctionData.canvas
         val viewPortOffsetX = viewPort.x.toFloat()
         val viewPortOffsetY = viewPort.y.toFloat()
-        for (particleIndex in particles.indices) {
-            val particle = particles[particleIndex]
-            val lifetime = if (particle.lifetime <= 0) 1 else particle.lifetime
-            val ageProgress = (particle.age.toFloat() / lifetime.toFloat()).coerceIn(0f, 1f)
-            val alphaMultiplier = when {
-                particle.effect == ParticleEffect.PROJECTILE -> 1.0f
-                ageProgress < 0.33f -> 1.0f
-                ageProgress < 0.66f -> 0.66f
-                else -> 0.33f
-            }
-            particlePaint.color = particleColorArgb(particle, alphaMultiplier)
-            val x = particle.x.toFloat() - viewPortOffsetX
-            val y = particle.y.toFloat() - viewPortOffsetY
-            particleRectF.set(x, y, x + particle.width.toFloat(), y + particle.height.toFloat())
-            if (particle.shape == ParticleShape.CIRCLE) {
-                canvas.drawOval(particleRectF, particlePaint)
-            } else {
-                canvas.drawRect(particleRectF, particlePaint)
+        for (generator in generators) {
+            val particles = generator.particles
+            for (particleIndex in particles.indices) {
+                val particle = particles[particleIndex]
+                if (!particle.cullingCheck(viewPort)) continue
+                particlePaint.color = particleColorArgb(particle)
+                val x = particle.transform.position.x.toFloat() - viewPortOffsetX
+                val y = particle.transform.position.y.toFloat() - viewPortOffsetY
+                when (val dimensions = particle.dimensions) {
+                    is CircleDimensions -> canvas.drawCircle(x, y, dimensions.radius.toFloat(), particlePaint)
+                    is RectDimensions -> {
+                        val halfWidth = dimensions.width.toFloat() / 2f
+                        val halfHeight = dimensions.height.toFloat() / 2f
+                        particleRectF.set(x - halfWidth, y - halfHeight, x + halfWidth, y + halfHeight)
+                        if (particle.transform.angle == 0.0) {
+                            canvas.drawRect(particleRectF, particlePaint)
+                        } else {
+                            canvas.save()
+                            canvas.rotate(particle.transform.angle.toFloat() * RADIANS_TO_DEGREES, x, y)
+                            canvas.drawRect(particleRectF, particlePaint)
+                            canvas.restore()
+                        }
+                    }
+                }
             }
         }
     }
 
     private fun drawComplexShapes(drawFunctionData: DrawFunctionData<Canvas>) {
-        val particles = drawFunctionData.particles
+        val generators = drawFunctionData.generators
         val viewPort = drawFunctionData.viewPort
         val canvas = drawFunctionData.canvas
         val viewPortOffsetX = viewPort.x.toFloat()
         val viewPortOffsetY = viewPort.y.toFloat()
-        for (particleIndex in particles.indices) {
-            val particle = particles[particleIndex]
-            when (particle.effect) {
-                ParticleEffect.BUBBLE -> if (particle.visible) {
-                    drawBubble(particle, viewPortOffsetX, viewPortOffsetY, canvas)
-                }
+        for (generator in generators) {
+            val particles = generator.particles
+            for (particleIndex in particles.indices) {
+                val particle = particles[particleIndex]
+                if (!particle.cullingCheck(viewPort)) continue
+                when (generator.effect) {
+                    ParticleEffect.BUBBLE -> if (particle.lifecycle.isVisible()) {
+                        drawBubble(particle, viewPortOffsetX, viewPortOffsetY, canvas)
+                    }
 
-                ParticleEffect.BLOB_PROJECTILE -> drawProjectileBlob(particle, viewPortOffsetX, viewPortOffsetY, canvas)
-                ParticleEffect.DRIPS -> if (particle.visible) {
-                    drawDrip(particle, viewPortOffsetX, viewPortOffsetY, canvas)
-                }
+                    ParticleEffect.BLOB_PROJECTILE -> drawProjectileBlob(particle, viewPortOffsetX, viewPortOffsetY, canvas)
+                    ParticleEffect.DRIPS -> if (particle.lifecycle.isVisible()) {
+                        drawDrip(particle, viewPortOffsetX, viewPortOffsetY, canvas)
+                    }
 
-                else -> Unit
+                    else -> Unit
+                }
             }
         }
     }
@@ -147,7 +166,7 @@ class AndroidCpuRenderers(
 
     private fun drawSpriteFrames(drawFunctionData: DrawFunctionData<Canvas>, animated: Boolean) {
         val spriteSheet = drawFunctionData.spriteSheet ?: return
-        val particles = drawFunctionData.particles
+        val generators = drawFunctionData.generators
         val viewPort = drawFunctionData.viewPort
         val canvas = drawFunctionData.canvas
         val spriteImage = spriteSheet.image as? AndroidImage ?: return
@@ -156,19 +175,23 @@ class AndroidCpuRenderers(
         val viewPortOffsetY = viewPort.y.toFloat()
         val sourceWidth = spriteSheet.frameWidth.toFloat()
         val sourceHeight = spriteSheet.frameHeight.toFloat()
-        for (particleIndex in particles.indices) {
-            val particle = particles[particleIndex]
-            val localX = particle.x.toFloat() - viewPortOffsetX
-            val localY = particle.y.toFloat() - viewPortOffsetY
-            val frameOffsetX = (if (animated) particle.frame else 0) * spriteSheet.frameWidth
-            particleSrcRect.set(frameOffsetX, 0, frameOffsetX + spriteSheet.frameWidth, spriteSheet.frameHeight)
-            particleRectF.set(
-                localX - sourceWidth / 2f,
-                localY - sourceHeight / 2f,
-                localX + sourceWidth / 2f,
-                localY + sourceHeight / 2f
-            )
-            canvas.drawBitmap(spriteBitmap, particleSrcRect, particleRectF, spritePaint)
+        for (generator in generators) {
+            val particles = generator.particles
+            for (particleIndex in particles.indices) {
+                val particle = particles[particleIndex]
+                if (!particle.cullingCheck(viewPort)) continue
+                val localX = particle.transform.position.x.toFloat() - viewPortOffsetX
+                val localY = particle.transform.position.y.toFloat() - viewPortOffsetY
+                val frameOffsetX = (if (animated) (particle.animation?.frame ?: 0) else 0) * spriteSheet.frameWidth
+                particleSrcRect.set(frameOffsetX, 0, frameOffsetX + spriteSheet.frameWidth, spriteSheet.frameHeight)
+                particleRectF.set(
+                    localX - sourceWidth / 2f,
+                    localY - sourceHeight / 2f,
+                    localX + sourceWidth / 2f,
+                    localY + sourceHeight / 2f
+                )
+                canvas.drawBitmap(spriteBitmap, particleSrcRect, particleRectF, spritePaint)
+            }
         }
     }
 
@@ -178,34 +201,49 @@ class AndroidCpuRenderers(
         viewPortOffsetY: Float,
         canvas: Canvas
     ) {
-        val centerX = particle.x.toFloat() - viewPortOffsetX
-        val centerY = particle.y.toFloat() - viewPortOffsetY
-        val radius = particle.radius.toFloat()
+        val centerX = particle.transform.position.x.toFloat() - viewPortOffsetX
+        val centerY = particle.transform.position.y.toFloat() - viewPortOffsetY
+        val radiusKey = (particle.collisionRadius().toFloat() * 2f).roundToInt()
+        val bubbleBitmap = bubbleBitmaps[radiusKey] ?: createBubbleBitmap(radiusKey / 2f).also { createdBitmap ->
+            if (bubbleBitmaps.size >= BUBBLE_IMAGE_CACHE_LIMIT) {
+                bubbleBitmaps.values.forEach { cachedBitmap -> cachedBitmap.recycle() }
+                bubbleBitmaps.clear()
+            }
+            bubbleBitmaps[radiusKey] = createdBitmap
+        }
+        canvas.drawBitmap(bubbleBitmap, centerX - bubbleBitmap.width / 2f, centerY - bubbleBitmap.height / 2f, spritePaint)
+    }
+
+    private fun createBubbleBitmap(radius: Float): Bitmap {
+        val size = ceil(radius * 2f).toInt() + BUBBLE_IMAGE_PADDING
+        val center = size / 2f
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val bitmapCanvas = Canvas(bitmap)
         bubbleFillPaint.shader = LinearGradient(
-            centerX - radius,
-            centerY - radius,
-            centerX + radius,
-            centerY + radius,
+            center - radius,
+            center - radius,
+            center + radius,
+            center + radius,
             BUBBLE_FILL_TOP_LEFT_COLOR,
             BUBBLE_FILL_BOTTOM_RIGHT_COLOR,
             Shader.TileMode.CLAMP
         )
-        canvas.drawCircle(centerX, centerY, radius, bubbleFillPaint)
-        val rimRadius = radius - (BUBBLE_RIM_STROKE_WIDTH / 2f)
-        canvas.drawCircle(centerX, centerY, rimRadius, bubbleRimPaint)
+        bitmapCanvas.drawCircle(center, center, radius, bubbleFillPaint)
+        bubbleFillPaint.shader = null
+        bitmapCanvas.drawCircle(center, center, radius - (BUBBLE_RIM_STROKE_WIDTH / 2f), bubbleRimPaint)
         val highlightRadius = radius * BUBBLE_HIGHLIGHT_RADIUS_RATIO
         val highlightOffset = radius * BUBBLE_HIGHLIGHT_OFFSET_RATIO
-        val highlightCenterX = centerX - highlightOffset
-        val highlightCenterY = centerY - highlightOffset
         bubbleHighlightPaint.shader = RadialGradient(
-            highlightCenterX,
-            highlightCenterY,
+            center - highlightOffset,
+            center - highlightOffset,
             highlightRadius,
             BUBBLE_HIGHLIGHT_COLOR,
             BUBBLE_HIGHLIGHT_TRANSPARENT_COLOR,
             Shader.TileMode.CLAMP
         )
-        canvas.drawCircle(highlightCenterX, highlightCenterY, highlightRadius, bubbleHighlightPaint)
+        bitmapCanvas.drawCircle(center - highlightOffset, center - highlightOffset, highlightRadius, bubbleHighlightPaint)
+        bubbleHighlightPaint.shader = null
+        return bitmap
     }
 
     private fun drawDrip(
@@ -214,12 +252,11 @@ class AndroidCpuRenderers(
         viewPortOffsetY: Float,
         canvas: Canvas
     ) {
-        val headProgress = particle.travelProgress().toFloat()
-        val originX = particle.originX.toFloat() - viewPortOffsetX
-        val originY = particle.originY.toFloat() - viewPortOffsetY
-        val headX = originX + (particle.destinationX - particle.originX).toFloat() * headProgress
-        val headY = originY + (particle.destinationY - particle.originY).toFloat() * headProgress
-        val beadRadius = particle.radius.toFloat()
+        val originX = particle.transform.origin.x.toFloat() - viewPortOffsetX
+        val originY = particle.transform.origin.y.toFloat() - viewPortOffsetY
+        val headX = particle.transform.position.x.toFloat() - viewPortOffsetX
+        val headY = particle.transform.position.y.toFloat() - viewPortOffsetY
+        val beadRadius = particle.collisionRadius().toFloat()
         val trailRadius = beadRadius * physicsSettingsService.dripTrailRadiusRatio.toFloat()
         val streakLength = hypot(headX - originX, headY - originY)
         val directionX = if (streakLength > DRIP_MINIMUM_LENGTH) (headX - originX) / streakLength else 0f
@@ -231,7 +268,7 @@ class AndroidCpuRenderers(
         val tailRadius = beadRadius + (trailRadius - beadRadius) * (streakLength / neckSetting).coerceIn(0f, 1f)
         val neckStartX = headX - directionX * neckLength
         val neckStartY = headY - directionY * neckLength
-        val dripColor = particleColorArgb(particle, 1.0f)
+        val dripColor = particleColorArgb(particle)
         dripPaint.color = dripColor
         dripPaint.strokeWidth = tailRadius * 2f
         canvas.drawLine(originX, originY, neckStartX, neckStartY, dripPaint)
@@ -262,22 +299,43 @@ class AndroidCpuRenderers(
         val specularCenterX = headX - directionX * specularOffset + perpendicularX * specularOffset
         val specularCenterY = headY - directionY * specularOffset + perpendicularY * specularOffset
         val specularRadius = max(beadRadius * physicsSettingsService.dripGlossSpecularRadiusRatio.toFloat(), DRIP_MINIMUM_LENGTH)
+        val specularBitmap = specularBitmapFor((glossIntensity * 255f).toInt().coerceIn(0, 255))
+        particleSrcRect.set(0, 0, specularBitmap.width, specularBitmap.height)
+        particleRectF.set(
+            specularCenterX - specularRadius,
+            specularCenterY - specularRadius,
+            specularCenterX + specularRadius,
+            specularCenterY + specularRadius
+        )
+        canvas.drawBitmap(specularBitmap, particleSrcRect, particleRectF, spritePaint)
+    }
+
+    private fun specularBitmapFor(alpha: Int): Bitmap {
+        val cachedBitmap = dripSpecularBitmap
+        if (cachedBitmap != null && dripSpecularAlpha == alpha) return cachedBitmap
+        cachedBitmap?.recycle()
+        val bitmap = Bitmap.createBitmap(DRIP_SPECULAR_IMAGE_SIZE, DRIP_SPECULAR_IMAGE_SIZE, Bitmap.Config.ARGB_8888)
+        val center = DRIP_SPECULAR_IMAGE_SIZE / 2f
         dripGlossSpecularPaint.shader = RadialGradient(
-            specularCenterX,
-            specularCenterY,
-            specularRadius,
-            Color.argb((glossIntensity * 255f).toInt().coerceIn(0, 255), 255, 255, 255),
+            center,
+            center,
+            center,
+            Color.argb(alpha, 255, 255, 255),
             Color.argb(0, 255, 255, 255),
             Shader.TileMode.CLAMP
         )
-        canvas.drawCircle(specularCenterX, specularCenterY, specularRadius, dripGlossSpecularPaint)
+        Canvas(bitmap).drawCircle(center, center, center, dripGlossSpecularPaint)
+        dripGlossSpecularPaint.shader = null
+        dripSpecularBitmap = bitmap
+        dripSpecularAlpha = alpha
+        return bitmap
     }
 
-    private fun particleColorArgb(particle: Particle, alphaMultiplier: Float): Int {
-        val alpha = (particle.color.alpha.coerceIn(0f, 1f) * alphaMultiplier * 255f).toInt().coerceIn(0, 255)
-        val red = (particle.color.red * 255f).toInt().coerceIn(0, 255)
-        val green = (particle.color.green * 255f).toInt().coerceIn(0, 255)
-        val blue = (particle.color.blue * 255f).toInt().coerceIn(0, 255)
+    private fun particleColorArgb(particle: Particle): Int {
+        val alpha = (particle.appearance.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255)
+        val red = (particle.appearance.color.red * 255f).toInt().coerceIn(0, 255)
+        val green = (particle.appearance.color.green * 255f).toInt().coerceIn(0, 255)
+        val blue = (particle.appearance.color.blue * 255f).toInt().coerceIn(0, 255)
         return Color.argb(alpha, red, green, blue)
     }
 
@@ -287,10 +345,10 @@ class AndroidCpuRenderers(
         viewPortOffsetY: Float,
         canvas: Canvas
     ) {
-        val centerX = (particle.x.toFloat() - viewPortOffsetX) + (particle.width.toFloat() * 0.5f)
-        val centerY = (particle.y.toFloat() - viewPortOffsetY) + (particle.height.toFloat() * 0.5f)
-        val baseRadius = particle.radius.toFloat()
-        val age = particle.age.toFloat()
+        val centerX = particle.transform.position.x.toFloat() - viewPortOffsetX
+        val centerY = particle.transform.position.y.toFloat() - viewPortOffsetY
+        val baseRadius = particle.collisionRadius().toFloat()
+        val age = particle.lifecycle.age.toFloat()
         val lobeCount = BlobProjectileGenerator.PROJECTILE_BLOB_LOBE_COUNT
         val lobePointXs = FloatArray(lobeCount)
         val lobePointYs = FloatArray(lobeCount)
@@ -307,10 +365,10 @@ class AndroidCpuRenderers(
             lobeIndex++
         }
         buildSmoothClosedBlobPath(lobePointXs, lobePointYs)
-        val alpha = (particle.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255)
-        val red = (particle.color.red * 255f).toInt().coerceIn(0, 255)
-        val green = (particle.color.green * 255f).toInt().coerceIn(0, 255)
-        val blue = (particle.color.blue * 255f).toInt().coerceIn(0, 255)
+        val alpha = (particle.appearance.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255)
+        val red = (particle.appearance.color.red * 255f).toInt().coerceIn(0, 255)
+        val green = (particle.appearance.color.green * 255f).toInt().coerceIn(0, 255)
+        val blue = (particle.appearance.color.blue * 255f).toInt().coerceIn(0, 255)
         projectileBlobPaint.color = Color.argb(alpha, red, green, blue)
         canvas.drawPath(projectileBlobPath, projectileBlobPaint)
     }

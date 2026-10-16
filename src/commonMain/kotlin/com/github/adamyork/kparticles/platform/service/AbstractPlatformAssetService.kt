@@ -46,6 +46,7 @@ abstract class AbstractPlatformAssetService(
             "SHATTER_MOMENTUM_PER_FRAGMENT" to physicsSettingsService.shatterMomentumPerFragment,
             "SHATTER_SPREAD_SPEED" to physicsSettingsService.shatterSpreadSpeed,
             "SHATTER_MAXIMUM_VELOCITY" to physicsSettingsService.shatterMaxVelocity,
+            "WORLD_DRAG" to physicsSettingsService.drag,
             "DRIPS_TRAIL_RADIUS_RATIO" to physicsSettingsService.dripTrailRadiusRatio,
             "DRIPS_NECK_LENGTH_RATIO" to physicsSettingsService.dripNeckLengthRatio,
             "DRIPS_GLOSS_INTENSITY" to physicsSettingsService.dripGlossIntensity,

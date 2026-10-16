@@ -3,9 +3,12 @@ package com.github.adamyork.kparticles.platform.engine.effect
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.engine.data.*
-import kotlin.math.*
-import kotlin.random.Random
+import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
 
 /**
  * Author: Adam York
@@ -13,7 +16,9 @@ import me.tatarka.inject.annotations.Inject
  */
 @AppScope
 @Inject
-class CollidingBitsGenerator : AbstractGenerator(ParticleEffect.COLLIDING_BITS) {
+class CollidingBitsGenerator(
+    private val physicsSettingsService: PhysicsSettingsService
+) : AbstractGenerator(ParticleEffect.COLLIDING_BITS) {
 
     private companion object {
         private const val COLLIDING_BITS_PARTICLE_COUNT: Int = 100
@@ -23,7 +28,7 @@ class CollidingBitsGenerator : AbstractGenerator(ParticleEffect.COLLIDING_BITS) 
         private const val COLLIDING_BITS_LIFETIME_RANGE: Double = 384.0
         private const val COLLIDING_BITS_MIN_SPEED: Double = 2.0
         private const val COLLIDING_BITS_SPEED_RANGE: Double = 6.0
-        private const val COLLIDING_BITS_MASS: Double = 0.12
+        private const val COLLIDING_BITS_NET_GRAVITY_FRACTION: Double = 0.12
         private const val COLLIDING_BITS_RESTITUTION: Double = 0.6
         private const val COLLIDING_BITS_MAX_ACTIVE_PARTICLES: Int = 512
         private const val COLLIDING_BITS_GPU_KIND: Float = 7f
@@ -43,41 +48,32 @@ class CollidingBitsGenerator : AbstractGenerator(ParticleEffect.COLLIDING_BITS) 
             val lifetime = COLLIDING_BITS_MIN_LIFETIME + Random.nextDouble() * COLLIDING_BITS_LIFETIME_RANGE
             val startX = viewPort.x + Random.nextDouble() * viewPort.width
             val startY = viewPort.y + Random.nextDouble() * viewPort.height
-            val destinationX = viewPort.x + Random.nextDouble() * viewPort.width
-            val destinationY = viewPort.y + Random.nextDouble() * viewPort.height
-            val radius: Double
-            val width: Double
-            val height: Double
-            if (isCircle) {
-                radius = COLLIDING_BITS_MIN_SIZE + Random.nextDouble() * COLLIDING_BITS_SIZE_RANGE
-                width = radius * 2.0
-                height = width
+            val dimensions: ParticleDimensions = if (isCircle) {
+                CircleDimensions(radius = COLLIDING_BITS_MIN_SIZE + Random.nextDouble() * COLLIDING_BITS_SIZE_RANGE)
             } else {
-                radius = 0.0
-                width = COLLIDING_BITS_MIN_SIZE + Random.nextDouble() * COLLIDING_BITS_SIZE_RANGE
-                height = COLLIDING_BITS_MIN_SIZE + Random.nextDouble() * COLLIDING_BITS_SIZE_RANGE
+                RectDimensions(
+                    width = COLLIDING_BITS_MIN_SIZE + Random.nextDouble() * COLLIDING_BITS_SIZE_RANGE,
+                    height = COLLIDING_BITS_MIN_SIZE + Random.nextDouble() * COLLIDING_BITS_SIZE_RANGE
+                )
             }
             particles += Particle(
-                effect = ParticleEffect.COLLIDING_BITS,
-                shape = if (isCircle) ParticleShape.CIRCLE else ParticleShape.RECT,
-                lifetime = lifetime,
-                color = Color.White,
-                width = width,
-                height = height,
-                radius = radius,
-                x = startX,
-                y = startY,
-                originX = startX.roundToInt(),
-                originY = startY.roundToInt(),
-                destinationX = destinationX.roundToInt(),
-                destinationY = destinationY.roundToInt(),
-                xVelocity = cos(angle) * speed,
-                yVelocity = sin(angle) * speed,
-                mass = COLLIDING_BITS_MASS,
-                restitution = COLLIDING_BITS_RESTITUTION,
-                canCollide = true,
-                viewportBound = true,
-                gpuReservedSlot = collidingBitsGpuSlotGroup.claimNextSlot()
+                lifecycle = ParticleLifecycle(lifetime = lifetime),
+                appearance = ParticleAppearance(color = Color.White),
+                dimensions = dimensions,
+                transform = ParticleTransform(
+                    position = ParticleVector(startX, startY, Particle.BOUNDED_Z),
+                    origin = ParticleVector(startX, startY)
+                ),
+                dynamics = ParticleDynamics(velocity = ParticleVector(cos(angle) * speed, sin(angle) * speed)),
+                material = ParticleMaterial(
+                    density = Particle.densityForNetGravity(
+                        physicsSettingsService.gravity * COLLIDING_BITS_NET_GRAVITY_FRACTION,
+                        physicsSettingsService.gravity,
+                        physicsSettingsService.mediumDensity
+                    ),
+                    restitution = COLLIDING_BITS_RESTITUTION
+                ),
+                id = nextParticleId()
             )
         }
         return particles

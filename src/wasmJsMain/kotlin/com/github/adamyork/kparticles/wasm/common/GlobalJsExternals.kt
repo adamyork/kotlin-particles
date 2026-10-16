@@ -33,6 +33,14 @@ external interface GPURenderPassEncoder : JsAny
 external interface GPUCommandBuffer : JsAny
 external interface GPUTextureView : JsAny
 external interface GPUSampler : JsAny
+external interface GPUBindGroupLayout : JsAny
+external interface GPUPipelineLayout : JsAny
+
+external interface GpuTextureResult : JsAny {
+    val view: GPUTextureView
+    val width: Int
+    val height: Int
+}
 external interface ProjectileHitSnapshot : JsAny {
     val hitCount: Int
     val hitX: Float
@@ -108,6 +116,58 @@ fun createComputePipeline(
     "device.createComputePipeline({ layout: 'auto', compute: { module: shaderModule, entryPoint: entryPoint } })"
 )
 
+fun createComputePipelineWithLayout(
+    @Suppress("UNUSED_PARAMETER") device: GPUDevice,
+    @Suppress("UNUSED_PARAMETER") shaderModule: GPUShaderModule,
+    @Suppress("UNUSED_PARAMETER") entryPoint: String,
+    @Suppress("UNUSED_PARAMETER") pipelineLayout: GPUPipelineLayout
+): GPUComputePipeline = js(
+    "device.createComputePipeline({ layout: pipelineLayout, compute: { module: shaderModule, entryPoint: entryPoint } })"
+)
+
+fun createSimulationBindGroupLayout(
+    @Suppress("UNUSED_PARAMETER") device: GPUDevice
+): GPUBindGroupLayout = js(
+    "device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }, { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }] })"
+)
+
+fun createPipelineLayout(
+    @Suppress("UNUSED_PARAMETER") device: GPUDevice,
+    @Suppress("UNUSED_PARAMETER") bindGroupLayout: GPUBindGroupLayout
+): GPUPipelineLayout = js(
+    "device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] })"
+)
+
+fun createSimulationBindGroup(
+    @Suppress("UNUSED_PARAMETER") device: GPUDevice,
+    @Suppress("UNUSED_PARAMETER") bindGroupLayout: GPUBindGroupLayout,
+    @Suppress("UNUSED_PARAMETER") stateBuffer: GPUBuffer,
+    @Suppress("UNUSED_PARAMETER") spawnBuffer: GPUBuffer,
+    @Suppress("UNUSED_PARAMETER") uniformBuffer: GPUBuffer,
+    @Suppress("UNUSED_PARAMETER") kinematicsBuffer: GPUBuffer,
+    @Suppress("UNUSED_PARAMETER") gridBuffer: GPUBuffer,
+    @Suppress("UNUSED_PARAMETER") scratchBuffer: GPUBuffer
+): GPUBindGroup = js(
+    "device.createBindGroup({ layout: bindGroupLayout, entries: [{ binding: 0, resource: { buffer: stateBuffer } }, { binding: 1, resource: { buffer: spawnBuffer } }, { binding: 2, resource: { buffer: uniformBuffer } }, { binding: 3, resource: { buffer: kinematicsBuffer } }, { binding: 4, resource: { buffer: gridBuffer } }, { binding: 5, resource: { buffer: scratchBuffer } }] })"
+)
+
+fun getShaderCompilationReport(
+    @Suppress("UNUSED_PARAMETER") shaderModule: GPUShaderModule
+): Promise<JsString> = js(
+    "(async () => { const info = await shaderModule.getCompilationInfo(); return info.messages.map(m => '[' + m.type + '] line ' + m.lineNum + ':' + m.linePos + ' ' + m.message).join('\\n'); })()"
+)
+
+fun installGpuErrorLogging(@Suppress("UNUSED_PARAMETER") device: GPUDevice) {
+    js("device.addEventListener('uncapturederror', (event) => { console.error('[webgpu] uncaptured error: ' + event.error.message); }); device.lost.then((info) => { console.error('[webgpu] device lost: ' + info.reason + ' ' + info.message); });")
+}
+
+fun clearGpuBuffer(
+    @Suppress("UNUSED_PARAMETER") encoder: GPUCommandEncoder,
+    @Suppress("UNUSED_PARAMETER") buffer: GPUBuffer
+) {
+    js("encoder.clearBuffer(buffer)")
+}
+
 fun createRenderPipeline(
     @Suppress("UNUSED_PARAMETER") device: GPUDevice,
     @Suppress("UNUSED_PARAMETER") vertexModule: GPUShaderModule,
@@ -165,8 +225,8 @@ fun createTextureViewFromEncodedBytes(
     @Suppress("UNUSED_PARAMETER") bytes: Int8Array,
     @Suppress("UNUSED_PARAMETER") firstCellWidth: Int,
     @Suppress("UNUSED_PARAMETER") firstCellHeight: Int
-): Promise<GPUTextureView> = js(
-    "(async () => { const blob = new Blob([bytes]); const fullBitmap = await createImageBitmap(blob); const cellWidth = Math.max(1, Math.min(firstCellWidth || fullBitmap.width, fullBitmap.width)); const cellHeight = Math.max(1, Math.min(firstCellHeight || fullBitmap.height, fullBitmap.height)); const imageBitmap = (cellWidth === fullBitmap.width && cellHeight === fullBitmap.height) ? fullBitmap : await createImageBitmap(fullBitmap, 0, 0, cellWidth, cellHeight); if (imageBitmap !== fullBitmap) { fullBitmap.close(); } const texture = device.createTexture({ size: { width: imageBitmap.width, height: imageBitmap.height, depthOrArrayLayers: 1 }, format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT }); queue.copyExternalImageToTexture({ source: imageBitmap }, { texture: texture }, { width: imageBitmap.width, height: imageBitmap.height, depthOrArrayLayers: 1 }); imageBitmap.close(); return texture.createView(); })()"
+): Promise<GpuTextureResult> = js(
+    "(async () => { const blob = new Blob([bytes]); const fullBitmap = await createImageBitmap(blob); const cellWidth = Math.max(1, Math.min(firstCellWidth || fullBitmap.width, fullBitmap.width)); const cellHeight = Math.max(1, Math.min(firstCellHeight || fullBitmap.height, fullBitmap.height)); const imageBitmap = (cellWidth === fullBitmap.width && cellHeight === fullBitmap.height) ? fullBitmap : await createImageBitmap(fullBitmap, 0, 0, cellWidth, cellHeight); if (imageBitmap !== fullBitmap) { fullBitmap.close(); } const texture = device.createTexture({ size: { width: imageBitmap.width, height: imageBitmap.height, depthOrArrayLayers: 1 }, format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT }); queue.copyExternalImageToTexture({ source: imageBitmap }, { texture: texture }, { width: imageBitmap.width, height: imageBitmap.height, depthOrArrayLayers: 1 }); const resultWidth = imageBitmap.width; const resultHeight = imageBitmap.height; imageBitmap.close(); return { view: texture.createView(), width: resultWidth, height: resultHeight }; })()"
 )
 
 fun createSolidTextureView(

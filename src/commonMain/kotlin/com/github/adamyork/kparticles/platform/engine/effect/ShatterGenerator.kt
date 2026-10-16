@@ -4,7 +4,6 @@ import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.engine.data.*
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
-import kotlin.math.*
 import me.tatarka.inject.annotations.Inject
 
 /**
@@ -44,10 +43,15 @@ class ShatterGenerator(
         val rightX = viewPort.x + viewPort.width * SHATTER_RIGHT_POSITION_RATIO
         return mutableListOf(
             createShatterParticle(
-                ParticleShape.RECT, radius, leftX, centerY, SHATTER_SPEED, SHATTER_HARD_MASS, SHATTER_HARD_HARDNESS, Color.White
+                RectDimensions(width = radius * 2.0, height = radius * 2.0),
+                leftX,
+                centerY,
+                SHATTER_SPEED,
+                SHATTER_HARD_HARDNESS,
+                Color.White
             ),
             createShatterParticle(
-                ParticleShape.CIRCLE, radius, rightX, centerY, -SHATTER_SPEED, SHATTER_SOFT_MASS, SHATTER_SOFT_HARDNESS, Color.Cyan
+                CircleDimensions(radius = radius), rightX, centerY, -SHATTER_SPEED, SHATTER_SOFT_HARDNESS, Color.Cyan
             )
         )
     }
@@ -57,46 +61,60 @@ class ShatterGenerator(
     override fun gpuKind(particle: Particle): Float = SHATTER_GPU_KIND
 
     override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
-        targetBuffer[parameterIndex] = particle.hardness.toFloat()
-        targetBuffer[parameterIndex + 1] = particle.mass.toFloat()
-        targetBuffer[parameterIndex + 2] = particle.restitution.toFloat()
+        targetBuffer[parameterIndex] = particle.material.hardness.toFloat()
+        targetBuffer[parameterIndex + 1] =
+            (if (particle.material.hardness == SHATTER_HARD_HARDNESS) SHATTER_HARD_MASS else SHATTER_SOFT_MASS).toFloat()
+        targetBuffer[parameterIndex + 2] = particle.material.restitution.toFloat()
     }
 
     override fun gpuSpawnOffset(particle: Particle, size: Float): Float = 0f
 
+    override fun gpuSplitFragmentsUseWallPlane(): Boolean = true
+
     private fun createShatterParticle(
-        shape: ParticleShape,
-        radius: Double,
+        dimensions: ParticleDimensions,
         centerX: Double,
         centerY: Double,
         xVelocity: Double,
-        mass: Double,
         hardness: Int,
         color: Color
     ): Particle {
-        val diameter = radius * 2.0
+        val particleId = nextParticleId()
         return Particle(
-            effect = ParticleEffect.SHATTER,
-            shape = shape,
-            lifetime = SHATTER_LIFETIME,
-            color = color,
-            width = diameter,
-            height = diameter,
-            radius = radius,
-            x = centerX,
-            y = centerY,
-            originX = centerX.roundToInt(),
-            originY = centerY.roundToInt(),
-            xVelocity = xVelocity,
-            maxXVelocity = physicsSettingsService.shatterMaxVelocity,
-            maxYVelocity = physicsSettingsService.shatterMaxVelocity,
-            mass = mass,
-            restitution = SHATTER_RESTITUTION,
-            canCollide = true,
-            viewportBound = true,
-            yForce = -physicsSettingsService.gravity * min(1.0, mass),
-            hardness = hardness,
-            gpuReservedSlot = shatterGpuSlotGroup.claimNextSlot()
+            lifecycle = ParticleLifecycle(lifetime = SHATTER_LIFETIME),
+            appearance = ParticleAppearance(color = color),
+            dimensions = dimensions,
+            transform = ParticleTransform(
+                position = ParticleVector(centerX, centerY, shatterPlaneZ(particleId)),
+                origin = ParticleVector(centerX, centerY)
+            ),
+            dynamics = ParticleDynamics(velocity = ParticleVector(xVelocity)),
+            material = ParticleMaterial(
+                density = physicsSettingsService.mediumDensity,
+                restitution = SHATTER_RESTITUTION,
+                hardness = hardness
+            ),
+            id = particleId
+        )
+    }
+
+    override fun adopt(particle: Particle) {
+        val particleId = nextParticleId()
+        particles.add(
+            particle.copy(
+                id = particleId,
+                transform = particle.transform.copy(
+                    position = particle.transform.position.copy(z = shatterPlaneZ(particleId))
+                )
+            )
+        )
+    }
+
+    private fun shatterPlaneZ(particleId: Long): Double {
+        return Particle.wallContactPlaneZ(
+            particleId,
+            physicsSettingsService.collisionPlaneThickness,
+            physicsSettingsService.gravityPlaneThickness
         )
     }
 }

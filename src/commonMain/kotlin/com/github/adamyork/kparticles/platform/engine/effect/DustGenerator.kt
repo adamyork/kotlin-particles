@@ -7,6 +7,7 @@ import com.github.adamyork.kparticles.platform.service.AssetService
 import kotlin.math.*
 import kotlin.random.Random
 import me.tatarka.inject.annotations.Inject
+import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 
 /**
  * Author: Adam York
@@ -14,7 +15,9 @@ import me.tatarka.inject.annotations.Inject
  */
 @AppScope
 @Inject
-class DustGenerator : AbstractGenerator(ParticleEffect.DUST) {
+class DustGenerator(
+    private val physicsSettingsService: PhysicsSettingsService
+) : AbstractGenerator(ParticleEffect.DUST) {
 
     private companion object {
         private const val DUST_PUFF_COUNT: Int = 16
@@ -57,7 +60,7 @@ class DustGenerator : AbstractGenerator(ParticleEffect.DUST) {
     override fun gpuKind(particle: Particle): Float = DUST_GPU_KIND
 
     override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
-        targetBuffer[parameterIndex + 1] = particle.endAlpha.toFloat()
+        targetBuffer[parameterIndex + 1] = particle.appearance.endAlpha.toFloat()
     }
 
     private fun createDustPuff(x: Double, y: Double, radius: Double): Particle {
@@ -69,25 +72,20 @@ class DustGenerator : AbstractGenerator(ParticleEffect.DUST) {
         val deltaY = destinationY - y
         val length = hypot(deltaX, deltaY).takeIf { it > 0 } ?: 1.0
         val speed = DUST_MIN_SPEED + Random.nextDouble() * DUST_SPEED_RANGE
-        val diameter = radius * 2.0
+        val particleId = nextParticleId()
         return Particle(
-            effect = ParticleEffect.DUST,
-            shape = ParticleShape.CIRCLE,
-            lifetime = DUST_LIFETIME,
-            color = color,
-            alpha = DUST_INITIAL_ALPHA,
-            endAlpha = DUST_END_ALPHA,
-            width = diameter,
-            height = diameter,
-            radius = radius,
-            x = x,
-            y = y,
-            originX = x.roundToInt(),
-            originY = y.roundToInt(),
-            destinationX = destinationX.roundToInt(),
-            destinationY = destinationY.roundToInt(),
-            xVelocity = (deltaX / length) * speed,
-            yVelocity = (deltaY / length) * speed
+            id = particleId,
+            lifecycle = ParticleLifecycle(lifetime = DUST_LIFETIME),
+            appearance = ParticleAppearance(color = color, alpha = DUST_INITIAL_ALPHA, endAlpha = DUST_END_ALPHA),
+            dimensions = CircleDimensions(radius = radius),
+            transform = ParticleTransform(
+                position = ParticleVector(
+                    x, y, Particle.isolatedPlaneZ(particleId, physicsSettingsService.collisionPlaneThickness)
+                ),
+                origin = ParticleVector(x, y)
+            ),
+            dynamics = ParticleDynamics(velocity = ParticleVector((deltaX / length) * speed, (deltaY / length) * speed)),
+            material = ParticleMaterial(density = physicsSettingsService.mediumDensity)
         )
     }
 }

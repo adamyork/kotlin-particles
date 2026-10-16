@@ -23,12 +23,16 @@ class CommonParticleFactory(
         val ringBufferCapacity: Int
     )
 
+    private val effectGeneratorList: List<ParticleEffectGenerator> = effectGenerators.toList()
+
     private val effectGeneratorsByEffect: Map<ParticleEffect, ParticleEffectGenerator> =
         effectGenerators.associateBy { it.effect }
 
     private val gpuSlotGroups: List<GpuSlotGroup> = effectGenerators.flatMap { it.gpuSlotGroups }.distinct()
 
     private var cachedGpuSlotLayout: GpuSlotLayout? = null
+
+    override fun generators(): List<ParticleEffectGenerator> = effectGeneratorList
 
     override fun populateColorMap(assetService: AssetService) {
         for (effectGenerator in effectGeneratorsByEffect.values) {
@@ -44,12 +48,15 @@ class CommonParticleFactory(
         destinationX: Double?,
         destinationY: Double?,
         direction: Direction
-    ): MutableList<Particle> {
+    ) {
         val rightEdge = viewPort.x + viewPort.width.toDouble()
         val request = ParticleEffectRequest(x, y, viewPort, destinationX ?: rightEdge, destinationY ?: 0.0, direction)
         val effectGenerator = effectGeneratorsByEffect[type]
             ?: throw EngineException("No particle effect generator registered for $type")
-        return effectGenerator.create(request)
+        effectGenerator.spawn(request)
+        for (companionEffect in effectGenerator.companionEffects) {
+            effectGeneratorsByEffect[companionEffect]?.spawn(request)
+        }
     }
 
     override fun gpuSlotRange(effect: ParticleEffect, maxParticles: Int): IntRange {
@@ -63,16 +70,57 @@ class CommonParticleFactory(
         return FloatArray(maxParticles * ParticleEffectGenerator.GPU_FLOATS_PER_PARTICLE)
     }
 
+    override fun createGpuParticleStateBuffer(maxParticles: Int): FloatArray {
+        return FloatArray(maxParticles * ParticleEffectGenerator.GPU_STATE_FLOATS_PER_PARTICLE)
+    }
+
     override fun writeGpuParticleSpawnBuffer(
-        mapParticles: List<Particle>,
         targetBuffer: FloatArray,
         maxParticles: Int,
         startSlot: Int,
         previouslyWrittenSlots: List<Int>
     ): ParticleWriteResult {
+        return writeSpawnBuffer(
+            targetBuffer,
+            maxParticles,
+            startSlot,
+            previouslyWrittenSlots,
+            ParticleEffectGenerator.GPU_FLOATS_PER_PARTICLE,
+            false
+        ) { effectGenerator, particle, buffer, baseIndex ->
+            effectGenerator.writeGpuParticle(particle, buffer, baseIndex)
+        }
+    }
+
+    override fun writeGpuParticleStateSpawnBuffer(
+        targetBuffer: FloatArray,
+        maxParticles: Int,
+        startSlot: Int,
+        previouslyWrittenSlots: List<Int>
+    ): ParticleWriteResult {
+        return writeSpawnBuffer(
+            targetBuffer,
+            maxParticles,
+            startSlot,
+            previouslyWrittenSlots,
+            ParticleEffectGenerator.GPU_STATE_FLOATS_PER_PARTICLE,
+            true
+        ) { effectGenerator, particle, buffer, baseIndex ->
+            effectGenerator.writeGpuState(particle, buffer, baseIndex)
+        }
+    }
+
+    private fun writeSpawnBuffer(
+        targetBuffer: FloatArray,
+        maxParticles: Int,
+        startSlot: Int,
+        previouslyWrittenSlots: List<Int>,
+        floatsPerParticle: Int,
+        shouldDrainWrittenParticles: Boolean,
+        writeParticle: (ParticleEffectGenerator, Particle, FloatArray, Int) -> Unit
+    ): ParticleWriteResult {
         var activeCount = 0
         val clampedMaxParticles = maxParticles.coerceAtLeast(0)
-        val floatsPerParticle = ParticleEffectGenerator.GPU_FLOATS_PER_PARTICLE
         if (clampedMaxParticles == 0) {
             return ParticleWriteResult(activeCount = 0, dirtySlotRanges = emptyList(), writtenSlots = emptyList())
         }
@@ -87,28 +135,38 @@ class CommonParticleFactory(
         val slotLayout = getOrCreateGpuSlotLayout(clampedMaxParticles)
         val ringBufferCapacity = slotLayout.ringBufferCapacity
         var slot = if (ringBufferCapacity > 0) startSlot.mod(ringBufferCapacity) else 0
-        for (particle in mapParticles) {
-            if (activeCount >= clampedMaxParticles) break
-            val effectGenerator = effectGeneratorsByEffect[particle.effect] ?: continue
-            if (!effectGenerator.shouldWriteGpuParticle(particle)) continue
-            val slotGroup = effectGenerator.gpuSlotGroup(particle)
-            val reservation = if (slotGroup != null) slotLayout.reservations[slotGroup] else null
-            val slotIndex = if (reservation != null && reservation.slotCount > 0) {
-                reservation.firstSlot + particle.gpuReservedSlot.mod(reservation.slotCount)
-            } else {
-                slot
+        writeLoop@ for (effectGenerator in effectGeneratorList) {
+            var writtenParticleCount = 0
+            for (particle in effectGenerator.particles) {
+                if (activeCount >= clampedMaxParticles) break
+                if (!shouldDrainWrittenParticles && !effectGenerator.shouldWriteGpuParticle(particle)) {
+                    writtenParticleCount++
+                    continue
+                }
+                val slotGroup = effectGenerator.gpuSlotGroup(particle)
+                val reservation = if (slotGroup != null) slotLayout.reservations[slotGroup] else null
+                val slotIndex = if (reservation != null && reservation.slotCount > 0) {
+                    reservation.firstSlot + particle.id.mod(reservation.slotCount.toLong()).toInt()
+                } else {
+                    slot
+                }
+                val baseIndex = slotIndex * floatsPerParticle
+                if (baseIndex + (floatsPerParticle - 1) >= targetBuffer.size) {
+                    break
+                }
+                writeParticle(effectGenerator, particle, targetBuffer, baseIndex)
+                dirtySlotFlags[slotIndex] = true
+                writtenSlotFlags[slotIndex] = true
+                activeCount++
+                writtenParticleCount++
+                if (slotGroup == null && ringBufferCapacity > 0) {
+                    slot = (slot + 1) % ringBufferCapacity
+                }
             }
-            val baseIndex = slotIndex * floatsPerParticle
-            if (baseIndex + (floatsPerParticle - 1) >= targetBuffer.size) {
-                break
+            if (shouldDrainWrittenParticles && writtenParticleCount > 0) {
+                effectGenerator.particles.subList(0, writtenParticleCount).clear()
             }
-            effectGenerator.writeGpuParticle(particle, targetBuffer, baseIndex)
-            dirtySlotFlags[slotIndex] = true
-            writtenSlotFlags[slotIndex] = true
-            activeCount++
-            if (slotGroup == null && ringBufferCapacity > 0) {
-                slot = (slot + 1) % ringBufferCapacity
-            }
+            if (activeCount >= clampedMaxParticles) break@writeLoop
         }
         return ParticleWriteResult(
             activeCount = activeCount,

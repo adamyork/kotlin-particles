@@ -1,9 +1,6 @@
-package com.github.adamyork.kparticles.android.engine
+package com.github.adamyork.kparticles.platform.engine
 
 import com.github.adamyork.kparticles.platform.AppScope
-import com.github.adamyork.kparticles.platform.engine.CommonTileCollision
-import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
-import com.github.adamyork.kparticles.platform.engine.SpatialGrid
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
 
@@ -13,8 +10,10 @@ import me.tatarka.inject.annotations.Inject
  */
 @AppScope
 @Inject
-class AndroidTileCollision(
+abstract class CommonParticleCollision(
     particlePhysics: ParticlePhysics,
     spatialGrid: SpatialGrid,
+    contactDetector: ContactDetector,
+    contactSolver: ContactSolver,
     physicsSettingsService: PhysicsSettingsService,
-) : CommonTileCollision(particlePhysics, spatialGrid, physicsSettingsService)
+) : AbstractParticleCollision(particlePhysics, spatialGrid, contactDetector, contactSolver, physicsSettingsService)

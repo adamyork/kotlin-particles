@@ -2,6 +2,7 @@ package com.github.adamyork.kparticles.platform.engine.effect
 
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.platform.engine.data.*
+import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 
 /**
  * Author: Adam York
@@ -9,8 +10,11 @@ import com.github.adamyork.kparticles.platform.engine.data.*
  */
 abstract class AbstractItemReturnGenerator(
     effect: ParticleEffect,
-    itemReturnMaxFrames: Int
-) : AbstractGuidedLaunchGenerator(effect, ITEM_RETURN_GPU_KIND, ITEM_RETURN_GPU_SLOT_GROUP, itemReturnMaxFrames) {
+    itemReturnMaxFrames: Int,
+    physicsSettingsService: PhysicsSettingsService
+) : AbstractGuidedLaunchGenerator(
+    effect, ITEM_RETURN_GPU_KIND, ITEM_RETURN_GPU_SLOT_GROUP, itemReturnMaxFrames, physicsSettingsService
+) {
 
     private companion object {
         private const val ITEM_RETURN_GPU_KIND: Float = 3f
@@ -22,6 +26,6 @@ abstract class AbstractItemReturnGenerator(
 
     override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
         super.writeGpuParameters(particle, targetBuffer, parameterIndex)
-        targetBuffer[parameterIndex + 2] = particle.maxFrames.toFloat()
+        targetBuffer[parameterIndex + 2] = (particle.animation?.maxFrames ?: 1).toFloat()
     }
 }

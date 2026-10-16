@@ -7,7 +7,7 @@ import com.github.adamyork.kparticles.android.engine.data.AndroidImage
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
-import com.github.adamyork.kparticles.platform.engine.Collision
+import com.github.adamyork.kparticles.platform.engine.ParticleCollision
 import com.github.adamyork.kparticles.platform.engine.CommonEngine
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
@@ -30,7 +30,7 @@ import me.tatarka.inject.annotations.Inject
 @Inject
 open class AndroidEngine(
     particlePhysics: ParticlePhysics,
-    collision: Collision,
+    collision: ParticleCollision,
     particleFactory: ParticleFactory,
     assetService: AssetService,
     runtimeService: RuntimeService,
@@ -74,20 +74,19 @@ open class AndroidEngine(
         }
     }
 
-    override fun manageParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
-        particlePhysics.applyParticlePhysics(particles, viewPort, completedParticleResults)
-        collision.applyParticleCollision(particles)
+    override fun manageParticles(viewPort: ViewPort) {
+        particlePhysics.applyParticlePhysics(particleFactory.generators(), viewPort, completedParticleResults)
+        collision.applyParticleCollision(particleFactory.generators(), viewPort)
     }
 
     override fun draw(
-        particles: ArrayList<Particle>,
         viewPort: ViewPort,
         timestamp: Double
     ): DrawResult {
         val foregroundBitmap = getOrCreateForegroundSurface(viewPort) as Bitmap
         val foregroundCanvas = Canvas(foregroundBitmap)
         foregroundCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-        drawParticles(particles, viewPort, foregroundCanvas)
+        drawParticles(viewPort, foregroundCanvas)
         runtimeService.lastPaintTime = timestamp
         return DrawResult(
             foregroundImage = AndroidImage(foregroundBitmap),

@@ -3,11 +3,11 @@ package com.github.adamyork.kparticles.android.engine
 import android.graphics.Canvas
 import com.github.adamyork.kparticles.android.engine.data.AndroidPendingGpuFrame
 import com.github.adamyork.kparticles.platform.AppScope
+import com.github.adamyork.kparticles.platform.engine.GpuUniformWriter
 import com.github.adamyork.kparticles.platform.engine.ParticleDrawFunction
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.Renderers
 import com.github.adamyork.kparticles.platform.engine.data.RenderType
-import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
 
 /**
@@ -18,12 +18,12 @@ import me.tatarka.inject.annotations.Inject
 @Inject
 class AndroidGpuRenderers(
     particleFactory: ParticleFactory,
-    private val physicsSettingsService: PhysicsSettingsService
+    gpuUniformWriter: GpuUniformWriter
 ) : Renderers<Canvas> {
 
     val gpuParticleBufferCapacity = ParticleFactory.DEFAULT_GPU_PARTICLE_CAPACITY
-    val gpuParticleSpawnBuffer = particleFactory.createGpuParticleComputeBuffer(gpuParticleBufferCapacity)
-    val gpuParticleRuntime = AndroidGpuParticleRuntime()
+    val gpuParticleSpawnBuffer = particleFactory.createGpuParticleStateBuffer(gpuParticleBufferCapacity)
+    val gpuParticleRuntime = AndroidGpuParticleRuntime(gpuUniformWriter)
     internal var pendingGpuFrame: AndroidPendingGpuFrame? = null
 
     private val gpuDrawFunction: ParticleDrawFunction<Canvas> = { drawFunctionData ->
@@ -31,20 +31,12 @@ class AndroidGpuRenderers(
         if (frame != null) {
             pendingGpuFrame = null
             gpuParticleRuntime.submitFrame(
-                activeParticleCount = frame.activeParticleCount,
                 sourceBuffer = gpuParticleSpawnBuffer,
-                viewPort = drawFunctionData.viewPort,
-                viewPortWidth = frame.viewPortWidth,
-                viewPortHeight = frame.viewPortHeight,
-                sizeMultiplier = physicsSettingsService.collisionParticleSizeMultiplier,
-                deltaTimeSeconds = frame.deltaTimeSeconds,
-                gravity = frame.gravity,
-                tickRate = frame.tickRate,
-                simulationSpeed = frame.simulationSpeed,
-                gravityBoost = frame.gravityBoost,
-                lifetimeDecay = frame.lifetimeDecay,
-                shatterPoolFirstSlot = frame.shatterPoolFirstSlot,
-                shatterPoolSlotCount = frame.shatterPoolSlotCount
+                dirtySlotRanges = frame.dirtySlotRanges,
+                deltaTime = frame.deltaTime,
+                worldTime = frame.worldTime,
+                spriteTicksPerFrame = frame.spriteTicksPerFrame,
+                viewPort = drawFunctionData.viewPort
             )
         }
     }

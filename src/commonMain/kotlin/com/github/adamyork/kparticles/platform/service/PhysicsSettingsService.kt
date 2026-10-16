@@ -8,10 +8,25 @@ interface PhysicsSettingsService {
 
     var maxXVelocity: Double
     var maxYVelocity: Double
+    var maxParticleSpeed: Double
     var jumpDistance: Double
     var gravity: Double
+    var mediumDensity: Double
+    var boundaryZ: Double
+    var collisionPlaneThickness: Double
+    var gravityPlaneThickness: Double
+    var boundaryDepth: Double
+    var wallRestitution: Double
+    var gravitationalConstant: Double
+    var gravitationalSoftening: Double
+    var gravitySourceCount: Int
+    var gravityMinimumAcceleration: Double
+    var accretionMassRatio: Double
     var friction: Double
     var drag: Double
+    var flowAmplitude: Double
+    var flowFrequency: Double
+    var flowWavelength: Double
     var yVelocityCoefficient: Double
     var xMovementDistance: Double
     var xAccelerationRate: Double
@@ -33,7 +48,6 @@ interface PhysicsSettingsService {
     var shatterMomentumPerFragment: Double
     var shatterSpreadSpeed: Double
     var shatterMaxVelocity: Double
-    var dripSpeed: Double
     var dripTrailRadiusRatio: Double
     var dripNeckLengthRatio: Double
     var dripGlossIntensity: Double

@@ -30,11 +30,19 @@ interface EngineConfig {
 
     @AppScope
     @Provides
-    fun provideCollision(impl: WasmJsTileCollision): Collision = impl
+    fun provideCollision(impl: WasmJsParticleCollision): ParticleCollision = impl
 
     @AppScope
     @Provides
     fun provideSpatialGrid(impl: CommonSpatialGrid): SpatialGrid = impl
+
+    @AppScope
+    @Provides
+    fun provideContactDetector(impl: CommonContactDetector): ContactDetector = impl
+
+    @AppScope
+    @Provides
+    fun provideContactSolver(impl: CommonContactSolver): ContactSolver = impl
 
     @AppScope
     @Provides

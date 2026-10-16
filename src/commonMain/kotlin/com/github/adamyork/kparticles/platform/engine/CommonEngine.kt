@@ -7,10 +7,10 @@ import com.github.adamyork.kparticles.platform.engine.data.CommonImage
 import com.github.adamyork.kparticles.platform.engine.data.CompletedParticleResult
 import com.github.adamyork.kparticles.platform.engine.data.DrawFunctionData
 import com.github.adamyork.kparticles.platform.engine.data.DrawResult
-import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
 import com.github.adamyork.kparticles.platform.engine.data.RenderType
 import com.github.adamyork.kparticles.platform.engine.data.SpriteSheet
+import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGenerator
 import com.github.adamyork.kparticles.platform.service.AssetService
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.service.data.ImageAsset
@@ -27,7 +27,7 @@ abstract class CommonEngine<CanvasType> @AppScope @Inject constructor(
     val assetService: AssetService,
     val runtimeService: RuntimeService,
     val platformInterop: PlatformInterop,
-    val collision: Collision,
+    val collision: ParticleCollision,
     protected val renderers: Renderers<CanvasType>,
 ) : Engine {
 
@@ -41,8 +41,11 @@ abstract class CommonEngine<CanvasType> @AppScope @Inject constructor(
 
     protected var spriteSheet: SpriteSheet? = null
 
-    private val particlesByRenderType: Map<RenderType, ArrayList<Particle>> =
-        RenderType.entries.associateWith { ArrayList() }
+    private val generatorsByRenderType: Map<RenderType, List<ParticleEffectGenerator>> by lazy {
+        RenderType.entries.associateWith { renderType ->
+            particleFactory.generators().filter { generator -> generator.effect.renderType == renderType }
+        }
+    }
 
     abstract var foregroundSurface: Any?
 
@@ -51,42 +54,30 @@ abstract class CommonEngine<CanvasType> @AppScope @Inject constructor(
     abstract fun getOrCreateForegroundSurface(viewPort: ViewPort): Any
 
     protected open fun drawParticles(
-        particles: List<Particle>,
         viewPort: ViewPort,
         canvas: CanvasType
     ) {
-        groupVisibleParticlesByRenderType(particles, viewPort)
         for (renderType in RenderType.entries) {
-            val renderTypeParticles = particlesByRenderType.getValue(renderType)
-            if (renderTypeParticles.isEmpty()) continue
-            val drawFunctionData = DrawFunctionData(renderTypeParticles, viewPort, canvas, spriteSheet)
+            val renderTypeGenerators = generatorsByRenderType.getValue(renderType)
+            if (renderTypeGenerators.none { generator -> generator.particles.isNotEmpty() }) continue
+            val drawFunctionData = DrawFunctionData(renderTypeGenerators, viewPort, canvas, spriteSheet)
             renderers.getForType(renderType)(drawFunctionData)
         }
     }
 
-    private fun groupVisibleParticlesByRenderType(particles: List<Particle>, viewPort: ViewPort) {
-        for (renderTypeParticles in particlesByRenderType.values) {
-            renderTypeParticles.clear()
-        }
-        for (particle in particles) {
-            if (particle.cullingCheck(viewPort)) {
-                particlesByRenderType.getValue(particle.effect.renderType).add(particle)
-            }
-        }
-    }
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         throw EngineException("must implemented")
     }
 
-    override fun manageMap(particles: ArrayList<Particle>, viewPort: ViewPort) {
-        manageParticles(particles, viewPort)
+    override fun manageMap(viewPort: ViewPort) {
+        manageParticles(viewPort)
     }
 
-    protected open fun manageParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
+    protected open fun manageParticles(viewPort: ViewPort) {
         throw Exception("must be implemented")
     }
 
-    override fun draw(particles: ArrayList<Particle>, viewPort: ViewPort, timestamp: Double): DrawResult {
+    override fun draw(viewPort: ViewPort, timestamp: Double): DrawResult {
         throw Exception("must be implemented")
     }
 

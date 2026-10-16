@@ -3,6 +3,7 @@ package com.github.adamyork.kparticles.platform.engine.effect
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.engine.data.*
 import me.tatarka.inject.annotations.Inject
+import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 
 /**
  * Author: Adam York
@@ -10,7 +11,9 @@ import me.tatarka.inject.annotations.Inject
  */
 @AppScope
 @Inject
-class BlobProjectileGenerator : AbstractProjectileGenerator(ParticleEffect.BLOB_PROJECTILE, BLOB_PROJECTILE_GPU_KIND) {
+class BlobProjectileGenerator(
+    physicsSettingsService: PhysicsSettingsService
+) : AbstractProjectileGenerator(ParticleEffect.BLOB_PROJECTILE, BLOB_PROJECTILE_GPU_KIND, physicsSettingsService) {
 
     companion object {
         const val PROJECTILE_BLOB_LOBE_COUNT: Int = 7

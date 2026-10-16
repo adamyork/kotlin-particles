@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.asSkiaBitmap
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
-import com.github.adamyork.kparticles.platform.engine.Collision
+import com.github.adamyork.kparticles.platform.engine.ParticleCollision
 import com.github.adamyork.kparticles.platform.engine.CommonEngine
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
@@ -31,7 +31,7 @@ open class WasmJsEngine(
     assetService: AssetService,
     runtimeService: RuntimeService,
     platformInterop: PlatformInterop,
-    collision: Collision,
+    collision: ParticleCollision,
     renderers: Renderers<Canvas>,
 ) : CommonEngine<Canvas>(
     particlePhysics,
@@ -65,20 +65,19 @@ open class WasmJsEngine(
         spriteSheet = SpriteSheet(mapItemImage, collectibleAsset.width, collectibleAsset.height)
     }
 
-    override fun manageParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
-        particlePhysics.applyParticlePhysics(particles, viewPort, completedParticleResults)
-        collision.applyParticleCollision(particles)
+    override fun manageParticles(viewPort: ViewPort) {
+        particlePhysics.applyParticlePhysics(particleFactory.generators(), viewPort, completedParticleResults)
+        collision.applyParticleCollision(particleFactory.generators(), viewPort)
     }
 
     override fun draw(
-        particles: ArrayList<Particle>,
         viewPort: ViewPort,
         timestamp: Double
     ): DrawResult {
         val foregroundSurface = getOrCreateForegroundSurface(viewPort)
         val foregroundCanvas = foregroundSurface.canvas
         foregroundCanvas.clear(0x00000000)
-        drawParticles(particles, viewPort, foregroundCanvas)
+        drawParticles(viewPort, foregroundCanvas)
         val foregroundImage = foregroundSurface.makeImageSnapshot()
         runtimeService.lastPaintTime = timestamp
         return DrawResult(

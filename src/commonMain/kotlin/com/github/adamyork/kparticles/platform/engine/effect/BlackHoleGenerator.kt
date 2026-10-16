@@ -19,6 +19,7 @@ class BlackHoleGenerator(
 ) : AbstractGenerator(ParticleEffect.BLACK_HOLE) {
 
     private companion object {
+        private const val BLACK_HOLE_PLANE_ID: Long = 1_000_000L
         private const val BLACK_HOLE_CORE_RADIUS: Double = 5.0
         private const val BLACK_HOLE_CORE_DELAY: Double = 60.0
         private const val BLACK_HOLE_CORE_LIFETIME: Double = 2048.0
@@ -31,7 +32,6 @@ class BlackHoleGenerator(
         private const val BLACK_HOLE_EXPLOSION_SPEED_RANGE: Double = 4.5
         private const val BLACK_HOLE_EXPLOSION_LIFETIME: Double = BLACK_HOLE_CORE_LIFETIME
         private const val BLACK_HOLE_EXPLOSION_MASS: Double = 0.05
-        private const val BLACK_HOLE_EXPLOSION_DRAG: Double = 0.02
         private const val BLACK_HOLE_EXPLOSION_ATTRACTION: Double = 1.0
         private const val BLACK_HOLE_EXPLOSION_MAX_ACTIVE_PARTICLES: Int = 1024
         private const val BLACK_HOLE_EXPLOSION_GPU_KIND: Float = 10f
@@ -48,54 +48,39 @@ class BlackHoleGenerator(
         val particles = mutableListOf<Particle>()
         val centerX = viewPort.x + viewPort.width / 2.0
         val centerY = viewPort.y + viewPort.height / 2.0
-        val coreAttraction = viewPort.width.toDouble()
+        val dimensions = CircleDimensions(radius = BLACK_HOLE_CORE_RADIUS)
+        val blackHolePlaneZ = Particle.isolatedPlaneZ(BLACK_HOLE_PLANE_ID, physicsSettingsService.collisionPlaneThickness)
+        val coreDensity = Particle.densityFor(BLACK_HOLE_CORE_MASS, dimensions)
+        val coreNetGravity = Particle.netGravityOf(
+            coreDensity, physicsSettingsService.gravity, physicsSettingsService.mediumDensity
+        )
         particles += Particle(
-            effect = ParticleEffect.BLACK_HOLE,
-            shape = ParticleShape.CIRCLE,
-            delay = BLACK_HOLE_CORE_DELAY,
-            lifetime = BLACK_HOLE_CORE_LIFETIME,
-            color = Color.Black,
-            width = BLACK_HOLE_CORE_RADIUS * 2.0,
-            height = BLACK_HOLE_CORE_RADIUS * 2.0,
-            radius = BLACK_HOLE_CORE_RADIUS,
-            x = centerX,
-            y = centerY,
-            originX = centerX.roundToInt(),
-            originY = centerY.roundToInt(),
-            destinationX = centerX.roundToInt(),
-            destinationY = centerY.roundToInt(),
-            mass = BLACK_HOLE_CORE_MASS,
-            attraction = coreAttraction,
-            canCollide = true,
-            viewportBound = true,
-            yForce = -physicsSettingsService.gravity * min(1.0, BLACK_HOLE_CORE_MASS),
-            gpuReservedSlot = blackHoleCoreGpuSlotGroup.claimNextSlot()
+            lifecycle = ParticleLifecycle(delay = BLACK_HOLE_CORE_DELAY, lifetime = BLACK_HOLE_CORE_LIFETIME),
+            appearance = ParticleAppearance(color = Color.Black),
+            dimensions = dimensions,
+            transform = ParticleTransform(
+                position = ParticleVector(centerX, centerY, blackHolePlaneZ),
+                origin = ParticleVector(centerX, centerY)
+            ),
+            material = ParticleMaterial(density = coreDensity),
+            dynamics = ParticleDynamics(thrust = ParticleVector(0.0, -BLACK_HOLE_CORE_MASS * coreNetGravity)),
+            id = nextParticleId()
         )
         repeat(BLACK_HOLE_EXPLOSION_PARTICLE_COUNT) {
             val angle = Random.nextDouble() * PI * 2
             val speed = BLACK_HOLE_EXPLOSION_MIN_SPEED + Random.nextDouble() * BLACK_HOLE_EXPLOSION_SPEED_RANGE
-            val diameter = BLACK_HOLE_EXPLOSION_RADIUS * 2.0
+            val dimensions = CircleDimensions(radius = BLACK_HOLE_EXPLOSION_RADIUS)
             particles += Particle(
-                effect = ParticleEffect.BLACK_HOLE,
-                shape = ParticleShape.CIRCLE,
-                lifetime = BLACK_HOLE_EXPLOSION_LIFETIME,
-                color = randomColor(),
-                width = diameter,
-                height = diameter,
-                radius = BLACK_HOLE_EXPLOSION_RADIUS,
-                x = centerX,
-                y = centerY,
-                originX = centerX.roundToInt(),
-                originY = centerY.roundToInt(),
-                destinationX = centerX.roundToInt(),
-                destinationY = centerY.roundToInt(),
-                xVelocity = cos(angle) * speed,
-                yVelocity = sin(angle) * speed,
-                drag = BLACK_HOLE_EXPLOSION_DRAG,
-                mass = BLACK_HOLE_EXPLOSION_MASS,
-                attraction = BLACK_HOLE_EXPLOSION_ATTRACTION,
-                yForce = -physicsSettingsService.gravity * min(1.0, BLACK_HOLE_EXPLOSION_MASS),
-                gpuReservedSlot = blackHoleExplosionGpuSlotGroup.claimNextSlot()
+                lifecycle = ParticleLifecycle(lifetime = BLACK_HOLE_EXPLOSION_LIFETIME),
+                appearance = ParticleAppearance(color = randomColor()),
+                dimensions = dimensions,
+                transform = ParticleTransform(
+                    position = ParticleVector(centerX, centerY, blackHolePlaneZ),
+                    origin = ParticleVector(centerX, centerY)
+                ),
+                dynamics = ParticleDynamics(velocity = ParticleVector(cos(angle) * speed, sin(angle) * speed)),
+                material = ParticleMaterial(density = physicsSettingsService.mediumDensity),
+                id = nextParticleId()
             )
         }
         return particles
@@ -109,9 +94,11 @@ class BlackHoleGenerator(
 
     override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
         val firstOffset = if (isCore(particle)) 0 else 2
-        targetBuffer[parameterIndex + firstOffset] = particle.mass.toFloat()
-        targetBuffer[parameterIndex + firstOffset + 1] = particle.attraction.toFloat()
+        targetBuffer[parameterIndex + firstOffset] =
+            (if (isCore(particle)) BLACK_HOLE_CORE_MASS else BLACK_HOLE_EXPLOSION_MASS).toFloat()
+        targetBuffer[parameterIndex + firstOffset + 1] =
+            if (isCore(particle)) particle.transform.origin.x.toFloat() * 2f else BLACK_HOLE_EXPLOSION_ATTRACTION.toFloat()
     }
 
-    private fun isCore(particle: Particle): Boolean = particle.delay > 0.0
+    private fun isCore(particle: Particle): Boolean = particle.lifecycle.delay > 0.0
 }

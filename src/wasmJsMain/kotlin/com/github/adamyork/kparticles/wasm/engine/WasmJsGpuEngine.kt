@@ -3,15 +3,13 @@ package com.github.adamyork.kparticles.wasm.engine
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
-import com.github.adamyork.kparticles.platform.engine.Collision
+import com.github.adamyork.kparticles.platform.engine.ParticleCollision
 import com.github.adamyork.kparticles.platform.engine.EngineException
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
 import com.github.adamyork.kparticles.platform.engine.data.DrawFunctionData
-import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.engine.data.RenderType
 import com.github.adamyork.kparticles.platform.service.AssetService
-import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.service.data.ImageAsset
 import com.github.adamyork.kparticles.wasm.gui.WasmJsUiParticleLayer
@@ -33,11 +31,10 @@ class WasmJsGpuEngine(
     particlePhysics: ParticlePhysics,
     particleFactory: ParticleFactory,
     private val particleLayer: WasmJsUiParticleLayer,
-    private val physicsSettingsService: PhysicsSettingsService,
     assetService: AssetService,
     runtimeService: RuntimeService,
     platformInterop: PlatformInterop,
-    collision: Collision,
+    collision: ParticleCollision,
     gpuRenderers: WasmGpuRenderers
 ) : WasmJsEngine(
     particlePhysics,
@@ -58,10 +55,11 @@ class WasmJsGpuEngine(
 
     private val gpuParticleRenderer = gpuRenderers.gpuParticleRenderer
     private val gpuParticleBufferCapacity = ParticleFactory.DEFAULT_GPU_PARTICLE_CAPACITY
-    private val gpuParticleSpawnBuffer = particleFactory.createGpuParticleComputeBuffer(gpuParticleBufferCapacity)
+    private val gpuParticleSpawnBuffer = particleFactory.createGpuParticleStateBuffer(gpuParticleBufferCapacity)
     private var gpuRendererReady: Boolean = false
     private var nextGpuSpawnSlot: Int = 0
     private var previousGpuWrittenSlots: List<Int> = emptyList()
+    private var worldTime: Double = 0.0
 
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         logger.info { "Initializing GPU engine" }
@@ -87,10 +85,10 @@ class WasmJsGpuEngine(
         logger.info { "GPU particle renderer initialized" }
     }
 
-    override fun manageParticles(particles: ArrayList<Particle>, viewPort: ViewPort) {
-        particlePhysics.applyParticlePhysics(particles, viewPort, completedParticleResults)
-        val spawnWriteResult = particleFactory.writeGpuParticleSpawnBuffer(
-            particles,
+    override fun manageParticles(viewPort: ViewPort) {
+        val deltaTime = runtimeService.getDeltaTimeCoefficient()
+        worldTime += deltaTime
+        val spawnWriteResult = particleFactory.writeGpuParticleStateSpawnBuffer(
             gpuParticleSpawnBuffer,
             gpuParticleBufferCapacity,
             startSlot = nextGpuSpawnSlot,
@@ -101,26 +99,24 @@ class WasmJsGpuEngine(
         if (spawnedParticleCount > 0) {
             nextGpuSpawnSlot = (nextGpuSpawnSlot + spawnedParticleCount) % gpuParticleBufferCapacity
         }
-        val deltaTimeSeconds = runtimeService.getDeltaTimeSeconds()
+        val engineProperties = assetService.appProperties.engine
+        val spriteTicksPerFrame = (engineProperties.tickTargetPerSec.toDouble() /
+                engineProperties.spriteAnimationFramePerSec.toDouble()).coerceAtLeast(1.0)
         gpuParticleRenderer.updateGpuParticleBuffer(
-            activeParticleCount = spawnedParticleCount,
             sourceBuffer = gpuParticleSpawnBuffer,
             dirtySlotRanges = spawnWriteResult.dirtySlotRanges,
-            deltaTimeSeconds = deltaTimeSeconds,
-            viewPort = viewPort,
-            particleFactory = particleFactory,
-            gravity = physicsSettingsService.gravity.toFloat(),
-            tickTargetPerSecond = assetService.appProperties.engine.tickTargetPerSec,
-            speedCoefficient = physicsSettingsService.collisionParticleSpeedCoefficient.toFloat()
+            deltaTime = deltaTime,
+            worldTime = worldTime,
+            spriteTicksPerFrame = spriteTicksPerFrame,
+            viewPort = viewPort
         )
     }
 
     override fun drawParticles(
-        particles: List<Particle>,
         viewPort: ViewPort,
         canvas: Canvas
     ) {
-        renderers.getForType(RenderType.SIMPLE_SHAPE)(DrawFunctionData(particles, viewPort, canvas, spriteSheet))
+        renderers.getForType(RenderType.SIMPLE_SHAPE)(DrawFunctionData(particleFactory.generators(), viewPort, canvas, spriteSheet))
     }
     private suspend fun waitForOverlayCanvasReady(): HTMLCanvasElement? {
         val deadline = window.performance.now() + OVERLAY_CANVAS_WAIT_TIMEOUT_MS

@@ -3,10 +3,14 @@ package com.github.adamyork.kparticles.android.engine
 import android.graphics.Canvas
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
-import com.github.adamyork.kparticles.platform.engine.Collision
+import com.github.adamyork.kparticles.platform.engine.ParticleCollision
 import com.github.adamyork.kparticles.platform.engine.CommonParticleFactory
 import com.github.adamyork.kparticles.platform.engine.CommonParticlePhysics
+import com.github.adamyork.kparticles.platform.engine.CommonContactDetector
+import com.github.adamyork.kparticles.platform.engine.CommonContactSolver
 import com.github.adamyork.kparticles.platform.engine.CommonSpatialGrid
+import com.github.adamyork.kparticles.platform.engine.ContactDetector
+import com.github.adamyork.kparticles.platform.engine.ContactSolver
 import com.github.adamyork.kparticles.platform.engine.Engine
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
@@ -34,7 +38,7 @@ interface EngineConfig {
 
     @AppScope
     @Provides
-    fun provideCollision(impl: AndroidTileCollision): Collision = impl
+    fun provideCollision(impl: AndroidParticleCollision): ParticleCollision = impl
 
     @AppScope
     @Provides
@@ -43,6 +47,14 @@ interface EngineConfig {
     @AppScope
     @Provides
     fun provideSpatialGrid(impl: CommonSpatialGrid): SpatialGrid = impl
+
+    @AppScope
+    @Provides
+    fun provideContactDetector(impl: CommonContactDetector): ContactDetector = impl
+
+    @AppScope
+    @Provides
+    fun provideContactSolver(impl: CommonContactSolver): ContactSolver = impl
 
     @AppScope
     @Provides

@@ -1,94 +1,103 @@
 package com.github.adamyork.kparticles.platform.engine.data
 
-import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
-import kotlin.math.hypot
-import kotlin.random.Random
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sin
+import kotlin.math.sign
 
 /**
  * Author: Adam York
  * Copyright (c) Adam York
  */
 data class Particle(
-    val id: String = Random.nextInt().toString(16),
-    val effect: ParticleEffect,
-    val shape: ParticleShape,
-    var age: Double = 0.0,
-    val delay: Double = 0.0,
-    val lifetime: Double,
-    var color: Color,
-    val startColor: Color = color,
-    val endColor: Color = color,
-    var alpha: Double = 1.0,
-    val endAlpha: Double = alpha,
-    var initialAlpha: Double = alpha,
-    var alphaMultiplier: Double = 0.0,
-    var width: Double,
-    var height: Double,
-    val maxWidth: Double = DEFAULT_MAX_WIDTH,
-    val maxHeight: Double = DEFAULT_MAX_HEIGHT,
-    var radius: Double,
-    val maxRadius: Double = DEFAULT_MAX_RADIUS,
-    val growthRate: Double = 0.0,
-    var x: Double,
-    var y: Double,
-    var z: Double = 0.0,
-    val originX: Int = 0,
-    val originY: Int = 0,
-    val originZ: Int = 0,
-    var destinationX: Int = 0,
-    var destinationY: Int = 0,
-    val destinationZ: Int = 0,
-    var xVelocity: Double = 0.0,
-    var yVelocity: Double = 0.0,
-    var zVelocity: Double = 0.0,
-    val maxXVelocity: Double = DEFAULT_MAX_VELOCITY,
-    val maxYVelocity: Double = DEFAULT_MAX_VELOCITY,
-    val maxZVelocity: Double = DEFAULT_MAX_VELOCITY,
-    var xAcceleration: Double = 0.0,
-    var yAcceleration: Double = 0.0,
-    var zAcceleration: Double = 0.0,
-    val drag: Double = 0.0,
-    var mass: Double = 0.0,
-    val restitution: Double = 0.0,
-    var attraction: Double = 0.0,
-    val canCollide: Boolean = false,
-    var visible: Boolean = true,
-    val viewportBound: Boolean = false,
-    val hardness: Int = 0,
-    var xForce: Double = 0.0,
-    var yForce: Double = 0.0,
-    var gpuReservedSlot: Int = -1,
-    var frame: Int = 0,
-    val maxFrames: Int = 1,
-    val driftAmplitude: Double = 0.0,
-    val driftFrequency: Double = 0.0,
-    val driftPhase: Double = 0.0,
-    val travelTicks: Double = 0.0
+    val id: Long,
+    val lifecycle: ParticleLifecycle,
+    val appearance: ParticleAppearance,
+    val dimensions: ParticleDimensions,
+    val transform: ParticleTransform,
+    val material: ParticleMaterial,
+    val dynamics: ParticleDynamics = ParticleDynamics(),
+    val animation: ParticleAnimation? = null
 ) {
     companion object {
-        const val DEFAULT_MAX_WIDTH: Double = 10.0
-        const val DEFAULT_MAX_HEIGHT: Double = 10.0
-        const val DEFAULT_MAX_RADIUS: Double = 5.0
-        const val DEFAULT_MAX_VELOCITY: Double = 10.0
         private const val VISIBILITY_BUFFER = 50
+        const val MINIMUM_MASS: Double = 0.000000001
+        const val BOUNDED_Z: Double = 1.0
+        const val MAXIMUM_ANGULAR_VELOCITY: Double = 0.5
+        private const val MAXIMUM_GRAVITY_FRACTION: Double = 0.999
+
+        fun isolatedPlaneZ(id: Long, planeThickness: Double): Double = -(id + 1).toDouble() * planeThickness * 2.0
+
+        fun contactPlaneZ(id: Long, contactThickness: Double, separationThickness: Double): Double =
+            -contactPlaneOffset(id, contactThickness, separationThickness)
+
+        fun wallContactPlaneZ(id: Long, contactThickness: Double, separationThickness: Double): Double =
+            contactPlaneOffset(id, contactThickness, separationThickness)
+
+        private fun contactPlaneOffset(id: Long, contactThickness: Double, separationThickness: Double): Double {
+            val planeSpacing = separationThickness * 2.0
+            val planeCount = max(1, (contactThickness / planeSpacing).toInt() - 1)
+            return ((id % planeCount) + 1).toDouble() * planeSpacing
+        }
+
+        fun densityFor(mass: Double, dimensions: ParticleDimensions): Double {
+            val area = dimensions.area()
+            return if (area > 0.0) mass / area else 0.0
+        }
+
+        fun netGravityOf(density: Double, gravity: Double, mediumDensity: Double): Double =
+            gravity * (1.0 - mediumDensity / max(density, MINIMUM_MASS))
+
+        fun densityForNetGravity(netGravity: Double, gravity: Double, mediumDensity: Double): Double {
+            if (gravity <= 0.0) return mediumDensity
+            val gravityFraction = min(netGravity / gravity, MAXIMUM_GRAVITY_FRACTION)
+            return mediumDensity / (1.0 - gravityFraction)
+        }
     }
 
     fun cullingCheck(viewPort: ViewPort): Boolean {
-        val localCord = viewPort.globalToLocal(x.toInt(), y.toInt())
+        val localCord = viewPort.globalToLocal(transform.position.x.toInt(), transform.position.y.toInt())
         return localCord.y < viewPort.height &&
                 localCord.y > -VISIBILITY_BUFFER &&
                 localCord.x > -VISIBILITY_BUFFER &&
                 localCord.x < viewPort.width + VISIBILITY_BUFFER
     }
 
-    fun travelProgress(): Double {
-        val travelDistance = hypot((destinationX - originX).toDouble(), (destinationY - originY).toDouble())
-        if (travelDistance <= 0.0 || travelTicks <= 0.0) return 1.0
-        val travelTime = ((age - delay) / travelTicks).coerceIn(0.0, 1.0)
-        return travelTime * travelTime * (3.0 - 2.0 * travelTime)
+    fun mass(): Double = material.density * dimensions.area()
+
+    fun inertialMass(): Double = max(mass(), MINIMUM_MASS)
+
+    fun collisionRadius(): Double = dimensions.collisionRadius()
+
+    fun boundingRadius(): Double = dimensions.boundingRadius()
+
+    fun axisAlignedHalfWidth(): Double = when (val currentDimensions = dimensions) {
+        is RectDimensions -> (abs(cos(transform.angle)) * currentDimensions.width +
+                abs(sin(transform.angle)) * currentDimensions.height) / 2.0
+        is CircleDimensions -> currentDimensions.radius
     }
 
-    fun canInteract(): Boolean = canCollide || attraction > 0.0
+    fun axisAlignedHalfHeight(): Double = when (val currentDimensions = dimensions) {
+        is RectDimensions -> (abs(sin(transform.angle)) * currentDimensions.width +
+                abs(cos(transform.angle)) * currentDimensions.height) / 2.0
+        is CircleDimensions -> currentDimensions.radius
+    }
+
+    fun angularVelocityAfterRolling(normalImpulse: Double, contactArm: Double): Double {
+        val decay = material.rollingResistance * normalImpulse * contactArm / momentOfInertia()
+        return if (abs(dynamics.angularVelocity) <= decay) 0.0 else dynamics.angularVelocity - sign(dynamics.angularVelocity) * decay
+    }
+
+    fun momentOfInertia(): Double {
+        val shapeFactor = when (val currentDimensions = dimensions) {
+            is RectDimensions -> (currentDimensions.width * currentDimensions.width +
+                    currentDimensions.height * currentDimensions.height) / 12.0
+            is CircleDimensions -> currentDimensions.radius * currentDimensions.radius / 2.0
+        }
+        return max(inertialMass() * shapeFactor, MINIMUM_MASS)
+    }
 }
 

@@ -5,6 +5,7 @@ import com.github.adamyork.kparticles.platform.engine.data.*
 import kotlin.math.*
 import kotlin.random.Random
 import me.tatarka.inject.annotations.Inject
+import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 
 /**
  * Author: Adam York
@@ -12,17 +13,19 @@ import me.tatarka.inject.annotations.Inject
  */
 @AppScope
 @Inject
-class FireworkBurstGenerator : AbstractGenerator(ParticleEffect.FIREWORK_BURST) {
+class FireworkBurstGenerator(
+    private val physicsSettingsService: PhysicsSettingsService
+) : AbstractGenerator(ParticleEffect.FIREWORK_BURST) {
 
     private companion object {
         private const val FIREWORK_BURST_PARTICLE_COUNT: Int = 100
-        private const val FIREWORK_BURST_MIN_SPEED: Double = 2.0
-        private const val FIREWORK_BURST_SPEED_RANGE: Double = 6.0
+        private const val FIREWORK_BURST_MIN_SPEED: Double = 3.6
+        private const val FIREWORK_BURST_SPEED_RANGE: Double = 1.5
+        private const val FIREWORK_BURST_ANGLE_JITTER: Double = 0.2
         private const val FIREWORK_BURST_RADIUS: Double = 3.0
         private const val FIREWORK_BURST_LIFETIME: Double = 120.0
-        private const val FIREWORK_BURST_MASS: Double = 0.02
-        private const val FIREWORK_BURST_Y_ACCELERATION: Double = 0.05
-        private const val FIREWORK_BURST_DRAG: Double = 0.02
+        private const val FIREWORK_BURST_NET_GRAVITY_FRACTION: Double = 0.01
+        private const val FIREWORK_BURST_Y_ACCELERATION: Double = 0.03
         private const val FIREWORK_BURST_MAX_ACTIVE_PARTICLES: Int = 512
         private const val FIREWORK_BURST_GPU_KIND: Float = 5f
     }
@@ -36,27 +39,32 @@ class FireworkBurstGenerator : AbstractGenerator(ParticleEffect.FIREWORK_BURST) 
         val centerY = request.y
         val particles = mutableListOf<Particle>()
         val (startColor, endColor) = createDistinctColorPair()
-        repeat(FIREWORK_BURST_PARTICLE_COUNT) {
-            val angle = Random.nextDouble() * PI * 2
+        repeat(FIREWORK_BURST_PARTICLE_COUNT) { burstIndex ->
+            val angle = (burstIndex.toDouble() / FIREWORK_BURST_PARTICLE_COUNT) * PI * 2 +
+                (Random.nextDouble() - 0.5) * FIREWORK_BURST_ANGLE_JITTER
             val speed = Random.nextDouble() * FIREWORK_BURST_SPEED_RANGE + FIREWORK_BURST_MIN_SPEED
-            val diameter = FIREWORK_BURST_RADIUS * 2.0
+            val dimensions = CircleDimensions(radius = FIREWORK_BURST_RADIUS)
+            val particleId = nextParticleId()
+            val density = Particle.densityForNetGravity(
+                physicsSettingsService.gravity * FIREWORK_BURST_NET_GRAVITY_FRACTION,
+                physicsSettingsService.gravity,
+                physicsSettingsService.mediumDensity
+            )
             particles += Particle(
-                effect = ParticleEffect.FIREWORK_BURST,
-                shape = ParticleShape.CIRCLE,
-                lifetime = FIREWORK_BURST_LIFETIME,
-                color = startColor,
-                endColor = endColor,
-                width = diameter,
-                height = diameter,
-                radius = FIREWORK_BURST_RADIUS,
-                x = centerX,
-                y = centerY,
-                xVelocity = cos(angle) * speed,
-                yVelocity = sin(angle) * speed,
-                yAcceleration = FIREWORK_BURST_Y_ACCELERATION,
-                drag = FIREWORK_BURST_DRAG,
-                mass = FIREWORK_BURST_MASS,
-                gpuReservedSlot = fireworkBurstGpuSlotGroup.claimNextSlot()
+                lifecycle = ParticleLifecycle(lifetime = FIREWORK_BURST_LIFETIME),
+                appearance = ParticleAppearance(color = startColor, endColor = endColor),
+                dimensions = dimensions,
+                transform = ParticleTransform(
+                    position = ParticleVector(
+                        centerX, centerY, Particle.isolatedPlaneZ(particleId, physicsSettingsService.collisionPlaneThickness)
+                    )
+                ),
+                dynamics = ParticleDynamics(
+                    velocity = ParticleVector(cos(angle) * speed, sin(angle) * speed),
+                    thrust = ParticleVector(0.0, FIREWORK_BURST_Y_ACCELERATION * density * dimensions.area())
+                ),
+                material = ParticleMaterial(density = density),
+                id = particleId
             )
         }
         return particles
@@ -67,9 +75,9 @@ class FireworkBurstGenerator : AbstractGenerator(ParticleEffect.FIREWORK_BURST) 
     override fun gpuKind(particle: Particle): Float = FIREWORK_BURST_GPU_KIND
 
     override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
-        val endColorRed = (particle.endColor.red * 255f).roundToInt().coerceIn(0, 255)
-        val endColorGreen = (particle.endColor.green * 255f).roundToInt().coerceIn(0, 255)
-        val endColorBlue = (particle.endColor.blue * 255f).roundToInt().coerceIn(0, 255)
+        val endColorRed = (particle.appearance.endColor.red * 255f).roundToInt().coerceIn(0, 255)
+        val endColorGreen = (particle.appearance.endColor.green * 255f).roundToInt().coerceIn(0, 255)
+        val endColorBlue = (particle.appearance.endColor.blue * 255f).roundToInt().coerceIn(0, 255)
         targetBuffer[parameterIndex] = ((endColorRed * 65536) + (endColorGreen * 256) + endColorBlue).toFloat()
     }
 }

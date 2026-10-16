@@ -6,17 +6,19 @@ import android.opengl.*
 import android.view.TextureView
 import com.github.adamyork.kparticles.android.engine.data.AndroidGpuParticleFrame
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
+import com.github.adamyork.kparticles.platform.engine.GpuUniformWriter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.lang.ref.WeakReference
-import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Author: Adam York
  * Copyright (c) Adam York
  */
-class AndroidGpuParticleRuntime {
+class AndroidGpuParticleRuntime(
+    private val gpuUniformWriter: GpuUniformWriter
+) {
 
     private val logger = KotlinLogging.logger {}
 
@@ -39,8 +41,6 @@ class AndroidGpuParticleRuntime {
     private var mapItemSpriteWidth: Int = 1
     private var mapItemSpriteHeight: Int = 1
 
-    private val latestFrame = AtomicReference<AndroidGpuParticleFrame?>(null)
-    private val hasActiveParticlesFlow = MutableStateFlow(false)
     private var renderer: AndroidGpuParticleRenderer? = null
     private var textureViewRef: WeakReference<TextureView>? = null
 
@@ -78,51 +78,31 @@ class AndroidGpuParticleRuntime {
     fun isEnabled(): Boolean = enabled
 
     fun submitFrame(
-        activeParticleCount: Int,
         sourceBuffer: FloatArray,
-        viewPort: ViewPort,
-        viewPortWidth: Float,
-        viewPortHeight: Float,
-        sizeMultiplier: Int,
-        deltaTimeSeconds: Float,
-        gravity: Float,
-        tickRate: Float,
-        simulationSpeed: Float,
-        gravityBoost: Float,
-        lifetimeDecay: Float,
-        shatterPoolFirstSlot: Int,
-        shatterPoolSlotCount: Int
+        dirtySlotRanges: List<IntRange>,
+        deltaTime: Double,
+        worldTime: Double,
+        spriteTicksPerFrame: Double,
+        viewPort: ViewPort
     ) {
         if (!enabled) return
-        hasActiveParticlesFlow.value = activeParticleCount > 0
-        latestFrame.set(
+        val view = textureViewRef?.get() ?: return
+        if (!view.isAvailable) return
+        renderFrame(
             AndroidGpuParticleFrame(
-                sourceBuffer = sourceBuffer.copyOf(),
-                viewPortX = viewPort.x.toFloat(),
-                viewPortY = viewPort.y.toFloat(),
-                viewPortWidth = viewPortWidth.coerceAtLeast(1f),
-                viewPortHeight = viewPortHeight.coerceAtLeast(1f),
-                sizeMultiplier = sizeMultiplier,
-                deltaTimeSeconds = deltaTimeSeconds.coerceAtLeast(0.0001f),
-                gravity = gravity,
-                tickRate = tickRate.coerceAtLeast(1f),
-                simulationSpeed = simulationSpeed.coerceAtLeast(1f),
-                gravityBoost = gravityBoost.coerceAtLeast(1f),
-                lifetimeDecay = lifetimeDecay.coerceAtLeast(1f),
-                shatterPoolFirstSlot = shatterPoolFirstSlot,
-                shatterPoolSlotCount = shatterPoolSlotCount
+                sourceBuffer = sourceBuffer,
+                dirtySlotRanges = dirtySlotRanges,
+                deltaTime = deltaTime,
+                worldTime = worldTime,
+                spriteTicksPerFrame = spriteTicksPerFrame,
+                viewPort = viewPort
             )
         )
-        textureViewRef?.get()?.let { view ->
-            if (view.isAvailable) {
-                renderFrame()
-            }
-        }
     }
 
     private fun createRenderer(): AndroidGpuParticleRenderer = AndroidGpuParticleRenderer(
         maxParticles = maxParticles.coerceAtLeast(1),
-        frameProvider = { latestFrame.getAndSet(null) },
+        gpuUniformWriter = gpuUniformWriter,
         computeShaderSource = computeShaderSource,
         vertexShaderSource = vertexShaderSource,
         fragmentShaderSource = fragmentShaderSource,
@@ -131,14 +111,14 @@ class AndroidGpuParticleRuntime {
         mapItemSpriteHeight = mapItemSpriteHeight
     )
 
-    private fun renderFrame() {
+    private fun renderFrame(frame: AndroidGpuParticleFrame) {
         val glRenderer = renderer ?: return
         if (eglDisplay == EGL14.EGL_NO_DISPLAY || eglSurface == EGL14.EGL_NO_SURFACE) return
         if (!EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
             logger.warn { "[GPU][Runtime] eglMakeCurrent failed during frame render" }
             return
         }
-        glRenderer.onDrawFrame(null)
+        glRenderer.renderFrame(frame)
         EGL14.eglSwapBuffers(eglDisplay, eglSurface)
     }
 
@@ -155,13 +135,13 @@ class AndroidGpuParticleRuntime {
                 override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
                     logger.info { "[GPU][Runtime] SurfaceTexture available ($width x $height)" }
                     initEgl(surface)
-                    glRenderer.onSurfaceCreated(null, null)
-                    glRenderer.onSurfaceChanged(null, width, height)
+                    glRenderer.onSurfaceCreated()
+                    glRenderer.onSurfaceChanged(width, height)
                 }
 
                 override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
                     logger.info { "[GPU][Runtime] SurfaceTexture size changed ($width x $height)" }
-                    glRenderer.onSurfaceChanged(null, width, height)
+                    glRenderer.onSurfaceChanged(width, height)
                 }
 
                 override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {

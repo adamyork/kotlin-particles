@@ -9,11 +9,13 @@ import com.github.adamyork.kparticles.platform.engine.data.Particle
  */
 interface SpatialGrid {
 
-    fun currentCellSize(): Double
-
     fun beginTick(viewPort: ViewPort)
 
     fun place(particle: Particle)
 
-    fun forEachNearbyPair(action: (Particle, Particle) -> Unit)
+    fun forEachCollisionPair(action: (Particle, Particle) -> Unit)
+
+    fun forEachParticleWithin(centerX: Double, centerY: Double, range: Double, action: (Particle) -> Unit)
+
+    fun placedParticles(): List<Particle>
 }

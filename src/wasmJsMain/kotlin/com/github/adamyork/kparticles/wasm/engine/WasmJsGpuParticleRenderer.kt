@@ -1,8 +1,8 @@
 package com.github.adamyork.kparticles.wasm.engine
 
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
-import com.github.adamyork.kparticles.platform.engine.ParticleFactory
-import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
+import com.github.adamyork.kparticles.platform.engine.GpuUniformWriter
+import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGenerator
 import com.github.adamyork.kparticles.wasm.common.*
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.browser.window
@@ -19,34 +19,49 @@ import kotlin.math.max
  * Copyright (c) Adam York
  */
 @OptIn(ExperimentalWasmJsInterop::class)
-class WasmJsGpuParticleRenderer {
+class WasmJsGpuParticleRenderer(
+    private val gpuUniformWriter: GpuUniformWriter
+) {
 
     companion object {
         private const val WORKGROUP_SIZE = 64
-        private const val COLLISION_SIGNAL_UINT_COUNT = 4
-        private const val COLLISION_SIGNAL_BYTES = COLLISION_SIGNAL_UINT_COUNT * 4
-        private const val COLLISION_READBACK_BUFFER_COUNT = 3
-        private const val FLOATS_PER_PARTICLE = 24
+        private const val FLOATS_PER_PARTICLE = ParticleEffectGenerator.GPU_STATE_FLOATS_PER_PARTICLE
         private const val BYTES_PER_FLOAT = 4
-        private const val COMPUTE_UNIFORM_FLOATS = 20
-        private const val RENDER_UNIFORM_FLOATS = 8
-        private const val COMPUTE_ENTRY_POINT = "computeMain"
+        private const val KINEMATICS_BYTES_PER_PARTICLE = 64
+        private const val GRID_BUFFER_BYTES = 1048576
+        private const val SCRATCH_EXTRA_UNSIGNED_INTEGERS = 1024
         private const val VERTEX_ENTRY_POINT = "vertexMain"
-        private const val FRAGMENT_ENTRY_POINT_NON_DUST = "fragmentMainNonDust"
+        private const val FRAGMENT_ENTRY_POINT_SHAPES = "fragmentMainShapes"
         private const val FRAGMENT_ENTRY_POINT_DUST = "fragmentMainDust"
+        private const val SHADER_ERROR_MARKER = "[error]"
+        private val SIMULATION_STAGE_ENTRY_POINTS = listOf(
+            "spawnIntegrateMain",
+            "gridClearMain",
+            "gridCountMain",
+            "gridScanMain",
+            "gridScatterMain",
+            "selectGravitySourcesMain",
+            "gravityMain",
+            "accretionOwnerMain",
+            "accretionApplyMain",
+            "contactBeginMain",
+            "countContactsFromAMain",
+            "solveContactsAToBMain",
+            "countContactsFromBMain",
+            "solveContactsBToAMain",
+            "contactEndMain",
+            "freeSlotsMain",
+            "splitMain",
+            "wallMain"
+        )
+        private val SINGLE_WORKGROUP_ENTRY_POINTS = setOf("gridScanMain", "selectGravitySourcesMain")
     }
 
     private val logger = KotlinLogging.logger {}
 
-    private data class CollisionReadbackSlot(
-        val buffer: GPUBuffer,
-        var inFlight: Boolean = false
-    )
-
     private var canvas: HTMLCanvasElement? = null
     private var maxParticles: Int = 0
     private var initialized: Boolean = false
-    private var useStateAAsSource: Boolean = true
 
     private var device: GPUDevice? = null
     private var context: GPUCanvasContext? = null
@@ -56,36 +71,30 @@ class WasmJsGpuParticleRenderer {
     private var lastConfiguredCanvasWidth: Int = -1
     private var lastConfiguredCanvasHeight: Int = -1
 
-    private var stateBufferA: GPUBuffer? = null
-    private var stateBufferB: GPUBuffer? = null
+    private var stateBuffer: GPUBuffer? = null
     private var spawnBuffer: GPUBuffer? = null
-    private var computeUniformBuffer: GPUBuffer? = null
-    private var collisionSignalBuffer: GPUBuffer? = null
-    private val collisionSignalReadbackSlots = mutableListOf<CollisionReadbackSlot>()
-    private var nextCollisionReadbackSlotIndex: Int = 0
+    private var simulationUniformBuffer: GPUBuffer? = null
     private var renderUniformBuffer: GPUBuffer? = null
     private var mapItemSampler: GPUSampler? = null
     private var mapItemTextureView: GPUTextureView? = null
-    private var mapItemSpriteWidth: Float = 1f
-    private var mapItemSpriteHeight: Float = 1f
+    private var mapItemSpriteWidth: Int = 1
+    private var mapItemSpriteHeight: Int = 1
+    private var mapItemSheetFrameCount: Int = 1
+    private var lastSpriteTicksPerFrame: Double = 1.0
 
-    private var computePipeline: GPUComputePipeline? = null
-    private var renderPipelineNonDust: GPURenderPipeline? = null
+    private val simulationPipelines = mutableListOf<GPUComputePipeline>()
+    private val simulationWorkgroupCounts = mutableListOf<Int>()
+    private var renderPipelineShapes: GPURenderPipeline? = null
     private var renderPipelineDust: GPURenderPipeline? = null
 
-    private var computeBindGroupAtoB: GPUBindGroup? = null
-    private var computeBindGroupBtoA: GPUBindGroup? = null
-    private var renderBindGroupNonDustA: GPUBindGroup? = null
-    private var renderBindGroupNonDustB: GPUBindGroup? = null
-    private var renderBindGroupDustA: GPUBindGroup? = null
-    private var renderBindGroupDustB: GPUBindGroup? = null
+    private var simulationBindGroup: GPUBindGroup? = null
+    private var renderBindGroupShapes: GPUBindGroup? = null
+    private var renderBindGroupDust: GPUBindGroup? = null
 
-    private val computeUniformData = FloatArray(COMPUTE_UNIFORM_FLOATS)
-    private val renderUniformData = FloatArray(RENDER_UNIFORM_FLOATS)
+    private val simulationUniformData = FloatArray(GpuUniformWriter.SIMULATION_UNIFORM_FLOATS)
+    private val renderUniformData = FloatArray(GpuUniformWriter.RENDER_UNIFORM_FLOATS)
     private var uploadScratchBuffer: ArrayBuffer? = null
     private var uploadScratchView: DataView? = null
-    private var collisionResetScratchBuffer: ArrayBuffer? = null
-    private var collisionResetScratchView: DataView? = null
 
     suspend fun initialize(
         maxParticleCapacity: Int,
@@ -114,6 +123,7 @@ class WasmJsGpuParticleRenderer {
             return false
         }
         val gpuDevice = requestGpuDevice(adapter).await()
+        installGpuErrorLogging(gpuDevice)
         val webGpuContext = getWebGpuContext(overlayCanvas) ?: run {
             logger.error { "Unable to acquire webgpu canvas context" }
             return false
@@ -123,30 +133,29 @@ class WasmJsGpuParticleRenderer {
         configureWebGpuContext(webGpuContext, gpuDevice, preferredFormat)
 
         val particleBufferSize = maxParticles * FLOATS_PER_PARTICLE * BYTES_PER_FLOAT
-        val computeUniformBytes = COMPUTE_UNIFORM_FLOATS * BYTES_PER_FLOAT
-        val renderUniformBytes = RENDER_UNIFORM_FLOATS * BYTES_PER_FLOAT
         computeWorkgroupCount = ceil(maxParticles.toDouble() / WORKGROUP_SIZE.toDouble()).toInt().coerceAtLeast(1)
 
-        val createdStateA = createStorageBuffer(gpuDevice, particleBufferSize)
-        val createdStateB = createStorageBuffer(gpuDevice, particleBufferSize)
+        val createdState = createStorageBuffer(gpuDevice, particleBufferSize)
         val createdSpawn = createStorageBuffer(gpuDevice, particleBufferSize)
-        val createdComputeUniform = createUniformBuffer(gpuDevice, computeUniformBytes)
-        val createdCollisionSignal = createStorageBuffer(gpuDevice, COLLISION_SIGNAL_BYTES)
-        val createdCollisionSignalReadbacks = List(COLLISION_READBACK_BUFFER_COUNT) {
-            createReadbackBuffer(gpuDevice, COLLISION_SIGNAL_BYTES)
-        }
-        val createdRenderUniform = createUniformBuffer(gpuDevice, renderUniformBytes)
+        val createdSimulationUniform = createUniformBuffer(gpuDevice, simulationUniformData.size * BYTES_PER_FLOAT)
+        val createdKinematics = createStorageBuffer(gpuDevice, maxParticles * KINEMATICS_BYTES_PER_PARTICLE)
+        val createdGrid = createStorageBuffer(gpuDevice, GRID_BUFFER_BYTES)
+        val createdScratch = createStorageBuffer(gpuDevice, (maxParticles * 4 + SCRATCH_EXTRA_UNSIGNED_INTEGERS) * BYTES_PER_FLOAT)
+        val createdRenderUniform = createUniformBuffer(gpuDevice, renderUniformData.size * BYTES_PER_FLOAT)
         val createdMapItemSampler = createLinearSampler(gpuDevice)
         val deviceQueue = getGpuQueue(gpuDevice)
+        var createdSheetFrameCount = 1
         val createdMapItemTextureView = if (mapItemTextureBytes.isNotEmpty()) {
             try {
-                createTextureViewFromEncodedBytes(
+                val textureResult = createTextureViewFromEncodedBytes(
                     device = gpuDevice,
                     queue = deviceQueue,
                     bytes = mapItemTextureBytes.toInt8Array(),
                     firstCellWidth = 0,
                     firstCellHeight = 0
                 ).await()
+                createdSheetFrameCount = (textureResult.width / mapItemFirstCellWidth.coerceAtLeast(1)).coerceAtLeast(1)
+                textureResult.view
             } catch (t: Throwable) {
                 logger.error(t) { "Failed to create map item return texture for WebGPU particles" }
                 return false
@@ -156,15 +165,26 @@ class WasmJsGpuParticleRenderer {
         }
 
         val shaderModule = createShaderModule(gpuDevice, particlesShaderSource)
+        val compilationReport = getShaderCompilationReport(shaderModule).await().toString()
+        if (compilationReport.isNotBlank()) {
+            logger.error { "particles.wgsl compilation report:\n$compilationReport" }
+        }
+        if (compilationReport.contains(SHADER_ERROR_MARKER)) {
+            return false
+        }
 
-        val createdComputePipeline = createComputePipeline(gpuDevice, shaderModule, COMPUTE_ENTRY_POINT)
-        val createdRenderPipelineNonDust = createRenderPipeline(
+        val simulationLayout = createSimulationBindGroupLayout(gpuDevice)
+        val simulationPipelineLayout = createPipelineLayout(gpuDevice, simulationLayout)
+        val createdSimulationPipelines = SIMULATION_STAGE_ENTRY_POINTS.map { entryPoint ->
+            createComputePipelineWithLayout(gpuDevice, shaderModule, entryPoint, simulationPipelineLayout)
+        }
+        val createdRenderPipelineShapes = createRenderPipeline(
             gpuDevice,
             shaderModule,
             shaderModule,
             preferredFormat,
             VERTEX_ENTRY_POINT,
-            FRAGMENT_ENTRY_POINT_NON_DUST
+            FRAGMENT_ENTRY_POINT_SHAPES
         )
         val createdRenderPipelineDust = createRenderPipelineMaxBlend(
             gpuDevice,
@@ -175,52 +195,28 @@ class WasmJsGpuParticleRenderer {
             FRAGMENT_ENTRY_POINT_DUST
         )
 
-        val bindGroupAToB = createComputeBindGroup(
+        val createdSimulationBindGroup = createSimulationBindGroup(
             gpuDevice,
-            createdComputePipeline,
-            createdStateA,
-            createdStateB,
+            simulationLayout,
+            createdState,
             createdSpawn,
-            createdComputeUniform,
-            createdCollisionSignal
+            createdSimulationUniform,
+            createdKinematics,
+            createdGrid,
+            createdScratch
         )
-        val bindGroupBToA = createComputeBindGroup(
+        val createdRenderBindGroupShapes = createRenderBindGroup(
             gpuDevice,
-            createdComputePipeline,
-            createdStateB,
-            createdStateA,
-            createdSpawn,
-            createdComputeUniform,
-            createdCollisionSignal
-        )
-        val createdRenderBindGroupNonDustA = createRenderBindGroup(
-            gpuDevice,
-            createdRenderPipelineNonDust,
-            createdStateA,
+            createdRenderPipelineShapes,
+            createdState,
             createdRenderUniform,
             createdMapItemSampler,
             createdMapItemTextureView
         )
-        val createdRenderBindGroupNonDustB = createRenderBindGroup(
-            gpuDevice,
-            createdRenderPipelineNonDust,
-            createdStateB,
-            createdRenderUniform,
-            createdMapItemSampler,
-            createdMapItemTextureView
-        )
-        val createdRenderBindGroupDustA = createRenderBindGroup(
+        val createdRenderBindGroupDust = createRenderBindGroup(
             gpuDevice,
             createdRenderPipelineDust,
-            createdStateA,
-            createdRenderUniform,
-            createdMapItemSampler,
-            createdMapItemTextureView
-        )
-        val createdRenderBindGroupDustB = createRenderBindGroup(
-            gpuDevice,
-            createdRenderPipelineDust,
-            createdStateB,
+            createdState,
             createdRenderUniform,
             createdMapItemSampler,
             createdMapItemTextureView
@@ -230,55 +226,46 @@ class WasmJsGpuParticleRenderer {
         context = webGpuContext
         queue = deviceQueue
         presentationFormat = preferredFormat
-        mapItemSpriteWidth = mapItemFirstCellWidth.coerceAtLeast(1).toFloat()
-        mapItemSpriteHeight = mapItemFirstCellHeight.coerceAtLeast(1).toFloat()
-        stateBufferA = createdStateA
-        stateBufferB = createdStateB
+        mapItemSpriteWidth = mapItemFirstCellWidth.coerceAtLeast(1)
+        mapItemSpriteHeight = mapItemFirstCellHeight.coerceAtLeast(1)
+        mapItemSheetFrameCount = createdSheetFrameCount
+        stateBuffer = createdState
         spawnBuffer = createdSpawn
-        computeUniformBuffer = createdComputeUniform
-        collisionSignalBuffer = createdCollisionSignal
-        collisionSignalReadbackSlots.clear()
-        collisionSignalReadbackSlots += createdCollisionSignalReadbacks.map { CollisionReadbackSlot(it) }
-        nextCollisionReadbackSlotIndex = 0
+        simulationUniformBuffer = createdSimulationUniform
         renderUniformBuffer = createdRenderUniform
         mapItemSampler = createdMapItemSampler
         mapItemTextureView = createdMapItemTextureView
-        computePipeline = createdComputePipeline
-        renderPipelineNonDust = createdRenderPipelineNonDust
+        simulationPipelines.clear()
+        simulationPipelines += createdSimulationPipelines
+        simulationWorkgroupCounts.clear()
+        simulationWorkgroupCounts += SIMULATION_STAGE_ENTRY_POINTS.map { entryPoint ->
+            if (entryPoint in SINGLE_WORKGROUP_ENTRY_POINTS) 1 else computeWorkgroupCount
+        }
+        renderPipelineShapes = createdRenderPipelineShapes
         renderPipelineDust = createdRenderPipelineDust
-        computeBindGroupAtoB = bindGroupAToB
-        computeBindGroupBtoA = bindGroupBToA
-        renderBindGroupNonDustA = createdRenderBindGroupNonDustA
-        renderBindGroupNonDustB = createdRenderBindGroupNonDustB
-        renderBindGroupDustA = createdRenderBindGroupDustA
-        renderBindGroupDustB = createdRenderBindGroupDustB
+        simulationBindGroup = createdSimulationBindGroup
+        renderBindGroupShapes = createdRenderBindGroupShapes
+        renderBindGroupDust = createdRenderBindGroupDust
         initialized = true
         logger.info { "WebGPU particle renderer initialized with $maxParticles slots" }
         return true
     }
 
     fun updateGpuParticleBuffer(
-        activeParticleCount: Int,
         sourceBuffer: FloatArray,
         dirtySlotRanges: List<IntRange>,
-        deltaTimeSeconds: Float,
-        viewPort: ViewPort,
-        particleFactory: ParticleFactory,
-        gravity: Float,
-        tickTargetPerSecond: Int,
-        speedCoefficient: Float
+        deltaTime: Double,
+        worldTime: Double,
+        spriteTicksPerFrame: Double,
+        viewPort: ViewPort
     ) {
         check(initialized) { "WebGPU renderer must be initialized before updateGpuParticleBuffer" }
         val gpuDevice = device ?: return
         val gpuQueue = queue ?: return
         val spawn = spawnBuffer ?: return
-        val computeUniform = computeUniformBuffer ?: return
-        val collisionSignal = collisionSignalBuffer ?: return
-        val pipeline = computePipeline ?: return
-        val bindGroup = if (useStateAAsSource) computeBindGroupAtoB else computeBindGroupBtoA
-        if (bindGroup == null) return
+        val simulationUniform = simulationUniformBuffer ?: return
+        val bindGroup = simulationBindGroup ?: return
 
-        val clampedSpawnCount = activeParticleCount.coerceIn(0, maxParticles)
         for (slotRange in dirtySlotRanges) {
             val clampedStartSlot = slotRange.first.coerceIn(0, maxParticles)
             val clampedEndExclusive = (slotRange.last + 1).coerceIn(clampedStartSlot, maxParticles)
@@ -286,78 +273,40 @@ class WasmJsGpuParticleRenderer {
             if (slotCount <= 0) continue
             val rangeStartFloat = clampedStartSlot * FLOATS_PER_PARTICLE
             val rangeFloatCount = slotCount * FLOATS_PER_PARTICLE
-            val targetOffsetBytes = rangeStartFloat * BYTES_PER_FLOAT
             writeFloatArrayBufferRange(
                 queue = gpuQueue,
                 targetBuffer = spawn,
                 data = sourceBuffer,
                 sourceStartFloat = rangeStartFloat,
                 floatCount = rangeFloatCount,
-                targetOffsetBytes = targetOffsetBytes
+                targetOffsetBytes = rangeStartFloat * BYTES_PER_FLOAT
             )
         }
 
-        val tunedSpeed = speedCoefficient.coerceAtLeast(0.05f)
-        val simulationSpeed = (1f + (tunedSpeed * 8f)).coerceAtLeast(1f)
-        val gravityBoost = (1.5f + (tunedSpeed * 6f)).coerceAtLeast(1f)
-        val lifetimeDecay = (1f + (tunedSpeed * 6f)).coerceAtLeast(1f)
-        computeUniformData[0] = deltaTimeSeconds.coerceAtLeast(0.0001f)
-        computeUniformData[1] = gravity
-        computeUniformData[2] = clampedSpawnCount.toFloat()
-        computeUniformData[3] = maxParticles.toFloat()
-        computeUniformData[4] = tickTargetPerSecond.coerceAtLeast(1).toFloat()
-        computeUniformData[5] = simulationSpeed
-        computeUniformData[6] = gravityBoost
-        computeUniformData[7] = lifetimeDecay
-        computeUniformData[8] = viewPort.x.toFloat()
-        computeUniformData[9] = viewPort.y.toFloat()
-        computeUniformData[10] = viewPort.width.toFloat()
-        computeUniformData[11] = viewPort.height.toFloat()
-        val shatterSlotRange = particleFactory.gpuSlotRange(ParticleEffect.SHATTER, maxParticles)
-        computeUniformData[16] = if (shatterSlotRange.isEmpty()) 0f else shatterSlotRange.first.toFloat()
-        computeUniformData[17] = if (shatterSlotRange.isEmpty()) 0f else (shatterSlotRange.last - shatterSlotRange.first + 1).toFloat()
-        writeFloatArrayBuffer(gpuQueue, computeUniform, computeUniformData)
-
-        val (collisionResetBuffer, collisionResetView) = getOrCreateCollisionResetScratch()
-        collisionResetView.setUint32(0, 0, true)
-        collisionResetView.setUint32(4, 0, true)
-        collisionResetView.setUint32(8, 0, true)
-        collisionResetView.setUint32(12, 0, true)
-        queueWriteBuffer(gpuQueue, collisionSignal, 0, collisionResetBuffer, COLLISION_SIGNAL_BYTES)
+        lastSpriteTicksPerFrame = spriteTicksPerFrame
+        gpuUniformWriter.writeSimulationUniforms(
+            simulationUniformData, deltaTime, worldTime, spriteTicksPerFrame, maxParticles, viewPort
+        )
+        writeFloatArrayBuffer(gpuQueue, simulationUniform, simulationUniformData)
 
         val encoder: GPUCommandEncoder = createCommandEncoder(gpuDevice)
         val computePass: GPUComputePassEncoder = beginComputePass(encoder)
-        setComputePipeline(computePass, pipeline)
         setComputeBindGroup(computePass, bindGroup)
-        dispatchCompute(computePass, computeWorkgroupCount)
-        endComputePass(computePass)
-        val collisionReadbackSlot = acquireCollisionReadbackSlot()
-        if (collisionReadbackSlot != null) {
-            copyBufferToBuffer(encoder, collisionSignal, collisionReadbackSlot.buffer, COLLISION_SIGNAL_BYTES)
+        for (stageIndex in simulationPipelines.indices) {
+            setComputePipeline(computePass, simulationPipelines[stageIndex])
+            dispatchCompute(computePass, simulationWorkgroupCounts[stageIndex])
         }
-
+        endComputePass(computePass)
         val commandBuffer: GPUCommandBuffer = finishCommandEncoder(encoder)
         submitCommandBuffer(gpuQueue, commandBuffer)
-        if (collisionReadbackSlot != null) {
-            collisionReadbackSlot.inFlight = true
-            readProjectileHitSnapshotFromReadback(collisionReadbackSlot.buffer).then { snapshot ->
-                collisionReadbackSlot.inFlight = false
-                val hitCount = snapshot.hitCount
-                if (hitCount > 0) {
-                    logger.info { "[GPU] Projectile collision detected with player, count=$hitCount" }
-                }
-                null
-            }
-        }
-        useStateAAsSource = !useStateAAsSource
     }
 
-    fun draw(viewPort: ViewPort, sizeMultiplier: Int) {
+    fun draw(viewPort: ViewPort) {
         check(initialized) { "WebGPU renderer must be initialized before draw" }
         val gpuDevice = device ?: return
         val webGpuContext = context ?: return
         val gpuQueue = queue ?: return
-        val nonDustPipeline = renderPipelineNonDust ?: return
+        val shapesPipeline = renderPipelineShapes ?: return
         val dustPipeline = renderPipelineDust ?: return
         val targetCanvas = canvas ?: return
         if (targetCanvas.width <= 0 || targetCanvas.height <= 0) return
@@ -367,32 +316,33 @@ class WasmJsGpuParticleRenderer {
             lastConfiguredCanvasHeight = targetCanvas.height
             logger.info {
                 "gpu particle renderer (re)configured: canvasBackingBuffer=${targetCanvas.width}x${targetCanvas.height} " +
-                    "viewPort=(${viewPort.x},${viewPort.y},${viewPort.width}x${viewPort.height}) " +
-                    "renderScale=${getRenderScale()}"
+                        "viewPort=(${viewPort.x},${viewPort.y},${viewPort.width}x${viewPort.height}) " +
+                        "renderScale=${getRenderScale()}"
             }
         }
 
-        val sizeScale = (sizeMultiplier.coerceAtLeast(1).toFloat() / 14f).coerceAtLeast(0.1f)
-        renderUniformData[0] = viewPort.x.toFloat()
-        renderUniformData[1] = viewPort.y.toFloat()
-        renderUniformData[2] = targetCanvas.width.toFloat()
-        renderUniformData[3] = targetCanvas.height.toFloat()
-        renderUniformData[4] = getRenderScale()
-        renderUniformData[5] = sizeScale
-        renderUniformData[6] = mapItemSpriteWidth
-        renderUniformData[7] = mapItemSpriteHeight
+        gpuUniformWriter.writeRenderUniforms(
+            renderUniformData,
+            viewPort,
+            targetCanvas.width,
+            targetCanvas.height,
+            getRenderScale(),
+            mapItemSpriteWidth,
+            mapItemSpriteHeight,
+            mapItemSheetFrameCount,
+            lastSpriteTicksPerFrame
+        )
         val renderUniform = renderUniformBuffer ?: return
         writeFloatArrayBuffer(gpuQueue, renderUniform, renderUniformData)
 
         val textureView: GPUTextureView = getCurrentTextureView(webGpuContext)
-        val nonDustBindGroup = if (useStateAAsSource) renderBindGroupNonDustA else renderBindGroupNonDustB
-        val dustBindGroup = if (useStateAAsSource) renderBindGroupDustA else renderBindGroupDustB
-        if (nonDustBindGroup == null || dustBindGroup == null) return
+        val shapesBindGroup = renderBindGroupShapes ?: return
+        val dustBindGroup = renderBindGroupDust ?: return
 
         val encoder: GPUCommandEncoder = createCommandEncoder(gpuDevice)
         val renderPass: GPURenderPassEncoder = beginRenderPass(encoder, textureView)
-        setRenderPipeline(renderPass, nonDustPipeline)
-        setRenderBindGroup(renderPass, nonDustBindGroup)
+        setRenderPipeline(renderPass, shapesPipeline)
+        setRenderBindGroup(renderPass, shapesBindGroup)
         drawRenderPassInstanced(renderPass, 6, maxParticles)
         setRenderPipeline(renderPass, dustPipeline)
         setRenderBindGroup(renderPass, dustBindGroup)
@@ -425,10 +375,10 @@ class WasmJsGpuParticleRenderer {
         if (floatCount <= 0 || sourceStartFloat < 0 || (sourceStartFloat + floatCount) > data.size) return
         val requiredBytes = floatCount * BYTES_PER_FLOAT
         val (buffer, view) = getOrCreateUploadScratch(requiredBytes)
-        var i = 0
-        while (i < floatCount) {
-            view.setFloat32(i * BYTES_PER_FLOAT, data[sourceStartFloat + i], true)
-            i++
+        var floatIndex = 0
+        while (floatIndex < floatCount) {
+            view.setFloat32(floatIndex * BYTES_PER_FLOAT, data[sourceStartFloat + floatIndex], true)
+            floatIndex++
         }
         queueWriteBuffer(queue, targetBuffer, targetOffsetBytes, buffer, requiredBytes)
     }
@@ -446,33 +396,6 @@ class WasmJsGpuParticleRenderer {
         return resizedBuffer to resizedView
     }
 
-    private fun getOrCreateCollisionResetScratch(): Pair<ArrayBuffer, DataView> {
-        val currentBuffer = collisionResetScratchBuffer
-        val currentView = collisionResetScratchView
-        if (currentBuffer != null && currentView != null && currentBuffer.byteLength >= COLLISION_SIGNAL_BYTES) {
-            return currentBuffer to currentView
-        }
-        val resizedBuffer = ArrayBuffer(COLLISION_SIGNAL_BYTES)
-        val resizedView = DataView(resizedBuffer)
-        collisionResetScratchBuffer = resizedBuffer
-        collisionResetScratchView = resizedView
-        return resizedBuffer to resizedView
-    }
-
-    private fun acquireCollisionReadbackSlot(): CollisionReadbackSlot? {
-        if (collisionSignalReadbackSlots.isEmpty()) return null
-        repeat(collisionSignalReadbackSlots.size) {
-            val index = nextCollisionReadbackSlotIndex
-            nextCollisionReadbackSlotIndex = (nextCollisionReadbackSlotIndex + 1) % collisionSignalReadbackSlots.size
-            val slot = collisionSignalReadbackSlots[index]
-            if (!slot.inFlight) {
-                return slot
-            }
-        }
-        return null
-    }
-
     private fun getRenderScale(): Float = window.devicePixelRatio.toFloat().coerceAtLeast(1f)
-
 
 }

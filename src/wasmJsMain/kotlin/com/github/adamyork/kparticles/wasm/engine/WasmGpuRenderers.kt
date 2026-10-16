@@ -1,10 +1,10 @@
 package com.github.adamyork.kparticles.wasm.engine
 
 import com.github.adamyork.kparticles.platform.AppScope
+import com.github.adamyork.kparticles.platform.engine.GpuUniformWriter
 import com.github.adamyork.kparticles.platform.engine.ParticleDrawFunction
 import com.github.adamyork.kparticles.platform.engine.Renderers
 import com.github.adamyork.kparticles.platform.engine.data.RenderType
-import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.Canvas
 
@@ -15,16 +15,13 @@ import org.jetbrains.skia.Canvas
 @AppScope
 @Inject
 class WasmGpuRenderers(
-    private val physicsSettingsService: PhysicsSettingsService
+    gpuUniformWriter: GpuUniformWriter
 ) : Renderers<Canvas> {
 
-    val gpuParticleRenderer = WasmJsGpuParticleRenderer()
+    val gpuParticleRenderer = WasmJsGpuParticleRenderer(gpuUniformWriter)
 
     private val gpuDrawFunction: ParticleDrawFunction<Canvas> = { drawFunctionData ->
-        gpuParticleRenderer.draw(
-            viewPort = drawFunctionData.viewPort,
-            sizeMultiplier = physicsSettingsService.collisionParticleSizeMultiplier
-        )
+        gpuParticleRenderer.draw(viewPort = drawFunctionData.viewPort)
     }
 
     override fun getForType(renderType: RenderType): ParticleDrawFunction<Canvas> = gpuDrawFunction

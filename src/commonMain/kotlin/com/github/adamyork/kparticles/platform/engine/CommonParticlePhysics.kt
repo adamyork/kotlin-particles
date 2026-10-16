@@ -5,7 +5,7 @@ import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.data.CompletedParticleResult
 import com.github.adamyork.kparticles.platform.engine.data.Particle
-import com.github.adamyork.kparticles.platform.engine.data.ParticleShape
+import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGenerator
 import com.github.adamyork.kparticles.platform.service.CommonRuntimeService
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
@@ -19,241 +19,247 @@ import kotlin.math.*
 @Inject
 class CommonParticlePhysics(
     private val statusProviderFactory: () -> CommonRuntimeService,
-    val physicsSettingsService: PhysicsSettingsService,
-    private val spatialGrid: SpatialGrid
+    val physicsSettingsService: PhysicsSettingsService
 ) : ParticlePhysics {
+
+    private val gravitySources = ArrayList<Particle>()
+
+    private var worldTime = 0.0
 
     private val statusProvider: CommonRuntimeService
         get() = statusProviderFactory()
 
     override fun applyParticlePhysics(
-        particles: ArrayList<Particle>,
+        generators: List<ParticleEffectGenerator>,
         viewPort: ViewPort,
         completedParticleResults: ArrayList<CompletedParticleResult>
     ) {
         val deltaTime = statusProvider.getDeltaTimeCoefficient()
         val gravity = physicsSettingsService.gravity
+        val maxParticleSpeed = physicsSettingsService.maxParticleSpeed
+        val mediumDensity = physicsSettingsService.mediumDensity
         val spriteTicksPerFrame = (statusProvider.assetService.appProperties.engine.tickTargetPerSec.toDouble() /
             statusProvider.assetService.appProperties.engine.spriteAnimationFramePerSec.toDouble()).coerceAtLeast(1.0)
+        worldTime += deltaTime
+        for (generator in generators) {
+            integrateParticles(
+                generator.particles, deltaTime, gravity, mediumDensity, maxParticleSpeed, spriteTicksPerFrame, completedParticleResults
+            )
+        }
+    }
 
-        spatialGrid.beginTick(viewPort)
-
+    private fun integrateParticles(
+        particles: ArrayList<Particle>,
+        deltaTime: Double,
+        gravity: Double,
+        mediumDensity: Double,
+        maxParticleSpeed: Double,
+        spriteTicksPerFrame: Double,
+        completedParticleResults: ArrayList<CompletedParticleResult>
+    ) {
         for (particleIndex in particles.lastIndex downTo 0) {
             val particle = particles[particleIndex]
-            if (particle.age >= particle.lifetime + particle.delay) {
+            if (particle.lifecycle.age >= particle.lifecycle.lifetime + particle.lifecycle.delay) {
                 completedParticleResults.add(
                     CompletedParticleResult(
-                        particle.x.toInt(),
-                        particle.y.toInt(),
-                        particle.color
+                        particle.transform.position.x.toInt(),
+                        particle.transform.position.y.toInt(),
+                        particle.appearance.color
                     )
                 )
                 particles.removeAt(particleIndex)
                 continue
             }
 
-            particle.age += deltaTime
-            particle.visible = particle.age >= particle.delay
-            if (particle.age < particle.delay) {
-                if (particle.canInteract()) spatialGrid.place(particle)
-                continue
+            particle.lifecycle.age += deltaTime
+            if (particle.lifecycle.age < particle.lifecycle.delay) continue
+
+            val activeAge = particle.lifecycle.age - particle.lifecycle.delay
+            val progress = (activeAge / particle.lifecycle.lifetime).coerceIn(0.0, 1.0)
+
+
+            if (particle.material.adhesion > 0.0) {
+                integrateAdhesiveParticle(particle, gravity, mediumDensity, maxParticleSpeed, deltaTime)
+            } else {
+                val inertialMass = particle.inertialMass()
+                val buoyancyAcceleration = mediumDensity * particle.dimensions.area() * gravity / inertialMass
+                particle.dynamics.velocity.y += (gravity - buoyancyAcceleration) * deltaTime
+                particle.dynamics.velocity.x += particle.dynamics.thrust.x / inertialMass * deltaTime
+                particle.dynamics.velocity.y += particle.dynamics.thrust.y / inertialMass * deltaTime
+                particle.dynamics.velocity.z += particle.dynamics.thrust.z / inertialMass * deltaTime
+                val dragFraction = min(1.0, max(0.0, physicsSettingsService.drag) * deltaTime)
+                if (dragFraction > 0.0) {
+                    val flowVelocityX = flowVelocityXAt(particle.transform.position.y)
+                    particle.dynamics.velocity.x += (flowVelocityX - particle.dynamics.velocity.x) * dragFraction
+                    particle.dynamics.velocity.y *= 1.0 - dragFraction
+                    particle.dynamics.velocity.z *= 1.0 - dragFraction
+                }
+                limitSpeed(particle, maxParticleSpeed)
+                particle.dynamics.velocity.z = particle.dynamics.velocity.z.coerceIn(-maxParticleSpeed, maxParticleSpeed)
+                particle.transform.position.x += particle.dynamics.velocity.x * deltaTime
+                particle.transform.position.y += particle.dynamics.velocity.y * deltaTime
+                particle.transform.position.z += particle.dynamics.velocity.z * deltaTime
             }
 
-            val activeAge = particle.age - particle.delay
-            val progress = (activeAge / particle.lifetime).coerceIn(0.0, 1.0)
+            if (particle.dynamics.angularVelocity != 0.0) {
+                particle.transform.angle = (particle.transform.angle + particle.dynamics.angularVelocity * deltaTime) % (2.0 * PI)
+            }
+            particle.dimensions.advance(deltaTime)
 
-            particle.xVelocity += particle.xAcceleration * deltaTime
-            particle.yVelocity += particle.yAcceleration * deltaTime
-            particle.zVelocity += particle.zAcceleration * deltaTime
-
-            val mass = particle.mass
-            if (mass > 0.0) {
-                val gravityScale = min(1.0, mass)
-                particle.yVelocity += gravity * gravityScale * deltaTime
+            particle.appearance.color = interpolateColor(particle.appearance.startColor, particle.appearance.endColor, progress)
+            val startAlpha = particle.appearance.initialAlpha
+            val endAlpha = particle.appearance.endAlpha
+            particle.appearance.alphaMultiplier = progress
+            particle.appearance.alpha = startAlpha + (endAlpha - startAlpha) * particle.appearance.alphaMultiplier
+            val animation = particle.animation
+            if (animation != null) {
+                animation.frame = ((particle.lifecycle.age / spriteTicksPerFrame).toInt()) % animation.maxFrames
             }
 
-            particle.xVelocity += particle.xForce * deltaTime
-            particle.yVelocity += particle.yForce * deltaTime
-
-            val totalDrag = max(0.0, particle.drag)
-            if (totalDrag > 0.0) {
-                val dragFactor = max(0.0, 1 - totalDrag * deltaTime)
-                particle.xVelocity *= dragFactor
-                particle.yVelocity *= dragFactor
-                particle.zVelocity *= dragFactor
-            }
-
-            if (particle.driftAmplitude != 0.0) {
-                particle.xVelocity = particle.driftAmplitude * cos(activeAge * particle.driftFrequency + particle.driftPhase)
-            }
-
-            if (particle.maxXVelocity > 0.0) {
-                particle.xVelocity = particle.xVelocity.coerceIn(-particle.maxXVelocity, particle.maxXVelocity)
-            }
-            if (particle.maxYVelocity > 0.0) {
-                particle.yVelocity = particle.yVelocity.coerceIn(-particle.maxYVelocity, particle.maxYVelocity)
-            }
-            if (particle.maxZVelocity > 0.0) {
-                particle.zVelocity = particle.zVelocity.coerceIn(-particle.maxZVelocity, particle.maxZVelocity)
-            }
-
-            particle.x += particle.xVelocity * deltaTime
-            particle.y += particle.yVelocity * deltaTime
-            particle.z += particle.zVelocity * deltaTime
-
-            if (particle.viewportBound) {
-                val halfWidth = if (particle.shape == ParticleShape.CIRCLE) particle.radius else particle.width / 2.0
-                val halfHeight = if (particle.shape == ParticleShape.CIRCLE) particle.radius else particle.height / 2.0
-                val minX = viewPort.x + halfWidth
-                val maxX = viewPort.x + viewPort.width - halfWidth
-                val minY = viewPort.y + halfHeight
-                val maxY = viewPort.y + viewPort.height - halfHeight
-                val massDamping = 1.0 / (1.0 + max(0.0, particle.mass))
-                val restitutionFactor = particle.restitution.coerceIn(0.0, 1.0) * massDamping
-                val (boundedX, boundedXVelocity, boundedDestinationX) = applyBoundaryRestitution(
-                    particle.x, particle.xVelocity, particle.destinationX, minX, maxX, restitutionFactor
-                )
-                particle.x = boundedX
-                particle.xVelocity = boundedXVelocity
-                particle.destinationX = boundedDestinationX
-                val (boundedY, boundedYVelocity, boundedDestinationY) = applyBoundaryRestitution(
-                    particle.y, particle.yVelocity, particle.destinationY, minY, maxY, restitutionFactor
-                )
-                particle.y = boundedY
-                particle.yVelocity = boundedYVelocity
-                particle.destinationY = boundedDestinationY
-            }
-
-            if (particle.growthRate != 0.0) {
-                particle.radius = (particle.radius + particle.growthRate * deltaTime).coerceIn(0.0, particle.maxRadius)
-                particle.width = (particle.width + particle.growthRate * deltaTime).coerceIn(0.0, particle.maxWidth)
-                particle.height = (particle.height + particle.growthRate * deltaTime).coerceIn(0.0, particle.maxHeight)
-            }
-
-            particle.color = interpolateColor(particle.startColor, particle.endColor, progress)
-            val startAlpha = particle.initialAlpha
-            val endAlpha = particle.endAlpha
-            particle.alphaMultiplier = progress
-            particle.alpha = startAlpha + (endAlpha - startAlpha) * particle.alphaMultiplier
-            particle.frame = ((particle.age / spriteTicksPerFrame).toInt()) % particle.maxFrames
-
-            if (particle.canInteract()) spatialGrid.place(particle)
         }
     }
 
-    override fun applyParticleCollisionPhysics(
-        firstParticle: Particle,
-        secondParticle: Particle,
-        distance: Double,
-        overlapDistance: Double,
-        normalX: Double,
-        normalY: Double
-    ) {
-        if (firstParticle.attraction != secondParticle.attraction) {
-            val attractionRange = max(firstParticle.attraction, secondParticle.attraction)
-            val deltaX = normalX * distance
-            val deltaY = normalY * distance
-            if (abs(deltaX) <= attractionRange && abs(deltaY) <= attractionRange) return
-        }
-        val firstParticleMass = firstParticle.mass
-        val secondParticleMass = secondParticle.mass
-        val totalMass = firstParticleMass + secondParticleMass
-        if (totalMass <= 0.0) {
-            return
-        }
-        firstParticle.x -= normalX * overlapDistance * (secondParticleMass / totalMass)
-        firstParticle.y -= normalY * overlapDistance * (secondParticleMass / totalMass)
-        secondParticle.x += normalX * overlapDistance * (firstParticleMass / totalMass)
-        secondParticle.y += normalY * overlapDistance * (firstParticleMass / totalMass)
-        val relativeVelocityX = firstParticle.xVelocity - secondParticle.xVelocity
-        val relativeVelocityY = firstParticle.yVelocity - secondParticle.yVelocity
-        val impulse = 2 * (normalX * relativeVelocityX + normalY * relativeVelocityY) / totalMass
-        val restitution = min(firstParticle.restitution, secondParticle.restitution)
-        firstParticle.xVelocity -= impulse * secondParticleMass * normalX * (1 + restitution)
-        firstParticle.yVelocity -= impulse * secondParticleMass * normalY * (1 + restitution)
-        secondParticle.xVelocity += impulse * firstParticleMass * normalX * (1 + restitution)
-        secondParticle.yVelocity += impulse * firstParticleMass * normalY * (1 + restitution)
-    }
-
-    override fun applyParticleAttractionPhysics(
-        firstParticle: Particle,
-        secondParticle: Particle,
-        distance: Double,
-        normalX: Double,
-        normalY: Double
-    ) {
-        if (firstParticle.age >= firstParticle.lifetime + firstParticle.delay) return
-        if (secondParticle.age >= secondParticle.lifetime + secondParticle.delay) return
-        if (!firstParticle.visible || !secondParticle.visible) return
-        if (firstParticle.attraction <= 0.0 || secondParticle.attraction <= 0.0) return
-        if (firstParticle.attraction == secondParticle.attraction) return
-
-        val firstRadius = if (firstParticle.radius > 0.0) firstParticle.radius else firstParticle.width / 2.0
-        val secondRadius = if (secondParticle.radius > 0.0) secondParticle.radius else secondParticle.width / 2.0
-        if (distance <= firstRadius + secondRadius) {
-            val consumingParticle = if (firstParticle.mass >= secondParticle.mass) firstParticle else secondParticle
-            val consumedParticle = if (consumingParticle === firstParticle) secondParticle else firstParticle
-            consumingParticle.mass += consumedParticle.mass
-            consumingParticle.attraction += consumedParticle.attraction
-            val mergedRadius =
-                sqrt(consumingParticle.radius * consumingParticle.radius + consumedParticle.radius * consumedParticle.radius)
-            consumingParticle.radius = mergedRadius
-            consumingParticle.width = mergedRadius * 2.0
-            consumingParticle.height = mergedRadius * 2.0
-            consumingParticle.yForce = -physicsSettingsService.gravity * min(1.0, consumingParticle.mass)
-            consumedParticle.age = consumedParticle.lifetime + consumedParticle.delay
-            return
-        }
-        val weakerParticle =
-            if (firstParticle.attraction < secondParticle.attraction) firstParticle else secondParticle
-        val strongerParticle = if (weakerParticle === firstParticle) secondParticle else firstParticle
-        val deltaX = normalX * distance
-        val deltaY = normalY * distance
-        if (abs(deltaX) > strongerParticle.attraction || abs(deltaY) > strongerParticle.attraction) return
-        val directionSign = if (weakerParticle === firstParticle) 1.0 else -1.0
-        val directionX = normalX * directionSign
-        val directionY = normalY * directionSign
-        val pullMagnitude = strongerParticle.attraction * 0.5
+    override fun applyGravitation(collision: ParticleCollision) {
+        val gravitationalConstant = physicsSettingsService.gravitationalConstant
+        if (gravitationalConstant <= 0.0) return
+        selectGravitySources(collision.placedParticles(), physicsSettingsService.gravitySourceCount)
         val deltaTime = statusProvider.getDeltaTimeCoefficient()
-        weakerParticle.xVelocity += directionX * pullMagnitude * deltaTime
-        weakerParticle.yVelocity += directionY * pullMagnitude * deltaTime
-        val maxSpeed = weakerParticle.maxXVelocity
-        if (maxSpeed > 0.0) {
-            val speed = sqrt(
-                weakerParticle.xVelocity * weakerParticle.xVelocity +
-                    weakerParticle.yVelocity * weakerParticle.yVelocity
-            )
-            if (speed > maxSpeed) {
-                val scale = maxSpeed / speed
-                weakerParticle.xVelocity *= scale
-                weakerParticle.yVelocity *= scale
+        val softeningSquared = physicsSettingsService.gravitationalSoftening * physicsSettingsService.gravitationalSoftening
+        val minimumAcceleration = max(physicsSettingsService.gravityMinimumAcceleration, Double.MIN_VALUE)
+        val planeThickness = physicsSettingsService.gravityPlaneThickness
+        val lowestSourceMass = if (gravitySources.isEmpty()) 0.0 else gravitySources[gravitySources.size - 1].mass()
+        for (sourceIndex in gravitySources.indices) {
+            val source = gravitySources[sourceIndex]
+            if (source.lifecycle.isExpired()) continue
+            val range = sqrt(gravitationalConstant * source.mass() / minimumAcceleration)
+            collision.forEachParticleWithin(source.transform.position.x, source.transform.position.y, range) { other ->
+                if (other !== source && !other.lifecycle.isExpired() && (other.mass() < lowestSourceMass || !isGravitySource(other)) &&
+                    abs(other.transform.position.z - source.transform.position.z) < planeThickness
+                ) {
+                    applyPull(source, other, gravitationalConstant, softeningSquared, deltaTime)
+                }
+            }
+            for (otherIndex in sourceIndex + 1 until gravitySources.size) {
+                val otherSource = gravitySources[otherIndex]
+                if (otherSource.lifecycle.isExpired() || abs(otherSource.transform.position.z - source.transform.position.z) >= planeThickness) continue
+                applyPull(source, otherSource, gravitationalConstant, softeningSquared, deltaTime)
             }
         }
     }
 
-    private fun applyBoundaryRestitution(
-        position: Double,
-        velocity: Double,
-        destination: Int,
-        min: Double,
-        max: Double,
-        restitutionFactor: Double
-    ): Triple<Double, Double, Int> {
-        return when {
-            position < min -> Triple(
-                min + (min - position),
-                -velocity * restitutionFactor,
-                (2 * min - destination).roundToInt()
-            )
+    override fun applyParticleAccretion(firstParticle: Particle, secondParticle: Particle): Boolean {
+        if (firstParticle.lifecycle.isExpired() || secondParticle.lifecycle.isExpired()) return false
+        if (abs(firstParticle.transform.position.z - secondParticle.transform.position.z) >= physicsSettingsService.gravityPlaneThickness) return false
+        val consumingParticle = if (firstParticle.mass() >= secondParticle.mass()) firstParticle else secondParticle
+        val consumedParticle = if (consumingParticle === firstParticle) secondParticle else firstParticle
+        val consumingMass = consumingParticle.mass()
+        val consumedMass = consumedParticle.mass()
+        if (consumingMass < consumedParticle.inertialMass() * physicsSettingsService.accretionMassRatio) return false
+        val gravity = physicsSettingsService.gravity
+        val mediumDensity = physicsSettingsService.mediumDensity
+        val previousNetWeight = consumingMass * Particle.netGravityOf(consumingParticle.material.density, gravity, mediumDensity)
+        val holdFraction = if (previousNetWeight != 0.0) -consumingParticle.dynamics.thrust.y / previousNetWeight else 0.0
+        val combinedMass = consumingMass + consumedMass
+        consumingParticle.dynamics.velocity.x =
+            (consumingParticle.dynamics.velocity.x * consumingMass + consumedParticle.dynamics.velocity.x * consumedMass) / combinedMass
+        consumingParticle.dynamics.velocity.y =
+            (consumingParticle.dynamics.velocity.y * consumingMass + consumedParticle.dynamics.velocity.y * consumedMass) / combinedMass
+        consumingParticle.dimensions.fitArea(consumingParticle.dimensions.area() + consumedParticle.dimensions.area())
+        consumingParticle.material.density = Particle.densityFor(combinedMass, consumingParticle.dimensions)
+        val thrustScale = combinedMass / consumingMass
+        consumingParticle.dynamics.thrust.x *= thrustScale
+        consumingParticle.dynamics.thrust.z *= thrustScale
+        consumingParticle.dynamics.thrust.y =
+            -holdFraction * combinedMass * Particle.netGravityOf(consumingParticle.material.density, gravity, mediumDensity)
+        consumedParticle.lifecycle.age = consumedParticle.lifecycle.lifetime + consumedParticle.lifecycle.delay
+        return true
+    }
 
-            position > max -> Triple(
-                max - (position - max),
-                -velocity * restitutionFactor,
-                (2 * max - destination).roundToInt()
-            )
-
-            else -> Triple(position, velocity, destination)
+    private fun selectGravitySources(candidates: List<Particle>, sourceCount: Int) {
+        gravitySources.clear()
+        if (sourceCount <= 0) return
+        var lowestSourceMass = 0.0
+        for (candidate in candidates) {
+            val candidateMass = candidate.mass()
+            if (candidateMass < Particle.MINIMUM_MASS) continue
+            if (gravitySources.size == sourceCount && candidateMass <= lowestSourceMass) continue
+            var insertIndex = gravitySources.size
+            while (insertIndex > 0 && gravitySources[insertIndex - 1].mass() < candidateMass) insertIndex--
+            gravitySources.add(insertIndex, candidate)
+            if (gravitySources.size > sourceCount) gravitySources.removeAt(gravitySources.size - 1)
+            lowestSourceMass = gravitySources[gravitySources.size - 1].mass()
         }
+    }
+
+    private fun isGravitySource(particle: Particle): Boolean {
+        for (source in gravitySources) {
+            if (source === particle) return true
+        }
+        return false
+    }
+
+    private fun applyPull(
+        pullingParticle: Particle,
+        pulledParticle: Particle,
+        gravitationalConstant: Double,
+        softeningSquared: Double,
+        deltaTime: Double
+    ) {
+        val deltaX = pullingParticle.transform.position.x - pulledParticle.transform.position.x
+        val deltaY = pullingParticle.transform.position.y - pulledParticle.transform.position.y
+        val softenedDistanceSquared = deltaX * deltaX + deltaY * deltaY + softeningSquared
+        val inverseDistanceCubed = 1.0 / (softenedDistanceSquared * sqrt(softenedDistanceSquared))
+        val pulledAcceleration = gravitationalConstant * pullingParticle.mass() * inverseDistanceCubed * deltaTime
+        pulledParticle.dynamics.velocity.x += deltaX * pulledAcceleration
+        pulledParticle.dynamics.velocity.y += deltaY * pulledAcceleration
+        limitSpeed(pulledParticle, physicsSettingsService.maxParticleSpeed)
+        val pullingAcceleration = gravitationalConstant * pulledParticle.mass() * inverseDistanceCubed * deltaTime
+        pullingParticle.dynamics.velocity.x -= deltaX * pullingAcceleration
+        pullingParticle.dynamics.velocity.y -= deltaY * pullingAcceleration
+        limitSpeed(pullingParticle, physicsSettingsService.maxParticleSpeed)
+    }
+
+    private fun flowVelocityXAt(positionY: Double): Double {
+        val amplitude = physicsSettingsService.flowAmplitude
+        val wavelength = physicsSettingsService.flowWavelength
+        if (amplitude == 0.0 || wavelength <= 0.0) return 0.0
+        return amplitude * cos(2.0 * PI * positionY / wavelength + worldTime * physicsSettingsService.flowFrequency)
+    }
+
+    private fun integrateAdhesiveParticle(
+        particle: Particle,
+        gravity: Double,
+        mediumDensity: Double,
+        maxParticleSpeed: Double,
+        deltaTime: Double
+    ) {
+        val inertialMass = particle.inertialMass()
+        val buoyancyAcceleration = mediumDensity * particle.dimensions.area() * gravity / inertialMass
+        val netForce = inertialMass * (gravity - buoyancyAcceleration) - particle.material.adhesion
+        particle.dynamics.velocity.x = 0.0
+        if (particle.dynamics.velocity.y <= 0.0 && netForce <= 0.0) {
+            particle.dynamics.velocity.y = 0.0
+            return
+        }
+        particle.dynamics.velocity.y = max(0.0, particle.dynamics.velocity.y + netForce / inertialMass * deltaTime)
+        limitSpeed(particle, maxParticleSpeed)
+        val distance = particle.dynamics.velocity.y * deltaTime
+        particle.transform.position.y += distance
+        val wettedMass = if (gravity > 0.0) particle.material.adhesion / gravity else 0.0
+        val massLoss = (physicsSettingsService.friction + particle.material.friction) * wettedMass * distance / (particle.collisionRadius() * 2.0)
+        val remainingMass = max(inertialMass - massLoss, Particle.MINIMUM_MASS)
+        particle.dynamics.velocity.y *= remainingMass / inertialMass
+        particle.material.density = Particle.densityFor(remainingMass, particle.dimensions)
+    }
+
+    private fun limitSpeed(particle: Particle, maxSpeed: Double) {
+        if (maxSpeed <= 0.0) return
+        val speedSquared = particle.dynamics.velocity.x * particle.dynamics.velocity.x +
+                particle.dynamics.velocity.y * particle.dynamics.velocity.y
+        if (speedSquared <= maxSpeed * maxSpeed) return
+        val scale = maxSpeed / sqrt(speedSquared)
+        particle.dynamics.velocity.x *= scale
+        particle.dynamics.velocity.y *= scale
     }
 
     private fun interpolateColor(color1: Color, color2: Color, factor: Double): Color {

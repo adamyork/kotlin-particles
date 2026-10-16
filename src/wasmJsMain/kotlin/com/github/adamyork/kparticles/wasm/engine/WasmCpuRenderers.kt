@@ -1,20 +1,17 @@
 package com.github.adamyork.kparticles.wasm.engine
 
 import com.github.adamyork.kparticles.platform.AppScope
+import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.ParticleDrawFunction
 import com.github.adamyork.kparticles.platform.engine.Renderers
 import com.github.adamyork.kparticles.platform.engine.data.*
 import com.github.adamyork.kparticles.platform.engine.effect.BlobProjectileGenerator
+import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGenerator
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import com.github.adamyork.kparticles.wasm.engine.data.WasmJsImage
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
-import kotlin.math.PI
-import kotlin.math.hypot
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.*
 
 /**
  * Author: Adam York
@@ -37,6 +34,11 @@ class WasmCpuRenderers(
         const val BUBBLE_HIGHLIGHT_OFFSET_RATIO: Float = 0.38f
         const val DRIP_MINIMUM_LENGTH: Float = 0.0001f
         const val DRIP_STRIPE_ALPHA_SCALE: Float = 0.5f
+        const val DRIP_SPECULAR_FLOATS: Int = 3
+        const val DRIP_VERTICAL_TOLERANCE: Float = 0.001f
+        const val DRIP_SPECULAR_IMAGE_SIZE: Int = 64
+        const val BUBBLE_IMAGE_PADDING: Int = 4
+        const val BUBBLE_IMAGE_CACHE_LIMIT: Int = 128
     }
 
     private val particlePaint = Paint().apply { isAntiAlias = false; mode = PaintMode.FILL }
@@ -50,18 +52,13 @@ class WasmCpuRenderers(
         strokeWidth = BUBBLE_RIM_STROKE_WIDTH
     }
     private val bubbleHighlightPaint = Paint().apply { isAntiAlias = true }
-    private val dripPaint = Paint().apply {
-        isAntiAlias = true
-        mode = PaintMode.STROKE
-        strokeCap = PaintStrokeCap.ROUND
-    }
     private val dripFillPaint = Paint().apply { isAntiAlias = true }
-    private val dripGlossStripePaint = Paint().apply {
-        isAntiAlias = true
-        mode = PaintMode.STROKE
-        strokeCap = PaintStrokeCap.ROUND
-    }
+    private val dripGlossStripeFillPaint = Paint().apply { isAntiAlias = true }
     private val dripGlossSpecularPaint = Paint().apply { isAntiAlias = true }
+    private val bubbleImages = HashMap<Int, Image>()
+    private var dripSpecularBuffer = FloatArray(0)
+    private var dripSpecularImage: Image? = null
+    private var dripSpecularAlpha = -1
 
     private val simpleShapeDrawFunction: ParticleDrawFunction<Canvas> = ::drawSimpleShapes
     private val complexShapeDrawFunction: ParticleDrawFunction<Canvas> = ::drawComplexShapes
@@ -76,29 +73,33 @@ class WasmCpuRenderers(
     }
 
     private fun drawSimpleShapes(drawFunctionData: DrawFunctionData<Canvas>) {
-        val particles = drawFunctionData.particles
+        val generators = drawFunctionData.generators
         val viewPort = drawFunctionData.viewPort
         val canvas = drawFunctionData.canvas
         val viewPortOffsetX = viewPort.x.toFloat()
         val viewPortOffsetY = viewPort.y.toFloat()
         val groups = HashMap<Int, MutableList<Particle>>(16)
-        var particleIndex = 0
-        while (particleIndex < particles.size) {
-            val particle = particles[particleIndex]
-            val alpha = (particle.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255)
-            val color = Color.makeARGB(
-                alpha,
-                (particle.color.red * 255).toInt(),
-                (particle.color.green * 255).toInt(),
-                (particle.color.blue * 255).toInt()
-            )
-            val bucket = groups[color]
-            if (bucket == null) {
-                groups[color] = arrayListOf(particle)
-            } else {
-                bucket.add(particle)
+        for (generator in generators) {
+            val particles = generator.particles
+            var particleIndex = 0
+            while (particleIndex < particles.size) {
+                val particle = particles[particleIndex]
+                particleIndex++
+                if (!particle.cullingCheck(viewPort)) continue
+                val alpha = (particle.appearance.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255)
+                val color = Color.makeARGB(
+                    alpha,
+                    (particle.appearance.color.red * 255).toInt(),
+                    (particle.appearance.color.green * 255).toInt(),
+                    (particle.appearance.color.blue * 255).toInt()
+                )
+                val bucket = groups[color]
+                if (bucket == null) {
+                    groups[color] = arrayListOf(particle)
+                } else {
+                    bucket.add(particle)
+                }
             }
-            particleIndex++
         }
         val groupIterator = groups.entries.iterator()
         while (groupIterator.hasNext()) {
@@ -108,16 +109,31 @@ class WasmCpuRenderers(
             var groupParticleIndex = 0
             while (groupParticleIndex < particleList.size) {
                 val particle = particleList[groupParticleIndex]
-                val x = particle.x.toFloat() - viewPortOffsetX
-                val y = particle.y.toFloat() - viewPortOffsetY
-                if (particle.shape == ParticleShape.CIRCLE) {
-                    val radius = particle.radius.toFloat()
-                    val diameter = radius * 2f
-                    builder.addOval(Rect.makeXYWH(x - radius, y - radius, diameter, diameter))
-                } else {
-                    val width = particle.width.toFloat()
-                    val height = particle.height.toFloat()
-                    builder.addRect(Rect.makeXYWH(x - width / 2f, y - height / 2f, width, height))
+                val x = particle.transform.position.x.toFloat() - viewPortOffsetX
+                val y = particle.transform.position.y.toFloat() - viewPortOffsetY
+                when (val dimensions = particle.dimensions) {
+                    is CircleDimensions -> {
+                        val radius = dimensions.radius.toFloat()
+                        val diameter = radius * 2f
+                        builder.addOval(Rect.makeXYWH(x - radius, y - radius, diameter, diameter))
+                    }
+                    is RectDimensions -> {
+                        val width = dimensions.width.toFloat()
+                        val height = dimensions.height.toFloat()
+                        if (particle.transform.angle == 0.0) {
+                            builder.addRect(Rect.makeXYWH(x - width / 2f, y - height / 2f, width, height))
+                        } else {
+                            val halfWidth = width / 2f
+                            val halfHeight = height / 2f
+                            val cosine = cos(particle.transform.angle).toFloat()
+                            val sine = sin(particle.transform.angle).toFloat()
+                            builder.moveTo(x + (-halfWidth * cosine + halfHeight * sine), y + (-halfWidth * sine - halfHeight * cosine))
+                            builder.lineTo(x + (halfWidth * cosine + halfHeight * sine), y + (halfWidth * sine - halfHeight * cosine))
+                            builder.lineTo(x + (halfWidth * cosine - halfHeight * sine), y + (halfWidth * sine + halfHeight * cosine))
+                            builder.lineTo(x + (-halfWidth * cosine - halfHeight * sine), y + (-halfWidth * sine + halfHeight * cosine))
+                            builder.closePath()
+                        }
+                    }
                 }
                 groupParticleIndex++
             }
@@ -129,27 +145,41 @@ class WasmCpuRenderers(
     }
 
     private fun drawComplexShapes(drawFunctionData: DrawFunctionData<Canvas>) {
-        val particles = drawFunctionData.particles
+        val generators = drawFunctionData.generators
         val viewPort = drawFunctionData.viewPort
         val canvas = drawFunctionData.canvas
         val viewPortOffsetX = viewPort.x.toFloat()
         val viewPortOffsetY = viewPort.y.toFloat()
+        for (generator in generators) {
+            drawComplexShapeGenerator(generator, viewPort, viewPortOffsetX, viewPortOffsetY, canvas)
+        }
+    }
+
+    private fun drawComplexShapeGenerator(
+        generator: ParticleEffectGenerator,
+        viewPort: ViewPort,
+        viewPortOffsetX: Float,
+        viewPortOffsetY: Float,
+        canvas: Canvas
+    ) {
+        val particles = generator.particles
+        if (generator.effect == ParticleEffect.DRIPS) {
+            drawDrips(particles, viewPort, viewPortOffsetX, viewPortOffsetY, canvas)
+            return
+        }
         var particleIndex = 0
         while (particleIndex < particles.size) {
             val particle = particles[particleIndex]
-            when (particle.effect) {
-                ParticleEffect.BUBBLE -> if (particle.visible) {
+            particleIndex++
+            if (!particle.cullingCheck(viewPort)) continue
+            when (generator.effect) {
+                ParticleEffect.BUBBLE -> if (particle.lifecycle.isVisible()) {
                     drawBubble(particle, viewPortOffsetX, viewPortOffsetY, canvas)
                 }
 
                 ParticleEffect.BLOB_PROJECTILE -> drawProjectileBlob(particle, viewPortOffsetX, viewPortOffsetY, canvas)
-                ParticleEffect.DRIPS -> if (particle.visible) {
-                    drawDrip(particle, viewPortOffsetX, viewPortOffsetY, canvas)
-                }
-
                 else -> Unit
             }
-            particleIndex++
         }
     }
 
@@ -163,7 +193,7 @@ class WasmCpuRenderers(
 
     private fun drawSpriteFrames(drawFunctionData: DrawFunctionData<Canvas>, animated: Boolean) {
         val spriteSheet = drawFunctionData.spriteSheet ?: return
-        val particles = drawFunctionData.particles
+        val generators = drawFunctionData.generators
         val viewPort = drawFunctionData.viewPort
         val canvas = drawFunctionData.canvas
         val spriteImage = (spriteSheet.image as WasmJsImage).image
@@ -171,27 +201,31 @@ class WasmCpuRenderers(
         val viewPortOffsetY = viewPort.y.toFloat()
         val sourceWidth = spriteSheet.frameWidth.toFloat()
         val sourceHeight = spriteSheet.frameHeight.toFloat()
-        var particleIndex = 0
-        while (particleIndex < particles.size) {
-            val particle = particles[particleIndex]
-            val localX = particle.x.toFloat() - viewPortOffsetX
-            val localY = particle.y.toFloat() - viewPortOffsetY
-            val frameOffsetX = (if (animated) particle.frame else 0) * sourceWidth
-            canvas.drawImageRect(
-                image = spriteImage,
-                srcLeft = frameOffsetX,
-                srcTop = 0f,
-                srcRight = frameOffsetX + sourceWidth,
-                srcBottom = sourceHeight,
-                dstLeft = localX - sourceWidth / 2f,
-                dstTop = localY - sourceHeight / 2f,
-                dstRight = localX + sourceWidth / 2f,
-                dstBottom = localY + sourceHeight / 2f,
-                samplingMode = SamplingMode.LINEAR,
-                paint = spritePaint,
-                strict = true
-            )
-            particleIndex++
+        for (generator in generators) {
+            val particles = generator.particles
+            var particleIndex = 0
+            while (particleIndex < particles.size) {
+                val particle = particles[particleIndex]
+                particleIndex++
+                if (!particle.cullingCheck(viewPort)) continue
+                val localX = particle.transform.position.x.toFloat() - viewPortOffsetX
+                val localY = particle.transform.position.y.toFloat() - viewPortOffsetY
+                val frameOffsetX = (if (animated) (particle.animation?.frame ?: 0) else 0) * sourceWidth
+                canvas.drawImageRect(
+                    image = spriteImage,
+                    srcLeft = frameOffsetX,
+                    srcTop = 0f,
+                    srcRight = frameOffsetX + sourceWidth,
+                    srcBottom = sourceHeight,
+                    dstLeft = localX - sourceWidth / 2f,
+                    dstTop = localY - sourceHeight / 2f,
+                    dstRight = localX + sourceWidth / 2f,
+                    dstBottom = localY + sourceHeight / 2f,
+                    samplingMode = SamplingMode.LINEAR,
+                    paint = spritePaint,
+                    strict = true
+                )
+            }
         }
     }
 
@@ -201,118 +235,245 @@ class WasmCpuRenderers(
         viewPortOffsetY: Float,
         canvas: Canvas
     ) {
-        val centerX = particle.x.toFloat() - viewPortOffsetX
-        val centerY = particle.y.toFloat() - viewPortOffsetY
-        val radius = particle.radius.toFloat()
+        val centerX = particle.transform.position.x.toFloat() - viewPortOffsetX
+        val centerY = particle.transform.position.y.toFloat() - viewPortOffsetY
+        val radiusKey = (particle.collisionRadius().toFloat() * 2f).roundToInt()
+        val bubbleImage = bubbleImages[radiusKey] ?: createBubbleImage(radiusKey / 2f).also { createdImage ->
+            if (bubbleImages.size >= BUBBLE_IMAGE_CACHE_LIMIT) {
+                bubbleImages.values.forEach { cachedImage -> cachedImage.close() }
+                bubbleImages.clear()
+            }
+            bubbleImages[radiusKey] = createdImage
+        }
+        canvas.drawImage(bubbleImage, centerX - bubbleImage.width / 2f, centerY - bubbleImage.height / 2f)
+    }
+
+    private fun createBubbleImage(radius: Float): Image {
+        val size = ceil(radius * 2f).toInt() + BUBBLE_IMAGE_PADDING
+        val center = size / 2f
+        val surface = Surface.makeRaster(ImageInfo.makeN32Premul(size, size))
+        val canvas = surface.canvas
         val fillShader = Shader.makeLinearGradient(
-            centerX - radius,
-            centerY - radius,
-            centerX + radius,
-            centerY + radius,
+            center - radius,
+            center - radius,
+            center + radius,
+            center + radius,
             intArrayOf(BUBBLE_FILL_TOP_LEFT_COLOR, BUBBLE_FILL_BOTTOM_RIGHT_COLOR)
         )
         try {
             bubbleFillPaint.shader = fillShader
-            canvas.drawCircle(centerX, centerY, radius, bubbleFillPaint)
+            canvas.drawCircle(center, center, radius, bubbleFillPaint)
         } finally {
             fillShader.close()
         }
-        val rimRadius = radius - (BUBBLE_RIM_STROKE_WIDTH / 2f)
-        canvas.drawCircle(centerX, centerY, rimRadius, bubbleRimPaint)
+        canvas.drawCircle(center, center, radius - (BUBBLE_RIM_STROKE_WIDTH / 2f), bubbleRimPaint)
         val highlightRadius = radius * BUBBLE_HIGHLIGHT_RADIUS_RATIO
         val highlightOffset = radius * BUBBLE_HIGHLIGHT_OFFSET_RATIO
-        val highlightCenterX = centerX - highlightOffset
-        val highlightCenterY = centerY - highlightOffset
         val highlightShader = Shader.makeRadialGradient(
-            highlightCenterX,
-            highlightCenterY,
+            center - highlightOffset,
+            center - highlightOffset,
             highlightRadius,
             intArrayOf(BUBBLE_HIGHLIGHT_COLOR, BUBBLE_HIGHLIGHT_TRANSPARENT_COLOR)
         )
         try {
             bubbleHighlightPaint.shader = highlightShader
-            canvas.drawCircle(highlightCenterX, highlightCenterY, highlightRadius, bubbleHighlightPaint)
+            canvas.drawCircle(center - highlightOffset, center - highlightOffset, highlightRadius, bubbleHighlightPaint)
         } finally {
             highlightShader.close()
         }
+        val bubbleImage = surface.makeImageSnapshot()
+        surface.close()
+        return bubbleImage
     }
 
-    private fun drawDrip(
-        particle: Particle,
+    private fun drawDrips(
+        particles: List<Particle>,
+        viewPort: ViewPort,
         viewPortOffsetX: Float,
         viewPortOffsetY: Float,
         canvas: Canvas
     ) {
-        val headProgress = particle.travelProgress().toFloat()
-        val originX = particle.originX.toFloat() - viewPortOffsetX
-        val originY = particle.originY.toFloat() - viewPortOffsetY
-        val headX = originX + (particle.destinationX - particle.originX).toFloat() * headProgress
-        val headY = originY + (particle.destinationY - particle.originY).toFloat() * headProgress
-        val beadRadius = particle.radius.toFloat()
-        val trailRadius = beadRadius * physicsSettingsService.dripTrailRadiusRatio.toFloat()
-        val streakLength = hypot(headX - originX, headY - originY)
-        val directionX = if (streakLength > DRIP_MINIMUM_LENGTH) (headX - originX) / streakLength else 0f
-        val directionY = if (streakLength > DRIP_MINIMUM_LENGTH) (headY - originY) / streakLength else 1f
-        val perpendicularX = -directionY
-        val perpendicularY = directionX
-        val neckSetting = max(beadRadius * physicsSettingsService.dripNeckLengthRatio.toFloat(), DRIP_MINIMUM_LENGTH)
-        val neckLength = min(streakLength, neckSetting)
-        val tailRadius = beadRadius + (trailRadius - beadRadius) * (streakLength / neckSetting).coerceIn(0f, 1f)
-        val neckStartX = headX - directionX * neckLength
-        val neckStartY = headY - directionY * neckLength
-        val dripColor = Color.makeARGB(
-            (particle.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255),
-            (particle.color.red * 255).toInt().coerceIn(0, 255),
-            (particle.color.green * 255).toInt().coerceIn(0, 255),
-            (particle.color.blue * 255).toInt().coerceIn(0, 255)
-        )
-        dripPaint.color = dripColor
-        dripPaint.strokeWidth = tailRadius * 2f
-        canvas.drawLine(originX, originY, neckStartX, neckStartY, dripPaint)
-        val neckBuilder = PathBuilder()
-        neckBuilder.moveTo(neckStartX + perpendicularX * tailRadius, neckStartY + perpendicularY * tailRadius)
-        neckBuilder.lineTo(headX + perpendicularX * beadRadius, headY + perpendicularY * beadRadius)
-        neckBuilder.lineTo(headX - perpendicularX * beadRadius, headY - perpendicularY * beadRadius)
-        neckBuilder.lineTo(neckStartX - perpendicularX * tailRadius, neckStartY - perpendicularY * tailRadius)
-        neckBuilder.closePath()
-        val neckPath = neckBuilder.detach()
-        dripFillPaint.color = dripColor
-        canvas.drawPath(neckPath, dripFillPaint)
-        neckPath.close()
-        canvas.drawCircle(headX, headY, beadRadius, dripFillPaint)
+        if (dripSpecularBuffer.size < particles.size * DRIP_SPECULAR_FLOATS) {
+            dripSpecularBuffer = FloatArray(particles.size * DRIP_SPECULAR_FLOATS)
+        }
         val glossIntensity = physicsSettingsService.dripGlossIntensity.toFloat()
-        if (streakLength - neckLength > 0.5f) {
-            val stripeOffset = trailRadius * physicsSettingsService.dripGlossStripeOffsetRatio.toFloat()
-            dripGlossStripePaint.color =
-                Color.makeARGB((glossIntensity * DRIP_STRIPE_ALPHA_SCALE * 255f).toInt().coerceIn(0, 255), 255, 255, 255)
-            dripGlossStripePaint.strokeWidth = trailRadius * physicsSettingsService.dripGlossStripeWidthRatio.toFloat() * 2f
-            canvas.drawLine(
-                originX + perpendicularX * stripeOffset,
-                originY + perpendicularY * stripeOffset,
-                neckStartX + perpendicularX * stripeOffset,
-                neckStartY + perpendicularY * stripeOffset,
-                dripGlossStripePaint
+        val stripeColor =
+            Color.makeARGB((glossIntensity * DRIP_STRIPE_ALPHA_SCALE * 255f).toInt().coerceIn(0, 255), 255, 255, 255)
+        val stripeBuilder = PathBuilder()
+        var stripeCount = 0
+        var specularCount = 0
+        var particleIndex = 0
+        while (particleIndex < particles.size) {
+            val particle = particles[particleIndex]
+            particleIndex++
+            if (!particle.cullingCheck(viewPort) || !particle.lifecycle.isVisible()) continue
+            val originX = particle.transform.origin.x.toFloat() - viewPortOffsetX
+            val originY = particle.transform.origin.y.toFloat() - viewPortOffsetY
+            val headX = particle.transform.position.x.toFloat() - viewPortOffsetX
+            val headY = particle.transform.position.y.toFloat() - viewPortOffsetY
+            val beadRadius = particle.collisionRadius().toFloat()
+            val trailRadius = beadRadius * physicsSettingsService.dripTrailRadiusRatio.toFloat()
+            val streakLength = hypot(headX - originX, headY - originY)
+            val directionX = if (streakLength > DRIP_MINIMUM_LENGTH) (headX - originX) / streakLength else 0f
+            val directionY = if (streakLength > DRIP_MINIMUM_LENGTH) (headY - originY) / streakLength else 1f
+            val perpendicularX = -directionY
+            val neckSetting = max(beadRadius * physicsSettingsService.dripNeckLengthRatio.toFloat(), DRIP_MINIMUM_LENGTH)
+            val neckLength = min(streakLength, neckSetting)
+            val tailRadius = beadRadius + (trailRadius - beadRadius) * (streakLength / neckSetting).coerceIn(0f, 1f)
+            val neckStartX = headX - directionX * neckLength
+            val neckStartY = headY - directionY * neckLength
+            val isVertical = abs(directionX) <= DRIP_VERTICAL_TOLERANCE
+            dripFillPaint.color = Color.makeARGB(
+                (particle.appearance.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255),
+                (particle.appearance.color.red * 255).toInt().coerceIn(0, 255),
+                (particle.appearance.color.green * 255).toInt().coerceIn(0, 255),
+                (particle.appearance.color.blue * 255).toInt().coerceIn(0, 255)
+            )
+            if (isVertical) {
+                canvas.drawRect(
+                    Rect.makeLTRB(originX - tailRadius, min(originY, neckStartY), originX + tailRadius, max(originY, neckStartY)),
+                    dripFillPaint
+                )
+                canvas.drawCircle(originX, originY, tailRadius, dripFillPaint)
+                val neckBuilder = PathBuilder()
+                addCapsule(
+                    neckBuilder, neckStartX, neckStartY, headX, headY, perpendicularX,
+                    directionX, tailRadius, beadRadius
+                )
+                val neckPath = neckBuilder.detach()
+                canvas.drawPath(neckPath, dripFillPaint)
+                neckPath.close()
+            } else {
+                val bodyBuilder = PathBuilder()
+                addCapsule(
+                    bodyBuilder, originX, originY, neckStartX, neckStartY, perpendicularX,
+                    directionX, tailRadius, tailRadius
+                )
+                addCapsule(
+                    bodyBuilder, neckStartX, neckStartY, headX, headY, perpendicularX,
+                    directionX, tailRadius, beadRadius
+                )
+                val bodyPath = bodyBuilder.detach()
+                canvas.drawPath(bodyPath, dripFillPaint)
+                bodyPath.close()
+            }
+            if (streakLength - neckLength > 0.5f) {
+                val stripeOffset = trailRadius * physicsSettingsService.dripGlossStripeOffsetRatio.toFloat()
+                val stripeRadius = trailRadius * physicsSettingsService.dripGlossStripeWidthRatio.toFloat()
+                val stripeStartX = originX + perpendicularX * stripeOffset
+                val stripeStartY = originY + directionX * stripeOffset
+                val stripeEndX = neckStartX + perpendicularX * stripeOffset
+                val stripeEndY = neckStartY + directionX * stripeOffset
+                if (isVertical) {
+                    dripGlossStripeFillPaint.color = stripeColor
+                    canvas.drawRect(
+                        Rect.makeLTRB(
+                            stripeStartX - stripeRadius,
+                            min(stripeStartY, stripeEndY),
+                            stripeStartX + stripeRadius,
+                            max(stripeStartY, stripeEndY)
+                        ),
+                        dripGlossStripeFillPaint
+                    )
+                    canvas.drawCircle(stripeStartX, stripeStartY, stripeRadius, dripGlossStripeFillPaint)
+                    canvas.drawCircle(stripeEndX, stripeEndY, stripeRadius, dripGlossStripeFillPaint)
+                } else {
+                    addCapsule(
+                        stripeBuilder,
+                        stripeStartX,
+                        stripeStartY,
+                        stripeEndX,
+                        stripeEndY,
+                        perpendicularX,
+                        directionX,
+                        stripeRadius,
+                        stripeRadius
+                    )
+                    stripeCount++
+                }
+            }
+            val specularOffset = beadRadius * physicsSettingsService.dripGlossSpecularOffsetRatio.toFloat()
+            val specularBase = specularCount * DRIP_SPECULAR_FLOATS
+            dripSpecularBuffer[specularBase] = headX - directionX * specularOffset + perpendicularX * specularOffset
+            dripSpecularBuffer[specularBase + 1] = headY - directionY * specularOffset + directionX * specularOffset
+            dripSpecularBuffer[specularBase + 2] = beadRadius * physicsSettingsService.dripGlossSpecularRadiusRatio.toFloat()
+            specularCount++
+        }
+        val stripePath = stripeBuilder.detach()
+        if (stripeCount > 0) {
+            dripFillPaint.color = stripeColor
+            canvas.drawPath(stripePath, dripFillPaint)
+        }
+        stripePath.close()
+        if (specularCount == 0) return
+        val specularImage = specularImageFor((glossIntensity * 255f).toInt().coerceIn(0, 255))
+        val sourceSize = specularImage.width.toFloat()
+        for (specularIndex in 0 until specularCount) {
+            val specularBase = specularIndex * DRIP_SPECULAR_FLOATS
+            val specularX = dripSpecularBuffer[specularBase]
+            val specularY = dripSpecularBuffer[specularBase + 1]
+            val specularRadius = dripSpecularBuffer[specularBase + 2]
+            canvas.drawImageRect(
+                image = specularImage,
+                srcLeft = 0f,
+                srcTop = 0f,
+                srcRight = sourceSize,
+                srcBottom = sourceSize,
+                dstLeft = specularX - specularRadius,
+                dstTop = specularY - specularRadius,
+                dstRight = specularX + specularRadius,
+                dstBottom = specularY + specularRadius,
+                samplingMode = SamplingMode.LINEAR,
+                paint = dripGlossSpecularPaint,
+                strict = true
             )
         }
-        val specularOffset = beadRadius * physicsSettingsService.dripGlossSpecularOffsetRatio.toFloat()
-        val specularCenterX = headX - directionX * specularOffset + perpendicularX * specularOffset
-        val specularCenterY = headY - directionY * specularOffset + perpendicularY * specularOffset
-        val specularRadius = beadRadius * physicsSettingsService.dripGlossSpecularRadiusRatio.toFloat()
+    }
+
+    private fun addCapsule(
+        builder: PathBuilder,
+        startX: Float,
+        startY: Float,
+        endX: Float,
+        endY: Float,
+        perpendicularX: Float,
+        perpendicularY: Float,
+        startRadius: Float,
+        endRadius: Float
+    ) {
+        builder.moveTo(startX + perpendicularX * startRadius, startY + perpendicularY * startRadius)
+        builder.lineTo(startX - perpendicularX * startRadius, startY - perpendicularY * startRadius)
+        builder.lineTo(endX - perpendicularX * endRadius, endY - perpendicularY * endRadius)
+        builder.lineTo(endX + perpendicularX * endRadius, endY + perpendicularY * endRadius)
+        builder.closePath()
+        builder.addOval(Rect.makeXYWH(startX - startRadius, startY - startRadius, startRadius * 2f, startRadius * 2f))
+        builder.addOval(Rect.makeXYWH(endX - endRadius, endY - endRadius, endRadius * 2f, endRadius * 2f))
+    }
+
+    private fun specularImageFor(alpha: Int): Image {
+        val cachedImage = dripSpecularImage
+        if (cachedImage != null && dripSpecularAlpha == alpha) return cachedImage
+        cachedImage?.close()
+        val surface = Surface.makeRaster(ImageInfo.makeN32Premul(DRIP_SPECULAR_IMAGE_SIZE, DRIP_SPECULAR_IMAGE_SIZE))
+        val center = DRIP_SPECULAR_IMAGE_SIZE / 2f
         val specularShader = Shader.makeRadialGradient(
-            specularCenterX,
-            specularCenterY,
-            specularRadius,
-            intArrayOf(
-                Color.makeARGB((glossIntensity * 255f).toInt().coerceIn(0, 255), 255, 255, 255),
-                Color.makeARGB(0, 255, 255, 255)
-            )
+            center,
+            center,
+            center,
+            intArrayOf(Color.makeARGB(alpha, 255, 255, 255), Color.makeARGB(0, 255, 255, 255))
         )
         try {
             dripGlossSpecularPaint.shader = specularShader
-            canvas.drawCircle(specularCenterX, specularCenterY, specularRadius, dripGlossSpecularPaint)
+            surface.canvas.drawCircle(center, center, center, dripGlossSpecularPaint)
         } finally {
+            dripGlossSpecularPaint.shader = null
             specularShader.close()
         }
+        val specularImage = surface.makeImageSnapshot()
+        surface.close()
+        dripSpecularImage = specularImage
+        dripSpecularAlpha = alpha
+        return specularImage
     }
 
     private fun drawProjectileBlob(
@@ -321,10 +482,10 @@ class WasmCpuRenderers(
         viewPortOffsetY: Float,
         canvas: Canvas
     ) {
-        val centerX = particle.x.toFloat() - viewPortOffsetX
-        val centerY = particle.y.toFloat() - viewPortOffsetY
-        val baseRadius = particle.radius.toFloat()
-        val age = particle.age.toFloat()
+        val centerX = particle.transform.position.x.toFloat() - viewPortOffsetX
+        val centerY = particle.transform.position.y.toFloat() - viewPortOffsetY
+        val baseRadius = particle.collisionRadius().toFloat()
+        val age = particle.lifecycle.age.toFloat()
         val lobePointXs = FloatArray(BlobProjectileGenerator.PROJECTILE_BLOB_LOBE_COUNT)
         val lobePointYs = FloatArray(BlobProjectileGenerator.PROJECTILE_BLOB_LOBE_COUNT)
         var lobeIndex = 0
@@ -341,12 +502,12 @@ class WasmCpuRenderers(
             lobeIndex++
         }
         val blobPath = buildSmoothClosedBlobPath(lobePointXs, lobePointYs)
-        val alpha = (particle.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255)
+        val alpha = (particle.appearance.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255)
         projectileBlobPaint.color = Color.makeARGB(
             alpha,
-            (particle.color.red * 255).toInt(),
-            (particle.color.green * 255).toInt(),
-            (particle.color.blue * 255).toInt()
+            (particle.appearance.color.red * 255).toInt(),
+            (particle.appearance.color.green * 255).toInt(),
+            (particle.appearance.color.blue * 255).toInt()
         )
         canvas.drawPath(blobPath, projectileBlobPaint)
         blobPath.close()

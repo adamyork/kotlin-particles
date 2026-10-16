@@ -6,7 +6,6 @@ import com.github.adamyork.kparticles.platform.engine.Engine
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.data.Direction
 import com.github.adamyork.kparticles.platform.engine.data.DrawResult
-import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
 import com.github.adamyork.kparticles.platform.gui.data.ScreenDimensions
 import com.github.adamyork.kparticles.platform.gui.data.StateElements
@@ -36,7 +35,6 @@ class UiController(
     private val viewModel = LoadingViewModel()
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var hasSpawnedCompletionFireworkTailParticles: Boolean = false
-    private val allParticles: ArrayList<Particle> = arrayListOf()
 
     val stateElements: StateElements = StateElements.emptyStateElements
     val loadingTasks: List<LoadingTask>
@@ -125,11 +123,11 @@ class UiController(
                 fpsLabel = fpsLabel(),
             )
         }
-        engine.manageMap(allParticles, elements.viewPort)
+        engine.manageMap(elements.viewPort)
         if (!hasSpawnedCompletionFireworkTailParticles) {
             hasSpawnedCompletionFireworkTailParticles = true
         }
-        val drawResult = engine.draw(allParticles, elements.viewPort, timestamp)
+        val drawResult = engine.draw(elements.viewPort, timestamp)
         val uiState = UiState(
             drawResult = drawResult,
             fpsLabel = fpsLabel(),
@@ -149,7 +147,7 @@ class UiController(
         val destinationX = viewPort.x + (viewPort.width * 0.75)
         val destinationY = viewPort.y + (viewPort.height * 0.25)
         val direction = if (centerX < destinationX) Direction.RIGHT else Direction.LEFT
-        val createdParticles = particleFactory.create(
+        particleFactory.create(
             type = type,
             x = centerX,
             y = centerY,
@@ -158,7 +156,6 @@ class UiController(
             destinationY = destinationY,
             direction = direction
         )
-        allParticles.addAll(createdParticles)
         if (runtimeService.lifeCycleState != LifeCycleState.RUNNING) {
             runtimeService.lifeCycleState = LifeCycleState.RUNNING
         }

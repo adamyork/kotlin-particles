@@ -5,15 +5,8 @@ package com.github.adamyork.kparticles.android.engine.data
  * Copyright (c) Adam York
  */
 internal data class AndroidPendingGpuFrame(
-    val activeParticleCount: Int,
-    val viewPortWidth: Float,
-    val viewPortHeight: Float,
-    val deltaTimeSeconds: Float,
-    val gravity: Float,
-    val tickRate: Float,
-    val simulationSpeed: Float,
-    val gravityBoost: Float,
-    val lifetimeDecay: Float,
-    val shatterPoolFirstSlot: Int,
-    val shatterPoolSlotCount: Int
+    val dirtySlotRanges: List<IntRange>,
+    val deltaTime: Double,
+    val worldTime: Double,
+    val spriteTicksPerFrame: Double
 )
