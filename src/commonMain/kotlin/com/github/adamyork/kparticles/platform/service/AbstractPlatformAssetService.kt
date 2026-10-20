@@ -19,8 +19,7 @@ import kotlinx.coroutines.withContext
  * Copyright (c) Adam York
  */
 abstract class AbstractPlatformAssetService(
-    protected val httpClient: HttpClient,
-    private val physicsSettingsService: PhysicsSettingsService
+    protected val httpClient: HttpClient
 ) : AssetService {
 
     companion object {
@@ -37,30 +36,6 @@ abstract class AbstractPlatformAssetService(
     override var particleFragmentShaderSource: String = ""
 
     protected var itemInfoMap: HashMap<Int, MapElementYamlEntry> = HashMap()
-
-    protected fun injectShaderConstants(shaderSource: String): String {
-        val shaderConstants = mapOf(
-            "SHATTER_MINIMUM_FRAGMENT_RADIUS" to physicsSettingsService.shatterMinimumFragmentRadius,
-            "SHATTER_MINIMUM_FRAGMENT_COUNT" to physicsSettingsService.shatterMinimumFragmentCount.toDouble(),
-            "SHATTER_MAXIMUM_FRAGMENT_COUNT" to physicsSettingsService.shatterMaximumFragmentCount.toDouble(),
-            "SHATTER_MOMENTUM_PER_FRAGMENT" to physicsSettingsService.shatterMomentumPerFragment,
-            "SHATTER_SPREAD_SPEED" to physicsSettingsService.shatterSpreadSpeed,
-            "SHATTER_MAXIMUM_VELOCITY" to physicsSettingsService.shatterMaxVelocity,
-            "WORLD_DRAG" to physicsSettingsService.drag,
-            "DRIPS_TRAIL_RADIUS_RATIO" to physicsSettingsService.dripTrailRadiusRatio,
-            "DRIPS_NECK_LENGTH_RATIO" to physicsSettingsService.dripNeckLengthRatio,
-            "DRIPS_GLOSS_INTENSITY" to physicsSettingsService.dripGlossIntensity,
-            "DRIPS_GLOSS_STRIPE_OFFSET_RATIO" to physicsSettingsService.dripGlossStripeOffsetRatio,
-            "DRIPS_GLOSS_STRIPE_WIDTH_RATIO" to physicsSettingsService.dripGlossStripeWidthRatio,
-            "DRIPS_GLOSS_SPECULAR_RADIUS_RATIO" to physicsSettingsService.dripGlossSpecularRadiusRatio,
-            "DRIPS_GLOSS_SPECULAR_OFFSET_RATIO" to physicsSettingsService.dripGlossSpecularOffsetRatio
-        )
-        return Regex("\\{\\{([A-Z0-9_]+)\\}\\}").replace(shaderSource) { placeholderMatch ->
-            val placeholderName = placeholderMatch.groupValues[1]
-            shaderConstants[placeholderName]?.toString()
-                ?: throw IllegalStateException("No shader constant registered for $placeholderName")
-        }
-    }
 
     protected abstract suspend fun fetchImageAndBytes(path: String, width: Int, height: Int): ImageAsset
 

@@ -3,7 +3,6 @@ package com.github.adamyork.kparticles.platform.engine.effect
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.platform.RGBA
 import com.github.adamyork.kparticles.platform.engine.data.*
-import kotlin.math.max
 import kotlin.random.Random
 
 /**
@@ -16,6 +15,8 @@ abstract class AbstractGenerator(
 
     override val particles: ArrayList<Particle> = ArrayList()
 
+    var random: Random = Random.Default
+
     private var nextParticleIdValue: Long = 0L
 
     override fun adopt(particle: Particle) {
@@ -23,36 +24,6 @@ abstract class AbstractGenerator(
     }
 
     protected fun nextParticleId(): Long = nextParticleIdValue++
-
-    private companion object {
-        private const val GPU_PARAMETER_OFFSET: Int = 14
-    }
-
-    override fun writeGpuParticle(particle: Particle, targetBuffer: FloatArray, baseIndex: Int) {
-        val size = max(particle.dimensions.boundingWidth(), particle.dimensions.boundingHeight()).toFloat()
-        val usesCenterAnchor = particle.dimensions is CircleDimensions
-        val spawnOffset = gpuSpawnOffset(particle, size)
-        val spawnX = particle.transform.position.x.toFloat() + spawnOffset
-        val spawnY = particle.transform.position.y.toFloat() + spawnOffset
-        var writeIndex = baseIndex
-        targetBuffer[writeIndex++] = spawnX
-        targetBuffer[writeIndex++] = spawnY
-        targetBuffer[writeIndex++] = gpuVelocityX(particle)
-        targetBuffer[writeIndex++] = gpuVelocityY(particle)
-        targetBuffer[writeIndex++] = particle.lifecycle.age.toFloat().coerceAtLeast(0f)
-        targetBuffer[writeIndex++] = particle.lifecycle.lifetime.toFloat().coerceAtLeast(1f)
-        targetBuffer[writeIndex++] = size
-        targetBuffer[writeIndex++] = 1f
-        targetBuffer[writeIndex++] = particle.appearance.color.red.coerceIn(0f, 1f)
-        targetBuffer[writeIndex++] = particle.appearance.color.green.coerceIn(0f, 1f)
-        targetBuffer[writeIndex++] = particle.appearance.color.blue.coerceIn(0f, 1f)
-        targetBuffer[writeIndex++] = particle.appearance.color.alpha.coerceIn(0f, 1f)
-        targetBuffer[writeIndex++] = gpuKind(particle)
-        targetBuffer[writeIndex] = if (usesCenterAnchor) 1f else 0f
-        val parameterIndex = baseIndex + GPU_PARAMETER_OFFSET
-        targetBuffer.fill(0f, parameterIndex, baseIndex + ParticleEffectGenerator.GPU_FLOATS_PER_PARTICLE)
-        writeGpuParameters(particle, targetBuffer, parameterIndex)
-    }
 
     override fun writeGpuState(particle: Particle, targetBuffer: FloatArray, baseIndex: Int) {
         targetBuffer.fill(0f, baseIndex, baseIndex + ParticleEffectGenerator.GPU_STATE_FLOATS_PER_PARTICLE)
@@ -130,18 +101,7 @@ abstract class AbstractGenerator(
         targetBuffer[writeIndex] = (particle.animation?.maxFrames ?: 0).toFloat()
     }
 
-    protected open fun gpuKind(particle: Particle): Float = 0f
-
     protected open fun gpuSplitFragmentsUseWallPlane(): Boolean = false
-
-    protected open fun gpuSpawnOffset(particle: Particle, size: Float): Float =
-        if (particle.dimensions is CircleDimensions) size * 0.5f else 0f
-
-    protected open fun gpuVelocityX(particle: Particle): Float = particle.dynamics.velocity.x.toFloat()
-
-    protected open fun gpuVelocityY(particle: Particle): Float = particle.dynamics.velocity.y.toFloat()
-
-    protected open fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {}
 
     protected fun createColor(configuredColor: RGBA): Color {
         return Color(
@@ -163,16 +123,16 @@ abstract class AbstractGenerator(
 
     protected fun randomColor(): Color {
         return Color(
-            red = Random.nextFloat(),
-            green = Random.nextFloat(),
-            blue = Random.nextFloat(),
+            red = random.nextFloat(),
+            green = random.nextFloat(),
+            blue = random.nextFloat(),
             alpha = 1.0f
         )
     }
 
     protected fun <T> shuffle(items: MutableList<T>) {
         for (currentIndex in items.lastIndex downTo 1) {
-            val randomIndex = Random.nextInt(currentIndex + 1)
+            val randomIndex = random.nextInt(currentIndex + 1)
             val swappedItem = items[currentIndex]
             items[currentIndex] = items[randomIndex]
             items[randomIndex] = swappedItem

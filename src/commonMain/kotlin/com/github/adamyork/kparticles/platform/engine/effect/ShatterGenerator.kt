@@ -5,6 +5,10 @@ import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.engine.data.*
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
+import kotlin.math.exp
+import kotlin.math.max
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * Author: Adam York
@@ -17,18 +21,25 @@ class ShatterGenerator(
 ) : AbstractGenerator(ParticleEffect.SHATTER) {
 
     private companion object {
-        private const val SHATTER_RADIUS_RATIO: Double = 0.2
-        private const val SHATTER_LEFT_POSITION_RATIO: Double = 0.25
-        private const val SHATTER_RIGHT_POSITION_RATIO: Double = 0.75
-        private const val SHATTER_SPEED: Double = 3.0
-        private const val SHATTER_HARD_MASS: Double = 2.0
-        private const val SHATTER_SOFT_MASS: Double = 1.0
+        private const val SHATTER_TARGET_RADIUS_RATIO: Double = 0.28
+        private const val SHATTER_TARGET_HARDNESS: Int = 3
+        private const val SHATTER_TARGET_POSITION_RATIO: Double = 0.25
+        private const val SHATTER_GUN_POSITION_RATIO: Double = 0.85
+        private const val SHATTER_PROJECTILE_COUNT: Int = 20
+        private const val SHATTER_PROJECTILE_RADIUS: Double = 14.0
+        private const val SHATTER_PROJECTILE_DELAY_STEP: Double = 6.0
+        private const val SHATTER_PROJECTILE_MIN_SPEED: Double = 30.0
+        private const val SHATTER_PROJECTILE_SPEED_RANGE: Double = 35.0
+        private const val SHATTER_PROJECTILE_DRAG_REACH: Double = 2000.0
+        private const val SHATTER_TARGET_DENSITY_RATIO: Double = 200.0
+        private const val SHATTER_AIM_SWEEP_RATIO: Double = 0.8
+        private const val SHATTER_AIM_SWEEP_FREQUENCY: Double = 0.9
+        private const val SHATTER_AIM_JITTER_RATIO: Double = 0.15
         private const val SHATTER_LIFETIME: Double = 2048.0
         private const val SHATTER_RESTITUTION: Double = 0.9
-        private const val SHATTER_HARD_HARDNESS: Int = 2
-        private const val SHATTER_SOFT_HARDNESS: Int = 1
-        private const val SHATTER_GPU_KIND: Float = 14f
-        private const val SHATTER_MAX_ACTIVE_PARTICLES: Int = 256
+        private const val SHATTER_MAX_ACTIVE_PARTICLES: Int = 1024
+        private val SHATTER_PROJECTILE_HARDNESS = intArrayOf(1, 0, 2)
+        private val SHATTER_HARDNESS_COLORS = listOf(Color.Cyan, Color.Green, Color.Yellow, Color.White)
     }
 
     private val shatterGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(SHATTER_MAX_ACTIVE_PARTICLES)
@@ -37,37 +48,66 @@ class ShatterGenerator(
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val viewPort = request.viewPort
-        val radius = viewPort.height * SHATTER_RADIUS_RATIO
+        val targetRadius = viewPort.height * SHATTER_TARGET_RADIUS_RATIO
         val centerY = viewPort.y + viewPort.height / 2.0
-        val leftX = viewPort.x + viewPort.width * SHATTER_LEFT_POSITION_RATIO
-        val rightX = viewPort.x + viewPort.width * SHATTER_RIGHT_POSITION_RATIO
-        return mutableListOf(
-            createShatterParticle(
-                RectDimensions(width = radius * 2.0, height = radius * 2.0),
-                leftX,
-                centerY,
-                SHATTER_SPEED,
-                SHATTER_HARD_HARDNESS,
-                Color.White
-            ),
-            createShatterParticle(
-                CircleDimensions(radius = radius), rightX, centerY, -SHATTER_SPEED, SHATTER_SOFT_HARDNESS, Color.Cyan
-            )
+        val targetX = viewPort.x + viewPort.width * SHATTER_TARGET_POSITION_RATIO
+        val gunX = viewPort.x + viewPort.width * SHATTER_GUN_POSITION_RATIO
+        val particles = mutableListOf<Particle>()
+        particles += createShatterParticle(
+            RectDimensions(width = targetRadius * 2.0, height = targetRadius * 2.0),
+            targetX,
+            centerY,
+            ParticleVector(0.0, 0.0),
+            SHATTER_TARGET_HARDNESS,
+            0.0,
+            physicsSettingsService.mediumDensity * SHATTER_TARGET_DENSITY_RATIO
         )
+        val projectileDimensions = RectDimensions(
+            width = SHATTER_PROJECTILE_RADIUS * 2.0, height = SHATTER_PROJECTILE_RADIUS * 2.0
+        )
+        val projectileFrontalLength =
+            (projectileDimensions.boundingWidth() + projectileDimensions.boundingHeight()) / 2.0
+        val projectileDensity = max(
+            physicsSettingsService.mediumDensity,
+            0.5 * physicsSettingsService.mediumDensity * physicsSettingsService.dragCoefficient * projectileFrontalLength *
+                SHATTER_PROJECTILE_DRAG_REACH / projectileDimensions.area()
+        )
+        val aimDistanceX = targetX + targetRadius - gunX
+        repeat(SHATTER_PROJECTILE_COUNT) { projectileIndex ->
+            val aimOffsetY = targetRadius * (
+                SHATTER_AIM_SWEEP_RATIO * sin(projectileIndex * SHATTER_AIM_SWEEP_FREQUENCY) +
+                    (random.nextDouble() - 0.5) * 2.0 * SHATTER_AIM_JITTER_RATIO
+                )
+            val aimLength = sqrt(aimDistanceX * aimDistanceX + aimOffsetY * aimOffsetY)
+            val impactSpeed = SHATTER_PROJECTILE_MIN_SPEED + random.nextDouble() * SHATTER_PROJECTILE_SPEED_RANGE
+            val launchSpeed = launchSpeedFor(projectileDimensions, projectileDensity, aimLength, impactSpeed)
+            particles += createShatterParticle(
+                RectDimensions(width = SHATTER_PROJECTILE_RADIUS * 2.0, height = SHATTER_PROJECTILE_RADIUS * 2.0),
+                gunX,
+                centerY,
+                ParticleVector(aimDistanceX / aimLength * launchSpeed, aimOffsetY / aimLength * launchSpeed),
+                SHATTER_PROJECTILE_HARDNESS[projectileIndex % SHATTER_PROJECTILE_HARDNESS.size],
+                projectileIndex * SHATTER_PROJECTILE_DELAY_STEP,
+                projectileDensity
+            )
+        }
+        return particles
+    }
+
+    private fun launchSpeedFor(
+        dimensions: ParticleDimensions,
+        density: Double,
+        travelDistance: Double,
+        impactSpeed: Double
+    ): Double {
+        val frontalLength = (dimensions.boundingWidth() + dimensions.boundingHeight()) / 2.0
+        val quadraticDragRate = 0.5 * physicsSettingsService.mediumDensity * physicsSettingsService.dragCoefficient *
+            frontalLength / (density * dimensions.area())
+        val flightTicks = travelDistance / impactSpeed
+        return impactSpeed * exp(quadraticDragRate * travelDistance + physicsSettingsService.drag * flightTicks)
     }
 
     override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = shatterGpuSlotGroup
-
-    override fun gpuKind(particle: Particle): Float = SHATTER_GPU_KIND
-
-    override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
-        targetBuffer[parameterIndex] = particle.material.hardness.toFloat()
-        targetBuffer[parameterIndex + 1] =
-            (if (particle.material.hardness == SHATTER_HARD_HARDNESS) SHATTER_HARD_MASS else SHATTER_SOFT_MASS).toFloat()
-        targetBuffer[parameterIndex + 2] = particle.material.restitution.toFloat()
-    }
-
-    override fun gpuSpawnOffset(particle: Particle, size: Float): Float = 0f
 
     override fun gpuSplitFragmentsUseWallPlane(): Boolean = true
 
@@ -75,22 +115,26 @@ class ShatterGenerator(
         dimensions: ParticleDimensions,
         centerX: Double,
         centerY: Double,
-        xVelocity: Double,
+        velocity: ParticleVector,
         hardness: Int,
-        color: Color
+        delay: Double,
+        density: Double
     ): Particle {
         val particleId = nextParticleId()
+        val holdThrustY = -density * dimensions.area() * Particle.netGravityOf(
+            density, physicsSettingsService.gravity, physicsSettingsService.mediumDensity
+        )
         return Particle(
-            lifecycle = ParticleLifecycle(lifetime = SHATTER_LIFETIME),
-            appearance = ParticleAppearance(color = color),
+            lifecycle = ParticleLifecycle(delay = delay, lifetime = SHATTER_LIFETIME),
+            appearance = ParticleAppearance(color = SHATTER_HARDNESS_COLORS[hardness]),
             dimensions = dimensions,
             transform = ParticleTransform(
                 position = ParticleVector(centerX, centerY, shatterPlaneZ(particleId)),
                 origin = ParticleVector(centerX, centerY)
             ),
-            dynamics = ParticleDynamics(velocity = ParticleVector(xVelocity)),
+            dynamics = ParticleDynamics(velocity = velocity, thrust = ParticleVector(0.0, holdThrustY)),
             material = ParticleMaterial(
-                density = physicsSettingsService.mediumDensity,
+                density = density,
                 restitution = SHATTER_RESTITUTION,
                 hardness = hardness
             ),

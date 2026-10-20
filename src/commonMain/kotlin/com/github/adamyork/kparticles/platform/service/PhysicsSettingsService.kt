@@ -6,11 +6,14 @@ package com.github.adamyork.kparticles.platform.service
  */
 interface PhysicsSettingsService {
 
+    fun deriveGravityFromViewportHeight(viewportHeight: Int, ticksPerSecond: Int)
+
     var maxXVelocity: Double
     var maxYVelocity: Double
-    var maxParticleSpeed: Double
     var jumpDistance: Double
     var gravity: Double
+    var gravityMetersPerSecondSquared: Double
+    var viewportHeightMeters: Double
     var mediumDensity: Double
     var boundaryZ: Double
     var collisionPlaneThickness: Double
@@ -24,6 +27,7 @@ interface PhysicsSettingsService {
     var accretionMassRatio: Double
     var friction: Double
     var drag: Double
+    var dragCoefficient: Double
     var flowAmplitude: Double
     var flowFrequency: Double
     var flowWavelength: Double
@@ -34,20 +38,20 @@ interface PhysicsSettingsService {
     var projectileSpeed: Double
     var collisionVelocityDecay: Double
     var minActiveVelocity: Double
+    var minActiveVelocityPerGravity: Double
     var collisionKnockbackStrength: Int
-    var collisionParticleSpeedCoefficient: Double
-    var collisionParticleFrameGrowthMultiplier: Double
-    var collisionParticleSizeMultiplier: Int
     var mapItemReturnParticleMinTravelDist: Double
     var mapItemReturnParticleSpeed: Double
     var dustParticleSpeedCoefficient: Double
     var spatialGridCellSize: Double
+    var restStepsBeforeSleep: Int
+    var maxSubstepDeltaTime: Double
+    var maxSubstepCount: Int
+    var maxFrameDeltaTime: Double
     var shatterMinimumFragmentRadius: Double
     var shatterMinimumFragmentCount: Int
     var shatterMaximumFragmentCount: Int
-    var shatterMomentumPerFragment: Double
-    var shatterSpreadSpeed: Double
-    var shatterMaxVelocity: Double
+    var shatterToughness: Double
     var dripTrailRadiusRatio: Double
     var dripNeckLengthRatio: Double
     var dripGlossIntensity: Double

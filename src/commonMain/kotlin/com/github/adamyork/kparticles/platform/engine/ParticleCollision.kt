@@ -10,7 +10,7 @@ import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGener
  */
 interface ParticleCollision {
 
-    fun applyParticleCollision(generators: List<ParticleEffectGenerator>, viewPort: ViewPort)
+    fun applyParticleCollision(generators: List<ParticleEffectGenerator>, viewPort: ViewPort, deltaTime: Double)
 
     fun placedParticles(): List<Particle>
 

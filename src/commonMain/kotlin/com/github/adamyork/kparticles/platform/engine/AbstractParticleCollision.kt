@@ -31,13 +31,13 @@ abstract class AbstractParticleCollision(
 
     private val cornerOffsetY = DoubleArray(WALL_CORNER_COUNT)
 
-    override fun applyParticleCollision(generators: List<ParticleEffectGenerator>, viewPort: ViewPort) {
+    override fun applyParticleCollision(generators: List<ParticleEffectGenerator>, viewPort: ViewPort, deltaTime: Double) {
         val minActiveVelocitySquared =
             physicsSettingsService.minActiveVelocity * physicsSettingsService.minActiveVelocity
         val fragments = ArrayList<Pair<Particle, Particle>>()
         val planeThickness = physicsSettingsService.collisionPlaneThickness
         placeParticles(generators, viewPort)
-        particlePhysics.applyGravitation(this)
+        particlePhysics.applyGravitation(this, deltaTime)
         spatialGrid.forEachCollisionPair { firstParticle, secondParticle ->
             if (abs(firstParticle.transform.position.z - secondParticle.transform.position.z) >= planeThickness) {
                 return@forEachCollisionPair
@@ -55,16 +55,14 @@ abstract class AbstractParticleCollision(
             val harderParticle =
                 if (firstParticle.material.hardness > secondParticle.material.hardness) firstParticle else secondParticle
             val weakerParticle = if (harderParticle === firstParticle) secondParticle else firstParticle
-            val impactMomentum =
-                if (isHardnessMismatch) harderParticle.mass() * hypot(
-                    harderParticle.dynamics.velocity.x,
-                    harderParticle.dynamics.velocity.y
-                ) else 0.0
+            val impactSpecificEnergy =
+                if (isHardnessMismatch) impactSpecificEnergy(firstParticle, secondParticle, harderParticle, weakerParticle) else 0.0
             applyParticleCollisionPhysics(firstParticle, secondParticle, contact)
             if (isHardnessMismatch) {
                 splitParticle(
                     weakerParticle,
-                    fragmentCountFor(impactMomentum),
+                    fragmentCountFor(impactSpecificEnergy, weakerParticle),
+                    impactSpecificEnergy,
                     contact.normalX,
                     contact.normalY,
                     fragments
@@ -131,7 +129,7 @@ abstract class AbstractParticleCollision(
             firstParticle,
             secondParticle,
             contact,
-            1.0 + 2.0 * restitution,
+            restitution,
             friction,
             staticFriction,
             physicsSettingsService.minActiveVelocity
@@ -155,7 +153,8 @@ abstract class AbstractParticleCollision(
         val relativeVelocityX = firstParticle.dynamics.velocity.x - secondParticle.dynamics.velocity.x
         val relativeVelocityY = firstParticle.dynamics.velocity.y - secondParticle.dynamics.velocity.y
         val relativeNormalSpeed = normalX * relativeVelocityX + normalY * relativeVelocityY
-        val impulse = 2 * relativeNormalSpeed / totalMass
+        if (relativeNormalSpeed <= 0.0) return
+        val impulse = relativeNormalSpeed / totalMass
         val restitution = min(firstParticle.material.restitution, secondParticle.material.restitution)
         firstParticle.dynamics.velocity.x -= impulse * secondParticleMass * normalX * (1 + restitution)
         firstParticle.dynamics.velocity.y -= impulse * secondParticleMass * normalY * (1 + restitution)
@@ -180,7 +179,7 @@ abstract class AbstractParticleCollision(
         val effectiveInverseMass = 1.0 / firstParticleMass + 1.0 / secondParticleMass +
                 firstSpinArm * firstSpinArm / firstInertia + secondSpinArm * secondSpinArm / secondInertia
         val reducedMass = firstParticleMass * secondParticleMass / totalMass
-        val normalImpulseMagnitude = abs(2 * reducedMass * relativeNormalSpeed * (1 + restitution))
+        val normalImpulseMagnitude = abs(reducedMass * relativeNormalSpeed * (1 + restitution))
         val requiredImpulse = slipSpeed / effectiveInverseMass
         val frictionImpulse = if (abs(requiredImpulse) <= staticFriction * normalImpulseMagnitude) {
             requiredImpulse
@@ -303,17 +302,33 @@ abstract class AbstractParticleCollision(
         }
     }
 
-    private fun fragmentCountFor(impactMomentum: Double): Int {
-        return (impactMomentum / physicsSettingsService.shatterMomentumPerFragment).toInt()
-            .coerceIn(
-                physicsSettingsService.shatterMinimumFragmentCount,
-                physicsSettingsService.shatterMaximumFragmentCount
-            )
+    private fun impactSpecificEnergy(
+        firstParticle: Particle,
+        secondParticle: Particle,
+        harderParticle: Particle,
+        weakerParticle: Particle
+    ): Double {
+        val closingSpeed = contact.normalX * (firstParticle.dynamics.velocity.x - secondParticle.dynamics.velocity.x) +
+                contact.normalY * (firstParticle.dynamics.velocity.y - secondParticle.dynamics.velocity.y)
+        if (closingSpeed <= 0.0) return 0.0
+        val harderMass = harderParticle.inertialMass()
+        val massShare = harderMass / (harderMass + weakerParticle.inertialMass())
+        val hardnessGap = harderParticle.material.hardness - weakerParticle.material.hardness
+        return 0.5 * massShare * closingSpeed * closingSpeed * hardnessGap
+    }
+
+    private fun toughnessOf(particle: Particle): Double =
+        physicsSettingsService.shatterToughness * (1.0 + particle.material.hardness)
+
+    private fun fragmentCountFor(impactSpecificEnergy: Double, weakerParticle: Particle): Int {
+        return (impactSpecificEnergy / toughnessOf(weakerParticle)).toInt()
+            .coerceAtMost(physicsSettingsService.shatterMaximumFragmentCount)
     }
 
     private fun splitParticle(
         particle: Particle,
         requestedFragmentCount: Int,
+        impactSpecificEnergy: Double,
         normalX: Double,
         normalY: Double,
         fragments: ArrayList<Pair<Particle, Particle>>
@@ -326,8 +341,16 @@ abstract class AbstractParticleCollision(
         val tangentX = -normalY
         val sourceX = particle.transform.position.x
         val sourceY = particle.transform.position.y
-        val sourceXVelocity = particle.dynamics.velocity.x
-        val sourceYVelocity = particle.dynamics.velocity.y
+        val fractureEnergy = fragmentCount * toughnessOf(particle)
+        val spreadSpeed = sqrt(
+            6.0 * max(0.0, impactSpecificEnergy - fractureEnergy) / (fragmentCount * fragmentCount - 1.0)
+        )
+        val currentSpeedSquared = particle.dynamics.velocity.x * particle.dynamics.velocity.x +
+                particle.dynamics.velocity.y * particle.dynamics.velocity.y
+        val velocityRetention =
+            if (currentSpeedSquared > 0.0) sqrt(max(0.0, 1.0 - 2.0 * fractureEnergy / currentSpeedSquared)) else 1.0
+        val sourceXVelocity = particle.dynamics.velocity.x * velocityRetention
+        val sourceYVelocity = particle.dynamics.velocity.y * velocityRetention
         val centerOffset = (fragmentCount - 1) / 2.0
         val fragmentMassRatio = 1.0 / (fragmentCount * fragmentCount)
         val fragmentDensity = particle.material.density
@@ -357,8 +380,8 @@ abstract class AbstractParticleCollision(
                 material = particle.material.copy(density = fragmentDensity),
                 dynamics = ParticleDynamics(
                     velocity = ParticleVector(
-                        sourceXVelocity + tangentX * physicsSettingsService.shatterSpreadSpeed * 2.0 * offset,
-                        sourceYVelocity + normalX * physicsSettingsService.shatterSpreadSpeed * 2.0 * offset,
+                        sourceXVelocity + tangentX * spreadSpeed * 2.0 * offset,
+                        sourceYVelocity + normalX * spreadSpeed * 2.0 * offset,
                         particle.dynamics.velocity.z
                     ),
                     thrust = ParticleVector(
@@ -375,9 +398,9 @@ abstract class AbstractParticleCollision(
         particle.transform.position.x = sourceX - tangentX * fragmentDiameter * centerOffset
         particle.transform.position.y = sourceY - normalX * fragmentDiameter * centerOffset
         particle.dynamics.velocity.x =
-            sourceXVelocity - tangentX * physicsSettingsService.shatterSpreadSpeed * 2.0 * centerOffset
+            sourceXVelocity - tangentX * spreadSpeed * 2.0 * centerOffset
         particle.dynamics.velocity.y =
-            sourceYVelocity - normalX * physicsSettingsService.shatterSpreadSpeed * 2.0 * centerOffset
+            sourceYVelocity - normalX * spreadSpeed * 2.0 * centerOffset
         particle.dynamics.thrust.x *= fragmentMassRatio
         particle.dynamics.thrust.y =
             -holdFraction * fragmentMass * Particle.netGravityOf(particle.material.density, gravity, mediumDensity)

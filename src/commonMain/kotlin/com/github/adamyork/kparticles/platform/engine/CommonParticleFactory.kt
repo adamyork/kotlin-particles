@@ -59,37 +59,8 @@ class CommonParticleFactory(
         }
     }
 
-    override fun gpuSlotRange(effect: ParticleEffect, maxParticles: Int): IntRange {
-        val slotGroup = effectGeneratorsByEffect[effect]?.gpuSlotGroups?.firstOrNull() ?: return IntRange.EMPTY
-        val reservation = getOrCreateGpuSlotLayout(maxParticles.coerceAtLeast(0)).reservations[slotGroup]
-            ?: return IntRange.EMPTY
-        return reservation.firstSlot until (reservation.firstSlot + reservation.slotCount)
-    }
-
-    override fun createGpuParticleComputeBuffer(maxParticles: Int): FloatArray {
-        return FloatArray(maxParticles * ParticleEffectGenerator.GPU_FLOATS_PER_PARTICLE)
-    }
-
     override fun createGpuParticleStateBuffer(maxParticles: Int): FloatArray {
         return FloatArray(maxParticles * ParticleEffectGenerator.GPU_STATE_FLOATS_PER_PARTICLE)
-    }
-
-    override fun writeGpuParticleSpawnBuffer(
-        targetBuffer: FloatArray,
-        maxParticles: Int,
-        startSlot: Int,
-        previouslyWrittenSlots: List<Int>
-    ): ParticleWriteResult {
-        return writeSpawnBuffer(
-            targetBuffer,
-            maxParticles,
-            startSlot,
-            previouslyWrittenSlots,
-            ParticleEffectGenerator.GPU_FLOATS_PER_PARTICLE,
-            false
-        ) { effectGenerator, particle, buffer, baseIndex ->
-            effectGenerator.writeGpuParticle(particle, buffer, baseIndex)
-        }
     }
 
     override fun writeGpuParticleStateSpawnBuffer(
@@ -98,27 +69,7 @@ class CommonParticleFactory(
         startSlot: Int,
         previouslyWrittenSlots: List<Int>
     ): ParticleWriteResult {
-        return writeSpawnBuffer(
-            targetBuffer,
-            maxParticles,
-            startSlot,
-            previouslyWrittenSlots,
-            ParticleEffectGenerator.GPU_STATE_FLOATS_PER_PARTICLE,
-            true
-        ) { effectGenerator, particle, buffer, baseIndex ->
-            effectGenerator.writeGpuState(particle, buffer, baseIndex)
-        }
-    }
-
-    private fun writeSpawnBuffer(
-        targetBuffer: FloatArray,
-        maxParticles: Int,
-        startSlot: Int,
-        previouslyWrittenSlots: List<Int>,
-        floatsPerParticle: Int,
-        shouldDrainWrittenParticles: Boolean,
-        writeParticle: (ParticleEffectGenerator, Particle, FloatArray, Int) -> Unit
-    ): ParticleWriteResult {
+        val floatsPerParticle = ParticleEffectGenerator.GPU_STATE_FLOATS_PER_PARTICLE
         var activeCount = 0
         val clampedMaxParticles = maxParticles.coerceAtLeast(0)
         if (clampedMaxParticles == 0) {
@@ -139,10 +90,6 @@ class CommonParticleFactory(
             var writtenParticleCount = 0
             for (particle in effectGenerator.particles) {
                 if (activeCount >= clampedMaxParticles) break
-                if (!shouldDrainWrittenParticles && !effectGenerator.shouldWriteGpuParticle(particle)) {
-                    writtenParticleCount++
-                    continue
-                }
                 val slotGroup = effectGenerator.gpuSlotGroup(particle)
                 val reservation = if (slotGroup != null) slotLayout.reservations[slotGroup] else null
                 val slotIndex = if (reservation != null && reservation.slotCount > 0) {
@@ -154,7 +101,7 @@ class CommonParticleFactory(
                 if (baseIndex + (floatsPerParticle - 1) >= targetBuffer.size) {
                     break
                 }
-                writeParticle(effectGenerator, particle, targetBuffer, baseIndex)
+                effectGenerator.writeGpuState(particle, targetBuffer, baseIndex)
                 dirtySlotFlags[slotIndex] = true
                 writtenSlotFlags[slotIndex] = true
                 activeCount++
@@ -163,7 +110,7 @@ class CommonParticleFactory(
                     slot = (slot + 1) % ringBufferCapacity
                 }
             }
-            if (shouldDrainWrittenParticles && writtenParticleCount > 0) {
+            if (writtenParticleCount > 0) {
                 effectGenerator.particles.subList(0, writtenParticleCount).clear()
             }
             if (activeCount >= clampedMaxParticles) break@writeLoop

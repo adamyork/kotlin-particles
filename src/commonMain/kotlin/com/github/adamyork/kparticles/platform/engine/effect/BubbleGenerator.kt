@@ -5,7 +5,6 @@ import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.engine.data.*
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
-import kotlin.random.Random
 
 /**
  * Author: Adam York
@@ -27,7 +26,6 @@ class BubbleGenerator(
         private const val BUBBLE_LIFETIME: Double = 3000.0
         private const val BUBBLE_SEQUENTIAL_DELAY_STEP: Double = 25.0
         private const val BUBBLE_MAX_ACTIVE_PARTICLES: Int = 32
-        private const val BUBBLE_GPU_KIND: Float = 13f
     }
 
     private val bubbleGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(BUBBLE_MAX_ACTIVE_PARTICLES)
@@ -38,10 +36,10 @@ class BubbleGenerator(
         val viewPort = request.viewPort
         val particles = mutableListOf<Particle>()
         repeat(BUBBLE_COUNT) { bubbleIndex ->
-            val radius = Random.nextDouble() * (BUBBLE_MAX_RADIUS - BUBBLE_MIN_RADIUS) + BUBBLE_MIN_RADIUS
-            val spawnX = viewPort.x + Random.nextDouble() * viewPort.width
-            val spawnY = viewPort.y + Random.nextDouble() * viewPort.height
-            val riseSpeed = Random.nextDouble() * BUBBLE_RISE_SPEED_RANGE + BUBBLE_MIN_RISE_SPEED
+            val radius = random.nextDouble() * (BUBBLE_MAX_RADIUS - BUBBLE_MIN_RADIUS) + BUBBLE_MIN_RADIUS
+            val spawnX = viewPort.x + random.nextDouble() * viewPort.width
+            val spawnY = viewPort.y + random.nextDouble() * viewPort.height
+            val riseSpeed = random.nextDouble() * BUBBLE_RISE_SPEED_RANGE + BUBBLE_MIN_RISE_SPEED
             val particleId = nextParticleId()
             particles += Particle(
                 lifecycle = ParticleLifecycle(
@@ -77,8 +75,4 @@ class BubbleGenerator(
     }
 
     override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = bubbleGpuSlotGroup
-
-    override fun shouldWriteGpuParticle(particle: Particle): Boolean = particle.lifecycle.isVisible()
-
-    override fun gpuKind(particle: Particle): Float = BUBBLE_GPU_KIND
 }

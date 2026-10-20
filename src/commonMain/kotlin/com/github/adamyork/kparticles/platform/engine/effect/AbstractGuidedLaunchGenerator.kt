@@ -11,17 +11,16 @@ import kotlin.math.*
  */
 abstract class AbstractGuidedLaunchGenerator(
     effect: ParticleEffect,
-    private val guidedLaunchGpuKind: Float,
     private val guidedLaunchGpuSlotGroup: GpuSlotGroup,
     private val guidedLaunchMaxFrames: Int,
     private val physicsSettingsService: PhysicsSettingsService
 ) : AbstractGenerator(effect) {
 
     companion object {
-        const val GUIDED_LAUNCH_INITIAL_SPEED: Double = 2.8
         private const val GUIDED_LAUNCH_RADIUS: Double = 16.0
         private const val GUIDED_LAUNCH_NET_GRAVITY_FRACTION: Double = 0.0001
         private const val GUIDED_LAUNCH_SETTLE_FRACTION: Double = 0.95
+        private const val GUIDED_LAUNCH_DRAG_LENGTHS: Double = 1.0
         private const val GUIDED_LAUNCH_SPEED_MULTIPLIER: Double = 2.0
         private const val GUIDED_LAUNCH_MINIMUM_DRAG: Double = 0.0001
     }
@@ -38,13 +37,22 @@ abstract class AbstractGuidedLaunchGenerator(
         val launchAngle = atan2(deltaY, deltaX)
         val drag = max(physicsSettingsService.drag, GUIDED_LAUNCH_MINIMUM_DRAG)
         val arrivalTicks = -ln(1.0 - GUIDED_LAUNCH_SETTLE_FRACTION) / drag / GUIDED_LAUNCH_SPEED_MULTIPLIER
-        val launchSpeed = hypot(deltaX, deltaY) * drag / (1.0 - exp(-drag * arrivalTicks))
+        val launchDistance = hypot(deltaX, deltaY)
         val dimensions = CircleDimensions(radius = GUIDED_LAUNCH_RADIUS)
-        val density = Particle.densityForNetGravity(
-            physicsSettingsService.gravity * GUIDED_LAUNCH_NET_GRAVITY_FRACTION,
-            physicsSettingsService.gravity,
-            physicsSettingsService.mediumDensity
-        )
+        val mediumDensity = physicsSettingsService.mediumDensity
+        val gravity = physicsSettingsService.gravity
+        val frontalLength = (dimensions.boundingWidth() + dimensions.boundingHeight()) / 2.0
+        val neutralDensity = Particle.densityForNetGravity(gravity * GUIDED_LAUNCH_NET_GRAVITY_FRACTION, gravity, mediumDensity)
+        val targetDragRate = GUIDED_LAUNCH_DRAG_LENGTHS / max(launchDistance, 1.0)
+        val dragDensity = 0.5 * mediumDensity * physicsSettingsService.dragCoefficient * frontalLength /
+            (dimensions.area() * targetDragRate)
+        val density = max(neutralDensity, dragDensity)
+        val quadraticDragRate = 0.5 * mediumDensity * physicsSettingsService.dragCoefficient * frontalLength /
+            (density * dimensions.area())
+        val launchSpeed = drag * expm1(quadraticDragRate * launchDistance) /
+            (max(quadraticDragRate, Double.MIN_VALUE) * (1.0 - exp(-drag * arrivalTicks)))
+        val particleMass = density * dimensions.area()
+        val holdThrust = -particleMass * Particle.netGravityOf(density, gravity, mediumDensity)
         return mutableListOf(
             Particle(
                 id = nextParticleId(),
@@ -59,7 +67,8 @@ abstract class AbstractGuidedLaunchGenerator(
                     velocity = ParticleVector(
                         cos(launchAngle) * launchSpeed,
                         sin(launchAngle) * launchSpeed
-                    )
+                    ),
+                    thrust = ParticleVector(0.0, holdThrust)
                 ),
                 material = ParticleMaterial(density = density),
                 animation = ParticleAnimation(maxFrames = guidedLaunchMaxFrames)
@@ -68,31 +77,4 @@ abstract class AbstractGuidedLaunchGenerator(
     }
 
     override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = guidedLaunchGpuSlotGroup
-
-    override fun gpuKind(particle: Particle): Float = guidedLaunchGpuKind
-
-    override fun gpuVelocityX(particle: Particle): Float =
-        guidedLaunchUnitX(particle) * GUIDED_LAUNCH_INITIAL_SPEED.toFloat()
-
-    override fun gpuVelocityY(particle: Particle): Float =
-        guidedLaunchUnitY(particle) * GUIDED_LAUNCH_INITIAL_SPEED.toFloat()
-
-    override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
-        targetBuffer[parameterIndex] = guidedLaunchUnitX(particle)
-        targetBuffer[parameterIndex + 1] = guidedLaunchUnitY(particle)
-    }
-
-    protected fun guidedLaunchUnitX(particle: Particle): Float {
-        val velocityLength = guidedLaunchVelocityLength(particle)
-        return if (velocityLength > 0f) particle.dynamics.velocity.x.toFloat() / velocityLength else 1f
-    }
-
-    protected fun guidedLaunchUnitY(particle: Particle): Float {
-        val velocityLength = guidedLaunchVelocityLength(particle)
-        return if (velocityLength > 0f) particle.dynamics.velocity.y.toFloat() / velocityLength else 0f
-    }
-
-    private fun guidedLaunchVelocityLength(particle: Particle): Float {
-        return sqrt((particle.dynamics.velocity.x * particle.dynamics.velocity.x + particle.dynamics.velocity.y * particle.dynamics.velocity.y).toFloat())
-    }
 }

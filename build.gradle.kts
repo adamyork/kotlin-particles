@@ -1,5 +1,7 @@
 @file:Suppress("UnstableApiUsage")
 
+import java.time.Duration
+
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.kotlin.multiplatform.library)
@@ -27,6 +29,9 @@ kotlin {
         minSdk = 24
         androidResources {
             enable = true
+        }
+        withHostTest {
+            isReturnDefaultValues = true
         }
     }
 
@@ -71,6 +76,11 @@ kotlin {
             implementation(libs.kotlinx.coroutines.android)
         }
 
+        getByName("androidHostTest").dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.junit)
+        }
+
         getByName("wasmJsMain").dependencies {
             implementation(libs.ktor.client.js)
             implementation(libs.kotlinx.browser)
@@ -96,6 +106,41 @@ tasks.named("prepareDevServer").configure {
 
 tasks.named("wasmJsBrowserDevelopmentRun").configure {
     dependsOn(prepareDevServer)
+}
+
+val benchmarkFile = layout.projectDirectory.file("src/androidHostTest/benchmarks/physics.benchmarks")
+
+val updateBenchmarksRequested = gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "updateBenchmarks" }
+
+val skipSimulationTests = providers.gradleProperty("skipSimulationTests").map { it == "true" }.getOrElse(false)
+
+tasks.withType<Test>().configureEach {
+    timeout.set(Duration.ofMinutes(3))
+    systemProperty("kparticles.benchmarkFile", benchmarkFile.asFile.absolutePath)
+    systemProperty("kparticles.updateBenchmarks", updateBenchmarksRequested.toString())
+    testLogging {
+        showStandardStreams = true
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+    inputs.files(benchmarkFile)
+    if (updateBenchmarksRequested) {
+        outputs.upToDateWhen { false }
+    }
+}
+
+tasks.matching { task ->
+    task.name.startsWith("wasmJsBrowser") &&
+        (task.name.endsWith("Run") || task.name.endsWith("Webpack") || task.name.endsWith("Distribution"))
+}.configureEach {
+    if (!skipSimulationTests) {
+        dependsOn("testAndroidHostTest")
+    }
+}
+
+tasks.register("updateBenchmarks") {
+    group = "verification"
+    description = "Runs the simulation tests, reports drift from the stored benchmarks, then rewrites them."
+    dependsOn("testAndroidHostTest")
 }
 
 dependencies {

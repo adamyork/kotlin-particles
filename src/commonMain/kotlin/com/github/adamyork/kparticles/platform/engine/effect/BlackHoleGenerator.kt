@@ -5,7 +5,6 @@ import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.engine.data.*
 import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import kotlin.math.*
-import kotlin.random.Random
 import me.tatarka.inject.annotations.Inject
 
 /**
@@ -23,18 +22,19 @@ class BlackHoleGenerator(
         private const val BLACK_HOLE_CORE_RADIUS: Double = 5.0
         private const val BLACK_HOLE_CORE_DELAY: Double = 60.0
         private const val BLACK_HOLE_CORE_LIFETIME: Double = 2048.0
-        private const val BLACK_HOLE_CORE_MASS: Double = 100.0
+        private const val BLACK_HOLE_CORE_MASS: Double = 1.6
         private const val BLACK_HOLE_CORE_MAX_ACTIVE_PARTICLES: Int = 8
-        private const val BLACK_HOLE_CORE_GPU_KIND: Float = 9f
         private const val BLACK_HOLE_EXPLOSION_PARTICLE_COUNT: Int = 256
         private const val BLACK_HOLE_EXPLOSION_RADIUS: Double = 2.0
-        private const val BLACK_HOLE_EXPLOSION_MIN_SPEED: Double = 1.5
-        private const val BLACK_HOLE_EXPLOSION_SPEED_RANGE: Double = 4.5
+        private const val BLACK_HOLE_EXPLOSION_REACH: Double = 90.0
+        private const val BLACK_HOLE_EXPLOSION_MIN_REACH_FRACTION: Double = 0.4
+        private const val BLACK_HOLE_EXPLOSION_REACH_FRACTION_RANGE: Double = 0.6
+        private const val BLACK_HOLE_EXPLOSION_DRAG_LENGTHS: Double = 2.0
+        private const val BLACK_HOLE_EXPLOSION_SPAWN_SPACING: Double = 5.0
+        private const val BLACK_HOLE_EXPLOSION_RESTITUTION: Double = 1.0
+        private const val GOLDEN_ANGLE: Double = 2.399963229728653
         private const val BLACK_HOLE_EXPLOSION_LIFETIME: Double = BLACK_HOLE_CORE_LIFETIME
-        private const val BLACK_HOLE_EXPLOSION_MASS: Double = 0.05
-        private const val BLACK_HOLE_EXPLOSION_ATTRACTION: Double = 1.0
         private const val BLACK_HOLE_EXPLOSION_MAX_ACTIVE_PARTICLES: Int = 1024
-        private const val BLACK_HOLE_EXPLOSION_GPU_KIND: Float = 10f
     }
 
     private val blackHoleCoreGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(BLACK_HOLE_CORE_MAX_ACTIVE_PARTICLES)
@@ -66,20 +66,44 @@ class BlackHoleGenerator(
             dynamics = ParticleDynamics(thrust = ParticleVector(0.0, -BLACK_HOLE_CORE_MASS * coreNetGravity)),
             id = nextParticleId()
         )
-        repeat(BLACK_HOLE_EXPLOSION_PARTICLE_COUNT) {
-            val angle = Random.nextDouble() * PI * 2
-            val speed = BLACK_HOLE_EXPLOSION_MIN_SPEED + Random.nextDouble() * BLACK_HOLE_EXPLOSION_SPEED_RANGE
+        val mediumDensity = physicsSettingsService.mediumDensity
+        val gravity = physicsSettingsService.gravity
+        val linearDrag = max(physicsSettingsService.drag, Double.MIN_VALUE)
+        val explosionDimensions = CircleDimensions(radius = BLACK_HOLE_EXPLOSION_RADIUS)
+        val frontalLength = (explosionDimensions.boundingWidth() + explosionDimensions.boundingHeight()) / 2.0
+        val targetDragRate = BLACK_HOLE_EXPLOSION_DRAG_LENGTHS / BLACK_HOLE_EXPLOSION_REACH
+        val explosionDensity = max(
+            mediumDensity,
+            0.5 * mediumDensity * physicsSettingsService.dragCoefficient * frontalLength / (explosionDimensions.area() * targetDragRate)
+        )
+        val quadraticDragRate = 0.5 * mediumDensity * physicsSettingsService.dragCoefficient * frontalLength /
+            (explosionDensity * explosionDimensions.area())
+        val reachDivisor = max(quadraticDragRate, Double.MIN_VALUE) * (1.0 - exp(-linearDrag * BLACK_HOLE_CORE_DELAY))
+        val holdThrustY = -explosionDensity * explosionDimensions.area() *
+            Particle.netGravityOf(explosionDensity, gravity, mediumDensity)
+        val spawnRadiusScale = BLACK_HOLE_EXPLOSION_SPAWN_SPACING / sqrt(PI)
+        repeat(BLACK_HOLE_EXPLOSION_PARTICLE_COUNT) { explosionIndex ->
+            val angle = explosionIndex * GOLDEN_ANGLE
+            val spawnRadius = spawnRadiusScale * sqrt(explosionIndex + 0.5)
+            val spawnX = centerX + cos(angle) * spawnRadius
+            val spawnY = centerY + sin(angle) * spawnRadius
+            val reachFraction = BLACK_HOLE_EXPLOSION_MIN_REACH_FRACTION +
+                random.nextDouble() * BLACK_HOLE_EXPLOSION_REACH_FRACTION_RANGE
+            val speed = linearDrag * expm1(quadraticDragRate * BLACK_HOLE_EXPLOSION_REACH * reachFraction) / reachDivisor
             val dimensions = CircleDimensions(radius = BLACK_HOLE_EXPLOSION_RADIUS)
             particles += Particle(
                 lifecycle = ParticleLifecycle(lifetime = BLACK_HOLE_EXPLOSION_LIFETIME),
                 appearance = ParticleAppearance(color = randomColor()),
                 dimensions = dimensions,
                 transform = ParticleTransform(
-                    position = ParticleVector(centerX, centerY, blackHolePlaneZ),
-                    origin = ParticleVector(centerX, centerY)
+                    position = ParticleVector(spawnX, spawnY, blackHolePlaneZ),
+                    origin = ParticleVector(spawnX, spawnY)
                 ),
-                dynamics = ParticleDynamics(velocity = ParticleVector(cos(angle) * speed, sin(angle) * speed)),
-                material = ParticleMaterial(density = physicsSettingsService.mediumDensity),
+                dynamics = ParticleDynamics(
+                    velocity = ParticleVector(cos(angle) * speed, sin(angle) * speed),
+                    thrust = ParticleVector(0.0, holdThrustY)
+                ),
+                material = ParticleMaterial(density = explosionDensity, restitution = BLACK_HOLE_EXPLOSION_RESTITUTION),
                 id = nextParticleId()
             )
         }
@@ -88,17 +112,6 @@ class BlackHoleGenerator(
 
     override fun gpuSlotGroup(particle: Particle): GpuSlotGroup =
         if (isCore(particle)) blackHoleCoreGpuSlotGroup else blackHoleExplosionGpuSlotGroup
-
-    override fun gpuKind(particle: Particle): Float =
-        if (isCore(particle)) BLACK_HOLE_CORE_GPU_KIND else BLACK_HOLE_EXPLOSION_GPU_KIND
-
-    override fun writeGpuParameters(particle: Particle, targetBuffer: FloatArray, parameterIndex: Int) {
-        val firstOffset = if (isCore(particle)) 0 else 2
-        targetBuffer[parameterIndex + firstOffset] =
-            (if (isCore(particle)) BLACK_HOLE_CORE_MASS else BLACK_HOLE_EXPLOSION_MASS).toFloat()
-        targetBuffer[parameterIndex + firstOffset + 1] =
-            if (isCore(particle)) particle.transform.origin.x.toFloat() * 2f else BLACK_HOLE_EXPLOSION_ATTRACTION.toFloat()
-    }
 
     private fun isCore(particle: Particle): Boolean = particle.lifecycle.delay > 0.0
 }

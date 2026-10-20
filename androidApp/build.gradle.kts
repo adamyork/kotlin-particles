@@ -31,3 +31,11 @@ dependencies {
     implementation(libs.ktor.client.okhttp)
     ksp(libs.kotlin.inject.compiler)
 }
+
+val skipSimulationTests = providers.gradleProperty("skipSimulationTests").map { it == "true" }.getOrElse(false)
+
+tasks.matching { task -> task.name == "preBuild" }.configureEach {
+    if (!skipSimulationTests) {
+        dependsOn(":testAndroidHostTest")
+    }
+}

@@ -41,13 +41,6 @@ external interface GpuTextureResult : JsAny {
     val width: Int
     val height: Int
 }
-external interface ProjectileHitSnapshot : JsAny {
-    val hitCount: Int
-    val hitX: Float
-    val hitY: Float
-    val hitSize: Float
-}
-
 fun createBlobFromInt8Array(@Suppress("UNUSED_PARAMETER") int8Array: Int8Array): Blob =
     js("new Blob([int8Array])")
 
@@ -85,13 +78,6 @@ fun createStorageBuffer(
     @Suppress("UNUSED_PARAMETER") sizeBytes: Int
 ): GPUBuffer = js(
     "device.createBuffer({ size: sizeBytes, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC })"
-)
-
-fun createReadbackBuffer(
-    @Suppress("UNUSED_PARAMETER") device: GPUDevice,
-    @Suppress("UNUSED_PARAMETER") sizeBytes: Int
-): GPUBuffer = js(
-    "device.createBuffer({ size: sizeBytes, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ })"
 )
 
 fun createUniformBuffer(
@@ -161,13 +147,6 @@ fun installGpuErrorLogging(@Suppress("UNUSED_PARAMETER") device: GPUDevice) {
     js("device.addEventListener('uncapturederror', (event) => { console.error('[webgpu] uncaptured error: ' + event.error.message); }); device.lost.then((info) => { console.error('[webgpu] device lost: ' + info.reason + ' ' + info.message); });")
 }
 
-fun clearGpuBuffer(
-    @Suppress("UNUSED_PARAMETER") encoder: GPUCommandEncoder,
-    @Suppress("UNUSED_PARAMETER") buffer: GPUBuffer
-) {
-    js("encoder.clearBuffer(buffer)")
-}
-
 fun createRenderPipeline(
     @Suppress("UNUSED_PARAMETER") device: GPUDevice,
     @Suppress("UNUSED_PARAMETER") vertexModule: GPUShaderModule,
@@ -188,18 +167,6 @@ fun createRenderPipelineMaxBlend(
     @Suppress("UNUSED_PARAMETER") fragmentEntryPoint: String
 ): GPURenderPipeline = js(
     "device.createRenderPipeline({ layout: 'auto', vertex: { module: vertexModule, entryPoint: vertexEntryPoint }, fragment: { module: fragmentModule, entryPoint: fragmentEntryPoint, targets: [{ format: format, blend: { color: { srcFactor: 'one', dstFactor: 'one', operation: 'max' }, alpha: { srcFactor: 'one', dstFactor: 'one', operation: 'max' } } }] }, primitive: { topology: 'triangle-list' } })"
-)
-
-fun createComputeBindGroup(
-    @Suppress("UNUSED_PARAMETER") device: GPUDevice,
-    @Suppress("UNUSED_PARAMETER") pipeline: GPUComputePipeline,
-    @Suppress("UNUSED_PARAMETER") srcBuffer: GPUBuffer,
-    @Suppress("UNUSED_PARAMETER") dstBuffer: GPUBuffer,
-    @Suppress("UNUSED_PARAMETER") spawnBuffer: GPUBuffer,
-    @Suppress("UNUSED_PARAMETER") uniformBuffer: GPUBuffer,
-    @Suppress("UNUSED_PARAMETER") collisionBuffer: GPUBuffer
-): GPUBindGroup = js(
-    "device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: srcBuffer } }, { binding: 1, resource: { buffer: dstBuffer } }, { binding: 2, resource: { buffer: spawnBuffer } }, { binding: 3, resource: { buffer: uniformBuffer } }, { binding: 4, resource: { buffer: collisionBuffer } }] })"
 )
 
 fun createRenderBindGroup(
@@ -264,12 +231,6 @@ fun copyBufferToBuffer(
     js("encoder.copyBufferToBuffer(srcBuffer, 0, dstBuffer, 0, sizeBytes)")
 }
 
-fun readProjectileHitSnapshotFromReadback(
-    @Suppress("UNUSED_PARAMETER") readbackBuffer: GPUBuffer
-): Promise<ProjectileHitSnapshot> = js(
-    "(async () => { try { await readbackBuffer.mapAsync(GPUMapMode.READ); const raw = new Uint32Array(readbackBuffer.getMappedRange()); const floatView = new Float32Array(raw.buffer); const hitCount = raw[0] || 0; const hitX = floatView[1] || 0; const hitY = floatView[2] || 0; const hitSize = floatView[3] || 1; readbackBuffer.unmap(); return { hitCount, hitX, hitY, hitSize }; } catch (_) { return { hitCount: 0, hitX: 0, hitY: 0, hitSize: 1 }; } })()"
-)
-
 fun beginComputePass(@Suppress("UNUSED_PARAMETER") encoder: GPUCommandEncoder): GPUComputePassEncoder =
     js("encoder.beginComputePass()")
 
@@ -330,13 +291,6 @@ fun setRenderBindGroup(
     @Suppress("UNUSED_PARAMETER") bindGroup: GPUBindGroup
 ) {
     js("pass.setBindGroup(0, bindGroup)")
-}
-
-fun drawRenderPass(
-    @Suppress("UNUSED_PARAMETER") pass: GPURenderPassEncoder,
-    @Suppress("UNUSED_PARAMETER") vertexCount: Int
-) {
-    js("pass.draw(vertexCount, 1, 0, 0)")
 }
 
 fun drawRenderPassInstanced(

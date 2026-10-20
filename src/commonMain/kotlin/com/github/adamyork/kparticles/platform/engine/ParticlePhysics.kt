@@ -14,10 +14,11 @@ interface ParticlePhysics {
     fun applyParticlePhysics(
         generators: List<ParticleEffectGenerator>,
         viewPort: ViewPort,
-        completedParticleResults: ArrayList<CompletedParticleResult>
+        completedParticleResults: ArrayList<CompletedParticleResult>,
+        deltaTime: Double
     )
 
-    fun applyGravitation(collision: ParticleCollision)
+    fun applyGravitation(collision: ParticleCollision, deltaTime: Double)
 
     fun applyParticleAccretion(firstParticle: Particle, secondParticle: Particle): Boolean
 

@@ -254,6 +254,7 @@ class WasmJsGpuParticleRenderer(
     fun updateGpuParticleBuffer(
         sourceBuffer: FloatArray,
         dirtySlotRanges: List<IntRange>,
+        substepCount: Int,
         deltaTime: Double,
         worldTime: Double,
         spriteTicksPerFrame: Double,
@@ -284,21 +285,28 @@ class WasmJsGpuParticleRenderer(
         }
 
         lastSpriteTicksPerFrame = spriteTicksPerFrame
-        gpuUniformWriter.writeSimulationUniforms(
-            simulationUniformData, deltaTime, worldTime, spriteTicksPerFrame, maxParticles, viewPort
-        )
-        writeFloatArrayBuffer(gpuQueue, simulationUniform, simulationUniformData)
-
-        val encoder: GPUCommandEncoder = createCommandEncoder(gpuDevice)
-        val computePass: GPUComputePassEncoder = beginComputePass(encoder)
-        setComputeBindGroup(computePass, bindGroup)
-        for (stageIndex in simulationPipelines.indices) {
-            setComputePipeline(computePass, simulationPipelines[stageIndex])
-            dispatchCompute(computePass, simulationWorkgroupCounts[stageIndex])
+        for (substepIndex in 0 until substepCount) {
+            gpuUniformWriter.writeSimulationUniforms(
+                simulationUniformData,
+                deltaTime,
+                worldTime + substepIndex * deltaTime,
+                spriteTicksPerFrame,
+                maxParticles,
+                viewPort,
+                substepIndex
+            )
+            writeFloatArrayBuffer(gpuQueue, simulationUniform, simulationUniformData)
+            val encoder: GPUCommandEncoder = createCommandEncoder(gpuDevice)
+            val computePass: GPUComputePassEncoder = beginComputePass(encoder)
+            setComputeBindGroup(computePass, bindGroup)
+            for (stageIndex in simulationPipelines.indices) {
+                setComputePipeline(computePass, simulationPipelines[stageIndex])
+                dispatchCompute(computePass, simulationWorkgroupCounts[stageIndex])
+            }
+            endComputePass(computePass)
+            val commandBuffer: GPUCommandBuffer = finishCommandEncoder(encoder)
+            submitCommandBuffer(gpuQueue, commandBuffer)
         }
-        endComputePass(computePass)
-        val commandBuffer: GPUCommandBuffer = finishCommandEncoder(encoder)
-        submitCommandBuffer(gpuQueue, commandBuffer)
     }
 
     fun draw(viewPort: ViewPort) {

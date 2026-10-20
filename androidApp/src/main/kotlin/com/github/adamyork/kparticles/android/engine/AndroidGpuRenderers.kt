@@ -33,6 +33,7 @@ class AndroidGpuRenderers(
             gpuParticleRuntime.submitFrame(
                 sourceBuffer = gpuParticleSpawnBuffer,
                 dirtySlotRanges = frame.dirtySlotRanges,
+                substepCount = frame.substepCount,
                 deltaTime = frame.deltaTime,
                 worldTime = frame.worldTime,
                 spriteTicksPerFrame = frame.spriteTicksPerFrame,

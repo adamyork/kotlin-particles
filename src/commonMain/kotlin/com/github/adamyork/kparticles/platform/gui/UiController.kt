@@ -72,6 +72,7 @@ class UiController(
                     }
                 }.awaitAll().toMap()
             }
+            runtimeService.deriveGravityFromViewportHeight(screenDimensions.height)
             val viewPort = createInitialViewPort(screenDimensions)
             val collectibleAsset = loadedAssets.getValue("collectible item") as ImageAsset
             withContext(Dispatchers.Default) {

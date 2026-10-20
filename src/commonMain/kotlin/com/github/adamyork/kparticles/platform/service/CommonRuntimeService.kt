@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.LifeCycleState
+import com.github.adamyork.kparticles.platform.engine.data.SubstepPlan
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.tatarka.inject.annotations.Inject
 
@@ -15,7 +16,8 @@ import me.tatarka.inject.annotations.Inject
 @AppScope
 @Inject
 class CommonRuntimeService(
-    val assetService: AssetService
+    val assetService: AssetService,
+    private val physicsSettingsService: PhysicsSettingsService
 ) : RuntimeService {
 
     private val logger = KotlinLogging.logger {}
@@ -24,6 +26,8 @@ class CommonRuntimeService(
         const val FPS_SAMPLE_WINDOW_MS: Double = 1000.0
         const val MIN_DELTA_SECONDS: Float = 1f / 240f
         const val MAX_DELTA_SECONDS: Float = 1f / 15f
+        const val HITCH_RATIO: Double = 2.0
+        const val SMOOTHED_DELTA_BLEND: Double = 0.1
     }
 
     override var lastPaintTime: Double = 0.0
@@ -43,6 +47,16 @@ class CommonRuntimeService(
     private var lastObservedPaintTime: Double = 0.0
     private var cachedFps: Double = 0.0
     private var currentFrameTime: Double = 0.0
+    private var smoothedDeltaTime: Double = 0.0
+    private var previousPlanWasSubdivided: Boolean = false
+
+    override fun deriveGravityFromViewportHeight(viewportHeight: Int) {
+        physicsSettingsService.deriveGravityFromViewportHeight(
+            viewportHeight,
+            assetService.appProperties.engine.tickTargetPerSec
+        )
+        logger.info { "gravity derived from viewport height $viewportHeight: ${physicsSettingsService.gravity} px/tick^2" }
+    }
 
     override fun getDeltaTimeCoefficient(): Double {
         val targetFps = assetService.appProperties.engine.tickTargetPerSec.toDouble()
@@ -52,7 +66,25 @@ class CommonRuntimeService(
         }
         val actualDeltaTimeMs = currentFrameTime - lastPaintTime
         val coefficient = actualDeltaTimeMs / targetDeltaTimeMs
-        return coefficient.coerceIn(0.5, 2.0)
+        return coefficient.coerceAtLeast(0.0)
+    }
+
+    override fun getSubstepPlan(): SubstepPlan {
+        val deltaTime = getDeltaTimeCoefficient().coerceAtMost(physicsSettingsService.maxFrameDeltaTime)
+        val isHitch = smoothedDeltaTime > 0.0 && deltaTime > smoothedDeltaTime * HITCH_RATIO
+        val blendTarget = if (smoothedDeltaTime > 0.0) minOf(deltaTime, smoothedDeltaTime * HITCH_RATIO) else deltaTime
+        smoothedDeltaTime = if (smoothedDeltaTime > 0.0) {
+            smoothedDeltaTime + (blendTarget - smoothedDeltaTime) * SMOOTHED_DELTA_BLEND
+        } else {
+            blendTarget
+        }
+        val substepPlan = SubstepPlan.of(
+            deltaTime,
+            physicsSettingsService.maxSubstepDeltaTime,
+            if (isHitch && !previousPlanWasSubdivided) physicsSettingsService.maxSubstepCount else 1
+        )
+        previousPlanWasSubdivided = substepPlan.substepCount > 1
+        return substepPlan
     }
 
     override fun getDeltaTimeSeconds(): Float {

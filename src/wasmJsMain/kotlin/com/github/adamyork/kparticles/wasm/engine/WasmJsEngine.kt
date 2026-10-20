@@ -66,8 +66,13 @@ open class WasmJsEngine(
     }
 
     override fun manageParticles(viewPort: ViewPort) {
-        particlePhysics.applyParticlePhysics(particleFactory.generators(), viewPort, completedParticleResults)
-        collision.applyParticleCollision(particleFactory.generators(), viewPort)
+        val substepPlan = runtimeService.getSubstepPlan()
+        repeat(substepPlan.substepCount) {
+            particlePhysics.applyParticlePhysics(
+                particleFactory.generators(), viewPort, completedParticleResults, substepPlan.substepDeltaTime
+            )
+            collision.applyParticleCollision(particleFactory.generators(), viewPort, substepPlan.substepDeltaTime)
+        }
     }
 
     override fun draw(

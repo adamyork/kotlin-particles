@@ -21,15 +21,9 @@ interface ParticleFactory {
 
     fun generators(): List<ParticleEffectGenerator>
 
-    fun createGpuParticleComputeBuffer(maxParticles: Int = DEFAULT_GPU_PARTICLE_CAPACITY): FloatArray {
-        throw EngineException("GPU particle compute buffer is not implemented for this engine")
-    }
-
     fun createGpuParticleStateBuffer(maxParticles: Int = DEFAULT_GPU_PARTICLE_CAPACITY): FloatArray {
         throw EngineException("GPU particle state buffer is not implemented for this engine")
     }
-
-    fun gpuSlotRange(effect: ParticleEffect, maxParticles: Int): IntRange = IntRange.EMPTY
 
     fun create(
         type: ParticleEffect,
@@ -40,15 +34,6 @@ interface ParticleFactory {
         destinationY: Double? = null,
         direction: Direction
     )
-
-    fun writeGpuParticleSpawnBuffer(
-        targetBuffer: FloatArray,
-        maxParticles: Int = DEFAULT_GPU_PARTICLE_CAPACITY,
-        startSlot: Int = 0,
-        previouslyWrittenSlots: List<Int> = emptyList()
-    ): ParticleWriteResult {
-        throw EngineException("GPU particle spawn buffer writes are not implemented for this engine")
-    }
 
     fun writeGpuParticleStateSpawnBuffer(
         targetBuffer: FloatArray,

@@ -12,7 +12,7 @@ struct SimulationUniforms {
   wallRestitution: f32,
   environmentFriction: f32,
   drag: f32,
-  maxParticleSpeed: f32,
+  dragCoefficient: f32,
   minActiveVelocity: f32,
   spriteTicksPerFrame: f32,
   flowAmplitude: f32,
@@ -36,12 +36,12 @@ struct SimulationUniforms {
   shatterMinimumFragmentRadius: f32,
   shatterMinimumFragmentCount: f32,
   shatterMaximumFragmentCount: f32,
-  shatterMomentumPerFragment: f32,
-  shatterSpreadSpeed: f32,
-  shatterMaxVelocity: f32,
+  shatterToughness: f32,
+  reservedShatterA: f32,
+  reservedShatterB: f32,
   contactPositionRelaxationExponent: f32,
   contactVelocityRelaxationExponent: f32,
-  reservedC: f32,
+  substepIndex: f32,
   reservedD: f32,
 };
 
@@ -276,16 +276,19 @@ fn isExpired(particle: Particle) -> bool {
   return particle.age >= particle.lifetime + particle.delay;
 }
 
-fn limitSpeed(velocity: vec3<f32>, maximumSpeed: f32) -> vec3<f32> {
-  if (maximumSpeed <= 0.0) {
-    return velocity;
+fn frontalLength(particle: Particle) -> f32 {
+  if (isRectangle(particle)) {
+    return (particle.sizeA + particle.sizeB) * 0.5;
   }
-  let speedSquared = velocity.x * velocity.x + velocity.y * velocity.y;
-  if (speedSquared <= maximumSpeed * maximumSpeed) {
-    return velocity;
+  return particle.sizeA * 2.0;
+}
+
+fn quadraticDragFactor(particle: Particle, mass: f32, relativeSpeed: f32) -> f32 {
+  if (simulation.dragCoefficient <= 0.0) {
+    return 1.0;
   }
-  let scale = maximumSpeed / sqrt(speedSquared);
-  return vec3<f32>(velocity.x * scale, velocity.y * scale, velocity.z);
+  let dragPerSpeed = 0.5 * simulation.mediumDensity * simulation.dragCoefficient * frontalLength(particle) / mass;
+  return 1.0 / (1.0 + dragPerSpeed * relativeSpeed * simulation.deltaTime);
 }
 
 fn flowVelocityXAt(positionY: f32) -> f32 {
@@ -307,7 +310,7 @@ fn integrateAdhesive(source: Particle) -> Particle {
     return particle;
   }
   particle.velocity.y = max(0.0, particle.velocity.y + netForce / mass * deltaTime);
-  particle.velocity = limitSpeed(particle.velocity, simulation.maxParticleSpeed);
+  particle.velocity.y = particle.velocity.y * quadraticDragFactor(particle, mass, particle.velocity.y);
   let distance = particle.velocity.y * deltaTime;
   particle.position.y = particle.position.y + distance;
   var wettedMass = 0.0;
@@ -330,15 +333,19 @@ fn integrateFree(source: Particle) -> Particle {
   particle.velocity.x = particle.velocity.x + particle.thrust.x / mass * deltaTime;
   particle.velocity.y = particle.velocity.y + particle.thrust.y / mass * deltaTime;
   particle.velocity.z = particle.velocity.z + particle.thrust.z / mass * deltaTime;
+  let flowVelocityX = flowVelocityXAt(particle.position.y);
   let dragFraction = min(1.0, max(0.0, simulation.drag) * deltaTime);
   if (dragFraction > 0.0) {
-    let flowVelocityX = flowVelocityXAt(particle.position.y);
     particle.velocity.x = particle.velocity.x + (flowVelocityX - particle.velocity.x) * dragFraction;
     particle.velocity.y = particle.velocity.y * (1.0 - dragFraction);
     particle.velocity.z = particle.velocity.z * (1.0 - dragFraction);
   }
-  particle.velocity = limitSpeed(particle.velocity, simulation.maxParticleSpeed);
-  particle.velocity.z = clamp(particle.velocity.z, -simulation.maxParticleSpeed, simulation.maxParticleSpeed);
+  let relativeVelocityX = particle.velocity.x - flowVelocityX;
+  let relativeSpeed = sqrt(relativeVelocityX * relativeVelocityX + particle.velocity.y * particle.velocity.y + particle.velocity.z * particle.velocity.z);
+  let dragFactor = quadraticDragFactor(particle, mass, relativeSpeed);
+  particle.velocity.x = flowVelocityX + relativeVelocityX * dragFactor;
+  particle.velocity.y = particle.velocity.y * dragFactor;
+  particle.velocity.z = particle.velocity.z * dragFactor;
   particle.position = particle.position + particle.velocity * deltaTime;
   return particle;
 }
@@ -394,7 +401,7 @@ fn spawnIntegrateMain(@builtin(global_invocation_id) globalInvocationId: vec3<u3
   }
   let spawnFlag = spawnParticles.data[index * VECTORS_PER_PARTICLE + 3u].w;
   var particle: Particle;
-  if (spawnFlag > 0.5) {
+  if (spawnFlag > 0.5 && simulation.substepIndex < 0.5) {
     particle = loadSpawnParticle(index);
   } else {
     particle = loadParticle(index);
@@ -772,7 +779,7 @@ struct Gather {
   absorbedArea: f32,
   absorbedMomentum: vec2<f32>,
   absorbedCount: f32,
-  splitMomentum: f32,
+  splitEnergy: f32,
   splitNormal: vec2<f32>,
 };
 
@@ -789,7 +796,7 @@ fn newGather() -> Gather {
   gather.absorbedArea = 0.0;
   gather.absorbedMomentum = vec2<f32>(0.0, 0.0);
   gather.absorbedCount = 0.0;
-  gather.splitMomentum = NO_SPLIT_REQUEST;
+  gather.splitEnergy = NO_SPLIT_REQUEST;
   gather.splitNormal = vec2<f32>(1.0, 0.0);
   return gather;
 }
@@ -1084,7 +1091,12 @@ fn solveCircleCircle(firstSource: Body, secondSource: Body, contact: Contact) ->
   second.position = second.position + normal * contact.depth * (first.mass / totalMass);
   let relativeVelocity = first.velocity - second.velocity;
   let relativeNormalSpeed = dot(normal, relativeVelocity);
-  let impulse = 2.0 * relativeNormalSpeed / totalMass;
+  if (relativeNormalSpeed <= 0.0) {
+    outcome.first = first;
+    outcome.second = second;
+    return outcome;
+  }
+  let impulse = relativeNormalSpeed / totalMass;
   let restitution = min(first.restitution, second.restitution);
   first.velocity = first.velocity - normal * (impulse * second.mass * (1.0 + restitution));
   second.velocity = second.velocity + normal * (impulse * first.mass * (1.0 + restitution));
@@ -1110,7 +1122,7 @@ fn solveCircleCircle(firstSource: Body, secondSource: Body, contact: Contact) ->
   let effectiveInverseMass = 1.0 / first.mass + 1.0 / second.mass +
     firstSpinArm * firstSpinArm / first.inertia + secondSpinArm * secondSpinArm / second.inertia;
   let reducedMass = first.mass * second.mass / totalMass;
-  let normalImpulseMagnitude = abs(2.0 * reducedMass * relativeNormalSpeed * (1.0 + restitution));
+  let normalImpulseMagnitude = abs(reducedMass * relativeNormalSpeed * (1.0 + restitution));
   let requiredImpulse = slipSpeed / effectiveInverseMass;
   var frictionImpulse = sign(requiredImpulse) * friction * normalImpulseMagnitude;
   if (abs(requiredImpulse) <= staticFriction * normalImpulseMagnitude) {
@@ -1152,7 +1164,7 @@ fn solveBoxContact(firstSource: Body, secondSource: Body, contact: Contact) -> P
   let totalMass = first.mass + second.mass;
   first.position = first.position - normal * contact.depth * (second.mass / totalMass);
   second.position = second.position + normal * contact.depth * (first.mass / totalMass);
-  let restitution = 1.0 + 2.0 * min(first.restitution, second.restitution);
+  let restitution = min(first.restitution, second.restitution);
   let friction = simulation.environmentFriction + sqrt(first.friction * second.friction);
   let staticFriction = max(
     friction,
@@ -1280,6 +1292,10 @@ fn processPair(
     gather.absorbedArea = gather.absorbedArea + bodyArea(victim);
     gather.absorbedMomentum = gather.absorbedMomentum + victim.velocity * victim.mass;
     gather.absorbedCount = gather.absorbedCount + 1.0;
+    let victimLifecycle = particles.data[otherBase + 3u];
+    particles.data[otherBase + 3u] = vec4<f32>(
+      victimLifecycle.z + victimLifecycle.y, victimLifecycle.y, victimLifecycle.z, victimLifecycle.w
+    );
     return gather;
   }
   let other = loadBody(otherIndex, readSet);
@@ -1326,9 +1342,11 @@ fn processPair(
     return gather;
   }
   if (sweepIndex == 0u && selfBody.hardness < other.hardness) {
-    let impactMomentum = other.mass * length(other.velocity);
-    if (impactMomentum > gather.splitMomentum) {
-      gather.splitMomentum = impactMomentum;
+    let closingSpeed = dot(contact.normal, first.velocity - second.velocity);
+    let massShare = other.mass / (other.mass + selfBody.mass);
+    let impactEnergy = 0.5 * massShare * closingSpeed * closingSpeed * (other.hardness - selfBody.hardness);
+    if (closingSpeed > 0.0 && impactEnergy > gather.splitEnergy) {
+      gather.splitEnergy = impactEnergy;
       gather.splitNormal = contact.normal;
     }
   }
@@ -1444,7 +1462,7 @@ fn solveContacts(index: u32, readSet: u32, writeSet: u32, sweepIndex: u32) {
   );
   kinematics.data[writeOffset + 1u] = vec4<f32>(orientation.x, angularVelocity, 0.0, 0.0);
   if (sweepIndex == 0u) {
-    particles.data[base + 13u] = vec4<f32>(0.0, gather.splitNormal.x, gather.splitNormal.y, gather.splitMomentum);
+    particles.data[base + 13u] = vec4<f32>(0.0, gather.splitNormal.x, gather.splitNormal.y, gather.splitEnergy);
   }
 }
 
@@ -1522,6 +1540,9 @@ var<workgroup> reductionMass: array<f32, 256>;
 var<workgroup> reductionIndex: array<u32, 256>;
 var<workgroup> chosenSources: array<u32, 16>;
 var<workgroup> chosenCount: u32;
+var<workgroup> heaviestSourceMass: f32;
+const GRAVITY_SOURCE_MINIMUM_MASS_RATIO = 0.03;
+const GRAVITY_SOURCE_MINIMUM_MASS = 0.015;
 
 @compute @workgroup_size(256)
 fn selectGravitySourcesMain(@builtin(local_invocation_index) localIndex: u32) {
@@ -1529,6 +1550,7 @@ fn selectGravitySourcesMain(@builtin(local_invocation_index) localIndex: u32) {
   let wantedCount = min(u32(max(simulation.gravitySourceCount, 0.0)), MAXIMUM_GRAVITY_SOURCES);
   if (localIndex == 0u) {
     chosenCount = 0u;
+    heaviestSourceMass = 0.0;
   }
   workgroupBarrier();
   for (var round = 0u; round < wantedCount; round = round + 1u) {
@@ -1536,7 +1558,7 @@ fn selectGravitySourcesMain(@builtin(local_invocation_index) localIndex: u32) {
     var bestIndex = 0xFFFFFFFFu;
     for (var slot = localIndex; slot < slotCount; slot = slot + 256u) {
       let slotMass = bitcast<f32>(atomicLoad(&scratch.data[massListBase() + slot]));
-      if (slotMass < MINIMUM_MASS) {
+      if (slotMass < max(MINIMUM_MASS, GRAVITY_SOURCE_MINIMUM_MASS) || slotMass < heaviestSourceMass * GRAVITY_SOURCE_MINIMUM_MASS_RATIO) {
         continue;
       }
       var alreadyChosen = false;
@@ -1570,6 +1592,9 @@ fn selectGravitySourcesMain(@builtin(local_invocation_index) localIndex: u32) {
     }
     if (localIndex == 0u) {
       if (reductionIndex[0] != 0xFFFFFFFFu) {
+        if (chosenCount == 0u) {
+          heaviestSourceMass = reductionMass[0];
+        }
         chosenSources[chosenCount] = reductionIndex[0];
         chosenCount = chosenCount + 1u;
       }
@@ -1690,12 +1715,8 @@ fn gravityMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
       acceleration = acceleration + gravityAccelerationFrom(delta, massOfSlot(otherSlot), softeningSquared);
     }
   }
-  let pulledVelocity = limitSpeed(
-    vec3<f32>(velocityVector.x + acceleration.x, velocityVector.y + acceleration.y, velocityVector.z),
-    simulation.maxParticleSpeed
-  );
-  velocityVector.x = pulledVelocity.x;
-  velocityVector.y = pulledVelocity.y;
+  velocityVector.x = velocityVector.x + acceleration.x;
+  velocityVector.y = velocityVector.y + acceleration.y;
   particles.data[base + 1u] = velocityVector;
 }
 
@@ -1730,10 +1751,6 @@ fn accretionApplyMain(@builtin(global_invocation_id) globalInvocationId: vec3<u3
   }
   let ownerPlusOne = particles.data[base + 13u].x;
   if (ownerPlusOne > 0.5) {
-    let ownerSlot = u32(ownerPlusOne) - 1u;
-    if (particles.data[ownerSlot * VECTORS_PER_PARTICLE + 13u].x < 0.5) {
-      particles.data[base + 3u] = vec4<f32>(lifecycle.z + lifecycle.y, lifecycle.y, lifecycle.z, lifecycle.w);
-    }
     return;
   }
   let gather = gatherContacts(index, STATE_SET, ACCRETION_ABSORB_MODE, 0u);
@@ -1803,11 +1820,8 @@ fn splitMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
     return;
   }
   var particle = loadParticle(index);
-  let requestedCount = clamp(
-    floor(splitRequest.w / simulation.shatterMomentumPerFragment),
-    simulation.shatterMinimumFragmentCount,
-    simulation.shatterMaximumFragmentCount
-  );
+  let toughness = simulation.shatterToughness * (1.0 + particle.hardness);
+  let requestedCount = min(floor(splitRequest.w / toughness), simulation.shatterMaximumFragmentCount);
   let currentRadius = collisionRadius(particle);
   let fittingCount = floor(currentRadius / simulation.shatterMinimumFragmentRadius);
   let wantedCount = min(requestedCount, fittingCount);
@@ -1828,7 +1842,14 @@ fn splitMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
   let normal = splitRequest.yz;
   let tangent = vec2<f32>(-normal.y, normal.x);
   let sourcePosition = particle.position.xy;
-  let sourceVelocity = particle.velocity.xy;
+  let fractureEnergy = fragmentCount * toughness;
+  let spreadSpeed = sqrt(6.0 * max(0.0, splitRequest.w - fractureEnergy) / (fragmentCount * fragmentCount - 1.0));
+  let currentSpeedSquared = dot(particle.velocity.xy, particle.velocity.xy);
+  var velocityRetention = 1.0;
+  if (currentSpeedSquared > 0.0) {
+    velocityRetention = sqrt(max(0.0, 1.0 - 2.0 * fractureEnergy / currentSpeedSquared));
+  }
+  let sourceVelocity = particle.velocity.xy * velocityRetention;
   let centerOffset = (fragmentCount - 1.0) * 0.5;
   let fragmentMassRatio = 1.0 / (fragmentCount * fragmentCount);
   let fragmentDiameter = currentRadius / fragmentCount * 2.0;
@@ -1839,7 +1860,7 @@ fn splitMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
   if (parentNetWeight != 0.0) {
     holdFraction = -particle.thrust.y / parentNetWeight;
   }
-  let spreadVelocity = simulation.shatterSpreadSpeed * 2.0;
+  let spreadVelocity = spreadSpeed * 2.0;
   let childThrustY = -holdFraction * fragmentMass * netGravityOf(particle.density);
   let freeBase = freeListBase();
   for (var childIndex = 1u; childIndex <= grantedChildren; childIndex = childIndex + 1u) {

@@ -13,9 +13,4 @@ import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 @Inject
 class ProjectileGenerator(
     physicsSettingsService: PhysicsSettingsService
-) : AbstractProjectileGenerator(ParticleEffect.PROJECTILE, PROJECTILE_GPU_KIND, physicsSettingsService) {
-
-    private companion object {
-        private const val PROJECTILE_GPU_KIND: Float = 2f
-    }
-}
+) : AbstractProjectileGenerator(ParticleEffect.PROJECTILE, physicsSettingsService)

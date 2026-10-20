@@ -10,7 +10,6 @@ import com.github.adamyork.kparticles.platform.service.AssetService
 interface ParticleEffectGenerator {
 
     companion object {
-        const val GPU_FLOATS_PER_PARTICLE: Int = 24
         const val GPU_STATE_FLOATS_PER_PARTICLE: Int = 64
     }
 
@@ -36,10 +35,5 @@ interface ParticleEffectGenerator {
 
     fun gpuSlotGroup(particle: Particle): GpuSlotGroup? = null
 
-    fun shouldWriteGpuParticle(particle: Particle): Boolean = true
-
-    fun writeGpuParticle(particle: Particle, targetBuffer: FloatArray, baseIndex: Int)
-
     fun writeGpuState(particle: Particle, targetBuffer: FloatArray, baseIndex: Int)
-
 }

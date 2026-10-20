@@ -47,7 +47,7 @@ layout(std140, binding = 0) uniform SimulationUniforms {
     float wallRestitution;
     float environmentFriction;
     float drag;
-    float maxParticleSpeed;
+    float dragCoefficient;
     float minActiveVelocity;
     float spriteTicksPerFrame;
     float flowAmplitude;
@@ -71,12 +71,12 @@ layout(std140, binding = 0) uniform SimulationUniforms {
     float shatterMinimumFragmentRadius;
     float shatterMinimumFragmentCount;
     float shatterMaximumFragmentCount;
-    float shatterMomentumPerFragment;
-    float shatterSpreadSpeed;
-    float shatterMaxVelocity;
+    float shatterToughness;
+    float reservedShatterA;
+    float reservedShatterB;
     float contactPositionRelaxationExponent;
     float contactVelocityRelaxationExponent;
-    float reservedC;
+    float substepIndex;
     float reservedD;
 } simulation;
 
@@ -303,16 +303,19 @@ bool isExpired(Particle particle) {
     return particle.age >= particle.lifetime + particle.delay;
 }
 
-vec3 limitSpeed(vec3 velocity, float maximumSpeed) {
-    if (maximumSpeed <= 0.0) {
-        return velocity;
+float frontalLength(Particle particle) {
+    if (isRectangle(particle)) {
+        return (particle.sizeA + particle.sizeB) * 0.5;
     }
-    float speedSquared = velocity.x * velocity.x + velocity.y * velocity.y;
-    if (speedSquared <= maximumSpeed * maximumSpeed) {
-        return velocity;
+    return particle.sizeA * 2.0;
+}
+
+float quadraticDragFactor(Particle particle, float mass, float relativeSpeed) {
+    if (simulation.dragCoefficient <= 0.0) {
+        return 1.0;
     }
-    float speedScale = maximumSpeed / sqrt(speedSquared);
-    return vec3(velocity.x * speedScale, velocity.y * speedScale, velocity.z);
+    float dragPerSpeed = 0.5 * simulation.mediumDensity * simulation.dragCoefficient * frontalLength(particle) / mass;
+    return 1.0 / (1.0 + dragPerSpeed * relativeSpeed * simulation.deltaTime);
 }
 
 float flowVelocityXAt(float positionY) {
@@ -334,7 +337,7 @@ Particle integrateAdhesive(Particle source) {
         return particle;
     }
     particle.velocity.y = max(0.0, particle.velocity.y + netForce / mass * deltaTime);
-    particle.velocity = limitSpeed(particle.velocity, simulation.maxParticleSpeed);
+    particle.velocity.y = particle.velocity.y * quadraticDragFactor(particle, mass, particle.velocity.y);
     float travelDistance = particle.velocity.y * deltaTime;
     particle.position.y = particle.position.y + travelDistance;
     float wettedMass = 0.0;
@@ -357,15 +360,19 @@ Particle integrateFree(Particle source) {
     particle.velocity.x = particle.velocity.x + particle.thrust.x / mass * deltaTime;
     particle.velocity.y = particle.velocity.y + particle.thrust.y / mass * deltaTime;
     particle.velocity.z = particle.velocity.z + particle.thrust.z / mass * deltaTime;
+    float flowVelocityX = flowVelocityXAt(particle.position.y);
     float dragFraction = min(1.0, max(0.0, simulation.drag) * deltaTime);
     if (dragFraction > 0.0) {
-        float flowVelocityX = flowVelocityXAt(particle.position.y);
         particle.velocity.x = particle.velocity.x + (flowVelocityX - particle.velocity.x) * dragFraction;
         particle.velocity.y = particle.velocity.y * (1.0 - dragFraction);
         particle.velocity.z = particle.velocity.z * (1.0 - dragFraction);
     }
-    particle.velocity = limitSpeed(particle.velocity, simulation.maxParticleSpeed);
-    particle.velocity.z = clamp(particle.velocity.z, -simulation.maxParticleSpeed, simulation.maxParticleSpeed);
+    float relativeVelocityX = particle.velocity.x - flowVelocityX;
+    float relativeSpeed = sqrt(relativeVelocityX * relativeVelocityX + particle.velocity.y * particle.velocity.y + particle.velocity.z * particle.velocity.z);
+    float dragFactor = quadraticDragFactor(particle, mass, relativeSpeed);
+    particle.velocity.x = flowVelocityX + relativeVelocityX * dragFactor;
+    particle.velocity.y = particle.velocity.y * dragFactor;
+    particle.velocity.z = particle.velocity.z * dragFactor;
     particle.position = particle.position + particle.velocity * deltaTime;
     return particle;
 }
@@ -420,7 +427,7 @@ void spawnIntegrateMain() {
     }
     float spawnFlag = spawnParticles.data[index * VECTORS_PER_PARTICLE + 3u].w;
     Particle particle;
-    if (spawnFlag > 0.5) {
+    if (spawnFlag > 0.5 && simulation.substepIndex < 0.5) {
         particle = loadSpawnParticle(index);
     } else {
         particle = loadParticle(index);
@@ -786,7 +793,7 @@ struct Gather {
     float absorbedArea;
     vec2 absorbedMomentum;
     float absorbedCount;
-    float splitMomentum;
+    float splitEnergy;
     vec2 splitNormal;
 };
 
@@ -803,7 +810,7 @@ Gather newGather() {
     gather.absorbedArea = 0.0;
     gather.absorbedMomentum = vec2(0.0, 0.0);
     gather.absorbedCount = 0.0;
-    gather.splitMomentum = NO_SPLIT_REQUEST;
+    gather.splitEnergy = NO_SPLIT_REQUEST;
     gather.splitNormal = vec2(1.0, 0.0);
     return gather;
 }
@@ -1098,7 +1105,12 @@ PairOutcome solveCircleCircle(Body firstSource, Body secondSource, Contact conta
     second.position = second.position + normal * contact.depth * (first.mass / totalMass);
     vec2 relativeVelocity = first.velocity - second.velocity;
     float relativeNormalSpeed = dot(normal, relativeVelocity);
-    float impulse = 2.0 * relativeNormalSpeed / totalMass;
+    if (relativeNormalSpeed <= 0.0) {
+        outcome.first = first;
+        outcome.second = second;
+        return outcome;
+    }
+    float impulse = relativeNormalSpeed / totalMass;
     float restitution = min(first.restitution, second.restitution);
     first.velocity = first.velocity - normal * (impulse * second.mass * (1.0 + restitution));
     second.velocity = second.velocity + normal * (impulse * first.mass * (1.0 + restitution));
@@ -1124,7 +1136,7 @@ PairOutcome solveCircleCircle(Body firstSource, Body secondSource, Contact conta
     float effectiveInverseMass = 1.0 / first.mass + 1.0 / second.mass +
         firstSpinArm * firstSpinArm / first.inertia + secondSpinArm * secondSpinArm / second.inertia;
     float reducedMass = first.mass * second.mass / totalMass;
-    float normalImpulseMagnitude = abs(2.0 * reducedMass * relativeNormalSpeed * (1.0 + restitution));
+    float normalImpulseMagnitude = abs(reducedMass * relativeNormalSpeed * (1.0 + restitution));
     float requiredImpulse = slipSpeed / effectiveInverseMass;
     float frictionImpulse = sign(requiredImpulse) * friction * normalImpulseMagnitude;
     if (abs(requiredImpulse) <= staticFriction * normalImpulseMagnitude) {
@@ -1166,7 +1178,7 @@ PairOutcome solveBoxContact(Body firstSource, Body secondSource, Contact contact
     float totalMass = first.mass + second.mass;
     first.position = first.position - normal * contact.depth * (second.mass / totalMass);
     second.position = second.position + normal * contact.depth * (first.mass / totalMass);
-    float restitution = 1.0 + 2.0 * min(first.restitution, second.restitution);
+    float restitution = min(first.restitution, second.restitution);
     float friction = simulation.environmentFriction + sqrt(first.friction * second.friction);
     float staticFriction = max(
         friction,
@@ -1294,6 +1306,10 @@ Gather processPair(
         gather.absorbedArea = gather.absorbedArea + bodyArea(victim);
         gather.absorbedMomentum = gather.absorbedMomentum + victim.velocity * victim.mass;
         gather.absorbedCount = gather.absorbedCount + 1.0;
+        vec4 victimLifecycle = particles.data[otherBase + 3u];
+        particles.data[otherBase + 3u] = vec4(
+            victimLifecycle.z + victimLifecycle.y, victimLifecycle.y, victimLifecycle.z, victimLifecycle.w
+        );
         return gather;
     }
     Body other = loadBody(otherIndex, readSet);
@@ -1340,9 +1356,11 @@ Gather processPair(
         return gather;
     }
     if (sweepIndex == 0u && selfBody.hardness < other.hardness) {
-        float impactMomentum = other.mass * length(other.velocity);
-        if (impactMomentum > gather.splitMomentum) {
-            gather.splitMomentum = impactMomentum;
+        float closingSpeed = dot(contact.normal, first.velocity - second.velocity);
+        float massShare = other.mass / (other.mass + selfBody.mass);
+        float impactEnergy = 0.5 * massShare * closingSpeed * closingSpeed * (other.hardness - selfBody.hardness);
+        if (closingSpeed > 0.0 && impactEnergy > gather.splitEnergy) {
+            gather.splitEnergy = impactEnergy;
             gather.splitNormal = contact.normal;
         }
     }
@@ -1458,7 +1476,7 @@ void solveContacts(uint index, uint readSet, uint writeSet, uint sweepIndex) {
     );
     kinematics.data[writeOffset + 1u] = vec4(orientation.x, angularVelocity, 0.0, 0.0);
     if (sweepIndex == 0u) {
-        particles.data[base + 13u] = vec4(0.0, gather.splitNormal.x, gather.splitNormal.y, gather.splitMomentum);
+        particles.data[base + 13u] = vec4(0.0, gather.splitNormal.x, gather.splitNormal.y, gather.splitEnergy);
     }
 }
 
@@ -1531,6 +1549,9 @@ shared float reductionMass[256];
 shared uint reductionIndex[256];
 shared uint chosenSources[16];
 shared uint chosenCount;
+shared float heaviestSourceMass;
+const float GRAVITY_SOURCE_MINIMUM_MASS_RATIO = 0.03;
+const float GRAVITY_SOURCE_MINIMUM_MASS = 0.015;
 
 void synchronizeWorkgroup() {
     memoryBarrierShared();
@@ -1543,6 +1564,7 @@ void selectGravitySourcesMain() {
     uint wantedCount = min(uint(max(simulation.gravitySourceCount, 0.0)), MAXIMUM_GRAVITY_SOURCES);
     if (localIndex == 0u) {
         chosenCount = 0u;
+        heaviestSourceMass = 0.0;
     }
     synchronizeWorkgroup();
     for (uint selectionRound = 0u; selectionRound < wantedCount; selectionRound = selectionRound + 1u) {
@@ -1550,7 +1572,7 @@ void selectGravitySourcesMain() {
         uint bestIndex = 0xFFFFFFFFu;
         for (uint slot = localIndex; slot < slotCount; slot = slot + 256u) {
             float slotMass = uintBitsToFloat(scratch.data[massListBase() + slot]);
-            if (slotMass < MINIMUM_MASS) {
+            if (slotMass < max(MINIMUM_MASS, GRAVITY_SOURCE_MINIMUM_MASS) || slotMass < heaviestSourceMass * GRAVITY_SOURCE_MINIMUM_MASS_RATIO) {
                 continue;
             }
             bool alreadyChosen = false;
@@ -1584,6 +1606,9 @@ void selectGravitySourcesMain() {
         }
         if (localIndex == 0u) {
             if (reductionIndex[0] != 0xFFFFFFFFu) {
+                if (chosenCount == 0u) {
+                    heaviestSourceMass = reductionMass[0];
+                }
                 chosenSources[chosenCount] = reductionIndex[0];
                 chosenCount = chosenCount + 1u;
             }
@@ -1704,12 +1729,8 @@ void gravityMain() {
             acceleration = acceleration + gravityAccelerationFrom(delta, massOfSlot(otherSlot), softeningSquared);
         }
     }
-    vec3 pulledVelocity = limitSpeed(
-        vec3(velocityVector.x + acceleration.x, velocityVector.y + acceleration.y, velocityVector.z),
-        simulation.maxParticleSpeed
-    );
-    velocityVector.x = pulledVelocity.x;
-    velocityVector.y = pulledVelocity.y;
+    velocityVector.x = velocityVector.x + acceleration.x;
+    velocityVector.y = velocityVector.y + acceleration.y;
     particles.data[base + 1u] = velocityVector;
 }
 
@@ -1742,10 +1763,6 @@ void accretionApplyMain() {
     }
     float ownerPlusOne = particles.data[base + 13u].x;
     if (ownerPlusOne > 0.5) {
-        uint ownerSlot = uint(ownerPlusOne) - 1u;
-        if (particles.data[ownerSlot * VECTORS_PER_PARTICLE + 13u].x < 0.5) {
-            particles.data[base + 3u] = vec4(lifecycle.z + lifecycle.y, lifecycle.y, lifecycle.z, lifecycle.w);
-        }
         return;
     }
     Gather gather = gatherContacts(index, STATE_SET, ACCRETION_ABSORB_MODE, 0u);
@@ -1813,11 +1830,8 @@ void splitMain() {
         return;
     }
     Particle particle = loadParticle(index);
-    float requestedCount = clamp(
-        floor(splitRequest.w / simulation.shatterMomentumPerFragment),
-        simulation.shatterMinimumFragmentCount,
-        simulation.shatterMaximumFragmentCount
-    );
+    float toughness = simulation.shatterToughness * (1.0 + particle.hardness);
+    float requestedCount = min(floor(splitRequest.w / toughness), simulation.shatterMaximumFragmentCount);
     float currentRadius = collisionRadius(particle);
     float fittingCount = floor(currentRadius / simulation.shatterMinimumFragmentRadius);
     float wantedCount = min(requestedCount, fittingCount);
@@ -1838,7 +1852,14 @@ void splitMain() {
     vec2 normal = splitRequest.yz;
     vec2 tangent = vec2(-normal.y, normal.x);
     vec2 sourcePosition = particle.position.xy;
-    vec2 sourceVelocity = particle.velocity.xy;
+    float fractureEnergy = fragmentCount * toughness;
+    float spreadSpeed = sqrt(6.0 * max(0.0, splitRequest.w - fractureEnergy) / (fragmentCount * fragmentCount - 1.0));
+    float currentSpeedSquared = dot(particle.velocity.xy, particle.velocity.xy);
+    float velocityRetention = 1.0;
+    if (currentSpeedSquared > 0.0) {
+        velocityRetention = sqrt(max(0.0, 1.0 - 2.0 * fractureEnergy / currentSpeedSquared));
+    }
+    vec2 sourceVelocity = particle.velocity.xy * velocityRetention;
     float centerOffset = (fragmentCount - 1.0) * 0.5;
     float fragmentMassRatio = 1.0 / (fragmentCount * fragmentCount);
     float fragmentDiameter = currentRadius / fragmentCount * 2.0;
@@ -1849,7 +1870,7 @@ void splitMain() {
     if (parentNetWeight != 0.0) {
         holdFraction = -particle.thrust.y / parentNetWeight;
     }
-    float spreadVelocity = simulation.shatterSpreadSpeed * 2.0;
+    float spreadVelocity = spreadSpeed * 2.0;
     float childThrustY = -holdFraction * fragmentMass * netGravityOf(particle.density);
     uint freeBase = freeListBase();
     for (uint childIndex = 1u; childIndex <= grantedChildren; childIndex = childIndex + 1u) {

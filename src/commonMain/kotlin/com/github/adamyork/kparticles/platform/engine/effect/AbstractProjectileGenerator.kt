@@ -11,10 +11,9 @@ import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
  */
 abstract class AbstractProjectileGenerator(
     effect: ParticleEffect,
-    projectileGpuKind: Float,
     physicsSettingsService: PhysicsSettingsService
 ) : AbstractGuidedLaunchGenerator(
-    effect, projectileGpuKind, PROJECTILE_GPU_SLOT_GROUP, PROJECTILE_MAX_FRAMES, physicsSettingsService
+    effect, PROJECTILE_GPU_SLOT_GROUP, PROJECTILE_MAX_FRAMES, physicsSettingsService
 ) {
 
     private companion object {

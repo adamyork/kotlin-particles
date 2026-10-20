@@ -185,25 +185,28 @@ internal class AndroidGpuParticleRenderer(
         if (!rendererReady) return
         frameCounter++
         uploadSpawnRanges(frame.sourceBuffer, frame.dirtySlotRanges)
-        gpuUniformWriter.writeSimulationUniforms(
-            simulationUniformData,
-            frame.deltaTime,
-            frame.worldTime,
-            frame.spriteTicksPerFrame,
-            maxParticles,
-            frame.viewPort
-        )
-        uploadUniforms(simulationUniformBuffer, simulationUniformData)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, STATE_BUFFER_BINDING, stateBuffer)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, SPAWN_BUFFER_BINDING, spawnBuffer)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, KINEMATICS_BUFFER_BINDING, kinematicsBuffer)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, GRID_BUFFER_BINDING, gridBuffer)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, SCRATCH_BUFFER_BINDING, scratchBuffer)
         GLES31.glBindBufferBase(GLES31.GL_UNIFORM_BUFFER, SIMULATION_UNIFORM_BINDING, simulationUniformBuffer)
-        for (stageIndex in simulationPrograms.indices) {
-            GLES31.glUseProgram(simulationPrograms[stageIndex])
-            GLES31.glDispatchCompute(simulationWorkgroupCounts[stageIndex], 1, 1)
-            GLES31.glMemoryBarrier(GLES31.GL_SHADER_STORAGE_BARRIER_BIT)
+        for (substepIndex in 0 until frame.substepCount) {
+            gpuUniformWriter.writeSimulationUniforms(
+                simulationUniformData,
+                frame.deltaTime,
+                frame.worldTime + substepIndex * frame.deltaTime,
+                frame.spriteTicksPerFrame,
+                maxParticles,
+                frame.viewPort,
+                substepIndex
+            )
+            uploadUniforms(simulationUniformBuffer, simulationUniformData)
+            for (stageIndex in simulationPrograms.indices) {
+                GLES31.glUseProgram(simulationPrograms[stageIndex])
+                GLES31.glDispatchCompute(simulationWorkgroupCounts[stageIndex], 1, 1)
+                GLES31.glMemoryBarrier(GLES31.GL_SHADER_STORAGE_BARRIER_BIT)
+            }
         }
         gpuUniformWriter.writeRenderUniforms(
             renderUniformData,

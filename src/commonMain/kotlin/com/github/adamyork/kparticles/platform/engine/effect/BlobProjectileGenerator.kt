@@ -13,7 +13,7 @@ import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 @Inject
 class BlobProjectileGenerator(
     physicsSettingsService: PhysicsSettingsService
-) : AbstractProjectileGenerator(ParticleEffect.BLOB_PROJECTILE, BLOB_PROJECTILE_GPU_KIND, physicsSettingsService) {
+) : AbstractProjectileGenerator(ParticleEffect.BLOB_PROJECTILE, physicsSettingsService) {
 
     companion object {
         const val PROJECTILE_BLOB_LOBE_COUNT: Int = 7
@@ -22,6 +22,5 @@ class BlobProjectileGenerator(
         const val PROJECTILE_BLOB_FREQUENCY_STEP: Float = 0.015f
         const val PROJECTILE_BLOB_PHASE_STEP: Float = 1.1f
         const val PROJECTILE_BLOB_SPLINE_TENSION: Float = 6f
-        private const val BLOB_PROJECTILE_GPU_KIND: Float = 12f
     }
 }

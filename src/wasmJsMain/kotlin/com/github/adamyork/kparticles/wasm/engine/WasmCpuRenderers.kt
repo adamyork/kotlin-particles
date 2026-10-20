@@ -245,7 +245,20 @@ class WasmCpuRenderers(
             }
             bubbleImages[radiusKey] = createdImage
         }
-        canvas.drawImage(bubbleImage, centerX - bubbleImage.width / 2f, centerY - bubbleImage.height / 2f)
+        canvas.drawImageRect(
+            image = bubbleImage,
+            srcLeft = 0f,
+            srcTop = 0f,
+            srcRight = bubbleImage.width.toFloat(),
+            srcBottom = bubbleImage.height.toFloat(),
+            dstLeft = centerX - bubbleImage.width / 2f,
+            dstTop = centerY - bubbleImage.height / 2f,
+            dstRight = centerX + bubbleImage.width / 2f,
+            dstBottom = centerY + bubbleImage.height / 2f,
+            samplingMode = SamplingMode.LINEAR,
+            paint = spritePaint,
+            strict = true
+        )
     }
 
     private fun createBubbleImage(radius: Float): Image {

@@ -51,6 +51,20 @@ data class Particle(
         fun netGravityOf(density: Double, gravity: Double, mediumDensity: Double): Double =
             gravity * (1.0 - mediumDensity / max(density, MINIMUM_MASS))
 
+        fun densityForTerminalSpeed(
+            terminalSpeed: Double,
+            gravity: Double,
+            mediumDensity: Double,
+            dragCoefficient: Double,
+            dimensions: ParticleDimensions
+        ): Double {
+            val area = dimensions.area()
+            if (gravity <= 0.0 || dragCoefficient <= 0.0 || area <= 0.0) return mediumDensity
+            val frontalLength = (dimensions.boundingWidth() + dimensions.boundingHeight()) / 2.0
+            return mediumDensity *
+                (1.0 + terminalSpeed * terminalSpeed * dragCoefficient * frontalLength / (2.0 * gravity * area))
+        }
+
         fun densityForNetGravity(netGravity: Double, gravity: Double, mediumDensity: Double): Double {
             if (gravity <= 0.0) return mediumDensity
             val gravityFraction = min(netGravity / gravity, MAXIMUM_GRAVITY_FRACTION)
@@ -69,6 +83,8 @@ data class Particle(
     fun mass(): Double = material.density * dimensions.area()
 
     fun inertialMass(): Double = max(mass(), MINIMUM_MASS)
+
+    fun frontalLength(): Double = (dimensions.boundingWidth() + dimensions.boundingHeight()) / 2.0
 
     fun collisionRadius(): Double = dimensions.collisionRadius()
 

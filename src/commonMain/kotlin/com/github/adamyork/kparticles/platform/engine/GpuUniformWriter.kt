@@ -30,7 +30,8 @@ class GpuUniformWriter(
         worldTime: Double,
         spriteTicksPerFrame: Double,
         maximumParticles: Int,
-        viewPort: ViewPort
+        viewPort: ViewPort,
+        substepIndex: Int
     ) {
         val cellSize = max(1.0, physicsSettingsService.spatialGridCellSize)
         var writeIndex = 0
@@ -43,7 +44,7 @@ class GpuUniformWriter(
         targetBuffer[writeIndex++] = physicsSettingsService.wallRestitution.toFloat()
         targetBuffer[writeIndex++] = physicsSettingsService.friction.toFloat()
         targetBuffer[writeIndex++] = physicsSettingsService.drag.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.maxParticleSpeed.toFloat()
+        targetBuffer[writeIndex++] = physicsSettingsService.dragCoefficient.toFloat()
         targetBuffer[writeIndex++] = physicsSettingsService.minActiveVelocity.toFloat()
         targetBuffer[writeIndex++] = spriteTicksPerFrame.toFloat()
         targetBuffer[writeIndex++] = physicsSettingsService.flowAmplitude.toFloat()
@@ -67,12 +68,12 @@ class GpuUniformWriter(
         targetBuffer[writeIndex++] = physicsSettingsService.shatterMinimumFragmentRadius.toFloat()
         targetBuffer[writeIndex++] = physicsSettingsService.shatterMinimumFragmentCount.toFloat()
         targetBuffer[writeIndex++] = physicsSettingsService.shatterMaximumFragmentCount.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.shatterMomentumPerFragment.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.shatterSpreadSpeed.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.shatterMaxVelocity.toFloat()
+        targetBuffer[writeIndex++] = physicsSettingsService.shatterToughness.toFloat()
+        targetBuffer[writeIndex++] = 0f
+        targetBuffer[writeIndex++] = 0f
         targetBuffer[writeIndex++] = CONTACT_POSITION_RELAXATION_EXPONENT
         targetBuffer[writeIndex++] = CONTACT_VELOCITY_RELAXATION_EXPONENT
-        targetBuffer[writeIndex++] = 0f
+        targetBuffer[writeIndex++] = substepIndex.toFloat()
         targetBuffer[writeIndex] = 0f
     }
 

@@ -4,7 +4,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.service.AbstractPlatformAssetService
-import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import com.github.adamyork.kparticles.platform.service.data.ImageAndBytes
 import com.github.adamyork.kparticles.platform.service.data.ImageAsset
 import io.ktor.client.*
@@ -22,9 +21,8 @@ import org.jetbrains.skia.Image
 @AppScope
 @Inject
 class WasmJsAssetService(
-    httpClient: HttpClient,
-    physicsSettingsService: PhysicsSettingsService
-) : AbstractPlatformAssetService(httpClient, physicsSettingsService) {
+    httpClient: HttpClient
+) : AbstractPlatformAssetService(httpClient) {
 
     override suspend fun loadBufferedImageAsync(file: String): ImageBitmap {
         logger.debug { "HTTP GET: $file" }
@@ -42,7 +40,7 @@ class WasmJsAssetService(
         logger.debug { "HTTP GET: particles.wgsl" }
         val response = httpClient.get("particles.wgsl")
         check(response.status.isSuccess()) { "Failed to load particle shader (status=${response.status})" }
-        val source = injectShaderConstants(response.body<ByteArray>().decodeToString())
+        val source = response.body<ByteArray>().decodeToString()
         particleShaderSource = source
         return source
     }

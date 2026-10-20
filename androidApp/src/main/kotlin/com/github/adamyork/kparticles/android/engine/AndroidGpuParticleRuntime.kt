@@ -80,6 +80,7 @@ class AndroidGpuParticleRuntime(
     fun submitFrame(
         sourceBuffer: FloatArray,
         dirtySlotRanges: List<IntRange>,
+        substepCount: Int,
         deltaTime: Double,
         worldTime: Double,
         spriteTicksPerFrame: Double,
@@ -92,6 +93,7 @@ class AndroidGpuParticleRuntime(
             AndroidGpuParticleFrame(
                 sourceBuffer = sourceBuffer,
                 dirtySlotRanges = dirtySlotRanges,
+                substepCount = substepCount,
                 deltaTime = deltaTime,
                 worldTime = worldTime,
                 spriteTicksPerFrame = spriteTicksPerFrame,
