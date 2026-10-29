@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.data.CompletedParticleResult
+import com.github.adamyork.kparticles.platform.engine.data.DiagnosticCounter
 import com.github.adamyork.kparticles.platform.engine.data.Particle
 import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGenerator
 import com.github.adamyork.kparticles.platform.service.CommonRuntimeService
@@ -19,7 +20,8 @@ import kotlin.math.*
 @Inject
 class CommonParticlePhysics(
     private val statusProviderFactory: () -> CommonRuntimeService,
-    val physicsSettingsService: PhysicsSettingsService
+    val physicsSettingsService: PhysicsSettingsService,
+    private val engineDiagnostics: EngineDiagnostics
 ) : ParticlePhysics {
 
     private val gravitySources = ArrayList<Particle>()
@@ -39,6 +41,22 @@ class CommonParticlePhysics(
     private var stepCounter = 0L
 
     private var lastEnvironment = DoubleArray(0)
+
+    private var asleepParticleCount = 0
+
+    private var awakeParticleCount = 0
+
+    private var isSamplingMotion = false
+
+    private var motionSpeedSum = 0.0
+
+    private var motionSpeedMaximum = 0.0
+
+    private var motionParticleCount = 0
+
+    private var oldestActiveAge = 0.0
+
+    private var oldestEffectOrdinal = -1
 
     private val statusProvider: CommonRuntimeService
         get() = statusProviderFactory()
@@ -70,6 +88,14 @@ class CommonParticlePhysics(
             restFrameCounts.clear()
             lastEnvironment = environment
         }
+        asleepParticleCount = 0
+        awakeParticleCount = 0
+        isSamplingMotion = engineDiagnostics.isSamplingFrame()
+        motionSpeedSum = 0.0
+        motionSpeedMaximum = 0.0
+        motionParticleCount = 0
+        oldestActiveAge = 0.0
+        oldestEffectOrdinal = -1
         for (generator in generators) {
             integrateParticles(
                 generator.particles,
@@ -81,6 +107,11 @@ class CommonParticlePhysics(
                 generator.effect.ordinal
             )
         }
+        if (isSamplingMotion) {
+            engineDiagnostics.recordMotion(motionSpeedSum, motionSpeedMaximum, motionParticleCount, oldestActiveAge, oldestEffectOrdinal)
+        }
+        engineDiagnostics.count(DiagnosticCounter.AWAKE_PARTICLES, awakeParticleCount)
+        engineDiagnostics.count(DiagnosticCounter.ASLEEP_PARTICLES, asleepParticleCount)
     }
 
     private fun integrateParticles(
@@ -103,6 +134,7 @@ class CommonParticlePhysics(
                         particle.appearance.color
                     )
                 )
+                engineDiagnostics.recordExpired(effectOrdinal, particle.lifecycle.age - particle.lifecycle.delay)
                 restFrameCounts.remove(restKey)
                 particles.removeAt(particleIndex)
                 continue
@@ -114,8 +146,20 @@ class CommonParticlePhysics(
 
             val activeAge = particle.lifecycle.age - particle.lifecycle.delay
             val progress = (activeAge / particle.lifecycle.lifetime).coerceIn(0.0, 1.0)
+            if (isSamplingMotion) {
+                val currentVelocity = particle.dynamics.velocity
+                val currentSpeed = sqrt(currentVelocity.x * currentVelocity.x + currentVelocity.y * currentVelocity.y)
+                motionSpeedSum += currentSpeed
+                if (currentSpeed > motionSpeedMaximum) motionSpeedMaximum = currentSpeed
+                motionParticleCount++
+                if (activeAge > oldestActiveAge) {
+                    oldestActiveAge = activeAge
+                    oldestEffectOrdinal = effectOrdinal
+                }
+            }
 
 
+            if (isAsleep) asleepParticleCount++ else awakeParticleCount++
             if (!isAsleep) {
                 if (particle.material.adhesion > 0.0) {
                     integrateAdhesiveParticle(particle, gravity, mediumDensity, deltaTime)

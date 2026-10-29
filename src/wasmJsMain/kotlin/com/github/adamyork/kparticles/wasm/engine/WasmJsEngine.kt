@@ -6,6 +6,7 @@ import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.ParticleCollision
 import com.github.adamyork.kparticles.platform.engine.CommonEngine
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.ParticlePhysics
 import com.github.adamyork.kparticles.platform.engine.Renderers
@@ -18,6 +19,8 @@ import com.github.adamyork.kparticles.wasm.engine.data.WasmJsImage
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
+import com.github.adamyork.kparticles.platform.engine.data.DiagnosticCounter
+import com.github.adamyork.kparticles.platform.engine.data.DiagnosticPhase
 
 /**
  * Author: Adam York
@@ -33,6 +36,7 @@ open class WasmJsEngine(
     platformInterop: PlatformInterop,
     collision: ParticleCollision,
     renderers: Renderers<Canvas>,
+    engineDiagnostics: EngineDiagnostics,
 ) : CommonEngine<Canvas>(
     particlePhysics,
     particleFactory,
@@ -40,7 +44,8 @@ open class WasmJsEngine(
     runtimeService,
     platformInterop,
     collision,
-    renderers
+    renderers,
+    engineDiagnostics
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -59,6 +64,7 @@ open class WasmJsEngine(
 
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         logger.info { "Initializing CPU engine" }
+        engineDiagnostics.engineLabel = "Wasm CPU"
         mapItemImage = WasmJsImage(
             Image.makeFromBitmap(collectibleAsset.imageAndBytes.imageBitmap.asSkiaBitmap())
         )
@@ -66,12 +72,18 @@ open class WasmJsEngine(
     }
 
     override fun manageParticles(viewPort: ViewPort) {
-        val substepPlan = runtimeService.getSubstepPlan()
-        repeat(substepPlan.substepCount) {
+        val subframePlan = runtimeService.getSubframePlan()
+        engineDiagnostics.beginEngineWork()
+        engineDiagnostics.count(DiagnosticCounter.SUBFRAMES, subframePlan.subframeCount)
+        repeat(subframePlan.subframeCount) {
+            val physicsMark = engineDiagnostics.startTimer()
             particlePhysics.applyParticlePhysics(
-                particleFactory.generators(), viewPort, completedParticleResults, substepPlan.substepDeltaTime
+                particleFactory.generators(), viewPort, completedParticleResults, subframePlan.subframeDeltaTime
             )
-            collision.applyParticleCollision(particleFactory.generators(), viewPort, substepPlan.substepDeltaTime)
+            engineDiagnostics.stopTimer(DiagnosticPhase.PHYSICS, physicsMark)
+            val collisionMark = engineDiagnostics.startTimer()
+            collision.applyParticleCollision(particleFactory.generators(), viewPort, subframePlan.subframeDeltaTime)
+            engineDiagnostics.stopTimer(DiagnosticPhase.COLLISION_TOTAL, collisionMark)
         }
     }
 
@@ -82,8 +94,16 @@ open class WasmJsEngine(
         val foregroundSurface = getOrCreateForegroundSurface(viewPort)
         val foregroundCanvas = foregroundSurface.canvas
         foregroundCanvas.clear(0x00000000)
+        val drawMark = engineDiagnostics.startTimer()
         drawParticles(viewPort, foregroundCanvas)
+        engineDiagnostics.stopTimer(DiagnosticPhase.DRAW_PARTICLES, drawMark)
+        val snapshotMark = engineDiagnostics.startTimer()
         val foregroundImage = foregroundSurface.makeImageSnapshot()
+        engineDiagnostics.stopTimer(DiagnosticPhase.SNAPSHOT, snapshotMark)
+        for (generator in particleFactory.generators()) {
+            engineDiagnostics.countEffectParticles(generator.effect, generator.particles.size)
+        }
+        engineDiagnostics.endFrame(timestamp)
         runtimeService.lastPaintTime = timestamp
         return DrawResult(
             foregroundImage = WasmJsImage(foregroundImage),

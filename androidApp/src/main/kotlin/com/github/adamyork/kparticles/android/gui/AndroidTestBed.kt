@@ -11,6 +11,7 @@ import com.github.adamyork.kparticles.platform.gui.UiController
 import com.github.adamyork.kparticles.platform.service.AssetService
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import me.tatarka.inject.annotations.Inject
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
 
 /**
  * Author: Adam York
@@ -24,7 +25,8 @@ class AndroidTestBed(
     private val particleFactory: ParticleFactory,
     private val runtimeService: RuntimeService,
     private val screenDimensionsService: ScreenDimensionsService,
-    private val platformInterop: PlatformInterop
+    private val platformInterop: PlatformInterop,
+    private val engineDiagnostics: EngineDiagnostics
 ) : TestBed {
 
     private val controller = UiController(
@@ -39,7 +41,8 @@ class AndroidTestBed(
         controller = controller,
         runtimeService = runtimeService,
         screenDimensionsService = screenDimensionsService,
-        platformInterop = platformInterop
+        platformInterop = platformInterop,
+        engineDiagnostics = engineDiagnostics
     )
 
     @Composable

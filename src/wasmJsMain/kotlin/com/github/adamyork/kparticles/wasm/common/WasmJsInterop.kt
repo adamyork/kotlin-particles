@@ -3,12 +3,10 @@ package com.github.adamyork.kparticles.wasm.common
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.browser.document
 import kotlinx.browser.window
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skiko.wasm.onWasmReady
 import org.khronos.webgl.toInt8Array
-import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
 
 /**
@@ -35,18 +33,16 @@ class WasmJsInterop : PlatformInterop {
         return getVisualViewport().width
     }
 
-    override fun hidePlatformLoader() {
-        document.getElementById("loading-screen")?.let {
-            (it as HTMLElement).style.display = "none"
-        }
-    }
-
     override fun getPlatformNowTime(): Double {
         return window.performance.now()
     }
 
     override fun getBlobFromBytes(bytes: ByteArray): Any {
         return createBlobFromInt8Array(bytes.toInt8Array())
+    }
+
+    override fun copyTextToClipboard(text: String) {
+        writeClipboardText(text)
     }
 
 
@@ -56,18 +52,6 @@ class WasmJsInterop : PlatformInterop {
 
     override fun isGpuEngineSupported(platformData: Any?): Boolean {
         return hasWebGpuSupport()
-    }
-
-    override fun requestKeyboardFocus() {
-        val composeTarget = document.getElementById("ComposeTarget") as? HTMLElement
-        if (composeTarget == null) {
-            logger.warn { "requestKeyboardFocus: ComposeTarget element not found" }
-            return
-        }
-        if (!composeTarget.hasAttribute("tabindex")) {
-            composeTarget.setAttribute("tabindex", "0")
-        }
-        composeTarget.focus()
     }
 
     override fun <T> addEventListener(type: String, callback: (T) -> Unit) {

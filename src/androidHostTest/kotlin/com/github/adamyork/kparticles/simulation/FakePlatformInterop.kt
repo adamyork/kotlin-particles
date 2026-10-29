@@ -16,19 +16,16 @@ class FakePlatformInterop : PlatformInterop {
 
     override fun getWindowWidth(): Double = 1024.0
 
-    override fun hidePlatformLoader() {
-    }
-
     override fun getPlatformNowTime(): Double = 0.0
 
     override fun getBlobFromBytes(bytes: ByteArray): Any = bytes
 
+    override fun copyTextToClipboard(text: String) {
+    }
+
     override fun isTouchDevice(): Boolean = false
 
     override fun isGpuEngineSupported(platformData: Any?): Boolean = false
-
-    override fun requestKeyboardFocus() {
-    }
 
     override fun <T> addEventListener(type: String, callback: (T) -> Unit) {
     }

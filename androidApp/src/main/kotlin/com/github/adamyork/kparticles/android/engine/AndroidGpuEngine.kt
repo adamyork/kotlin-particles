@@ -15,6 +15,8 @@ import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.service.data.ImageAsset
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.tatarka.inject.annotations.Inject
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
+import com.github.adamyork.kparticles.platform.engine.data.DiagnosticCounter
 
 /**
  * Author: Adam York
@@ -29,7 +31,8 @@ class AndroidGpuEngine(
     runtimeService: RuntimeService,
     platformInterop: PlatformInterop,
     particleFactory: ParticleFactory,
-    private val gpuRenderers: AndroidGpuRenderers
+    private val gpuRenderers: AndroidGpuRenderers,
+    engineDiagnostics: EngineDiagnostics
 ) : AndroidEngine(
     particlePhysics,
     collision,
@@ -37,7 +40,8 @@ class AndroidGpuEngine(
     assetService,
     runtimeService,
     platformInterop,
-    gpuRenderers
+    gpuRenderers,
+    engineDiagnostics
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -67,9 +71,10 @@ class AndroidGpuEngine(
     }
 
     override fun manageParticles(viewPort: ViewPort) {
-        val substepPlan = runtimeService.getSubstepPlan()
+        val subframePlan = runtimeService.getSubframePlan()
+        engineDiagnostics.count(DiagnosticCounter.SUBFRAMES, subframePlan.subframeCount)
         val frameStartWorldTime = worldTime
-        worldTime += substepPlan.substepCount * substepPlan.substepDeltaTime
+        worldTime += subframePlan.subframeCount * subframePlan.subframeDeltaTime
         val spawnWriteResult = particleFactory.writeGpuParticleStateSpawnBuffer(
             gpuParticleSpawnBuffer,
             gpuParticleBufferCapacity,
@@ -85,8 +90,8 @@ class AndroidGpuEngine(
                 engineProperties.spriteAnimationFramePerSec.toDouble()).coerceAtLeast(1.0)
         gpuRenderers.pendingGpuFrame = AndroidPendingGpuFrame(
             dirtySlotRanges = spawnWriteResult.dirtySlotRanges,
-            substepCount = substepPlan.substepCount,
-            deltaTime = substepPlan.substepDeltaTime,
+            subframeCount = subframePlan.subframeCount,
+            deltaTime = subframePlan.subframeDeltaTime,
             worldTime = frameStartWorldTime,
             spriteTicksPerFrame = spriteTicksPerFrame
         )

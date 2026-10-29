@@ -21,6 +21,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.tatarka.inject.annotations.Inject
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
 
 /**
  * Author: Adam York
@@ -35,7 +36,8 @@ open class AndroidEngine(
     assetService: AssetService,
     runtimeService: RuntimeService,
     platformInterop: PlatformInterop,
-    renderers: Renderers<Canvas>
+    renderers: Renderers<Canvas>,
+    engineDiagnostics: EngineDiagnostics
 ) : CommonEngine<Canvas>(
     particlePhysics,
     particleFactory,
@@ -43,7 +45,8 @@ open class AndroidEngine(
     runtimeService,
     platformInterop,
     collision,
-    renderers
+    renderers,
+    engineDiagnostics
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -68,6 +71,7 @@ open class AndroidEngine(
 
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         logger.info { "Initializing CPU engine" }
+        engineDiagnostics.engineLabel = "Android CPU"
         withContext(Dispatchers.Default) {
             mapItemImage = AndroidImage(collectibleAsset.imageAndBytes.imageBitmap.asAndroidBitmap())
             spriteSheet = SpriteSheet(mapItemImage, collectibleAsset.width, collectibleAsset.height)
@@ -75,12 +79,18 @@ open class AndroidEngine(
     }
 
     override fun manageParticles(viewPort: ViewPort) {
-        val substepPlan = runtimeService.getSubstepPlan()
-        repeat(substepPlan.substepCount) {
+        val subframePlan = runtimeService.getSubframePlan()
+        engineDiagnostics.beginEngineWork()
+        engineDiagnostics.count(DiagnosticCounter.SUBFRAMES, subframePlan.subframeCount)
+        repeat(subframePlan.subframeCount) {
+            val physicsMark = engineDiagnostics.startTimer()
             particlePhysics.applyParticlePhysics(
-                particleFactory.generators(), viewPort, completedParticleResults, substepPlan.substepDeltaTime
+                particleFactory.generators(), viewPort, completedParticleResults, subframePlan.subframeDeltaTime
             )
-            collision.applyParticleCollision(particleFactory.generators(), viewPort, substepPlan.substepDeltaTime)
+            engineDiagnostics.stopTimer(DiagnosticPhase.PHYSICS, physicsMark)
+            val collisionMark = engineDiagnostics.startTimer()
+            collision.applyParticleCollision(particleFactory.generators(), viewPort, subframePlan.subframeDeltaTime)
+            engineDiagnostics.stopTimer(DiagnosticPhase.COLLISION_TOTAL, collisionMark)
         }
     }
 
@@ -91,7 +101,13 @@ open class AndroidEngine(
         val foregroundBitmap = getOrCreateForegroundSurface(viewPort) as Bitmap
         val foregroundCanvas = Canvas(foregroundBitmap)
         foregroundCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+        val drawMark = engineDiagnostics.startTimer()
         drawParticles(viewPort, foregroundCanvas)
+        engineDiagnostics.stopTimer(DiagnosticPhase.DRAW_PARTICLES, drawMark)
+        for (generator in particleFactory.generators()) {
+            engineDiagnostics.countEffectParticles(generator.effect, generator.particles.size)
+        }
+        engineDiagnostics.endFrame(timestamp)
         runtimeService.lastPaintTime = timestamp
         return DrawResult(
             foregroundImage = AndroidImage(foregroundBitmap),

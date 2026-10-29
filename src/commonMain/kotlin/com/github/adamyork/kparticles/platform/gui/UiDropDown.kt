@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalFocusManager
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
 import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
 
 /**
@@ -25,9 +26,11 @@ class UiDropDown {
         particleModes: List<ParticleEffect>,
         selectedParticleMode: ParticleEffect,
         onParticleModeSelected: (ParticleEffect) -> Unit,
-        controlsShape: RoundedCornerShape
+        controlsShape: RoundedCornerShape,
+        engineDiagnostics: EngineDiagnostics
     ) {
         var isParticleModeMenuExpanded by remember { mutableStateOf(false) }
+        var isMetricsVisible by remember { mutableStateOf(false) }
         val focusManager = LocalFocusManager.current
         val colorScheme = MaterialTheme.colorScheme
         val createButtonColors = ButtonDefaults.buttonColors(
@@ -55,9 +58,19 @@ class UiDropDown {
             onCreateClicked = {
                 controller.createParticles(selectedParticleMode)
                 focusManager.clearFocus(force = true)
-                platformInterop.requestKeyboardFocus()
-            }
+            },
+            onViewMetricsClicked = { isMetricsVisible = true }
         )
+        if (isMetricsVisible) {
+            UiMetricsDialog().Build(
+                engineDiagnostics = engineDiagnostics,
+                platformInterop = platformInterop,
+                onDismiss = {
+                    isMetricsVisible = false
+                    focusManager.clearFocus(force = true)
+                }
+            )
+        }
     }
 
 }

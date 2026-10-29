@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +36,7 @@ import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
  */
 class UiParticleControls {
 
+    @OptIn(ExperimentalLayoutApi::class)
     @Composable
     fun Build(
         particleModes: List<ParticleEffect>,
@@ -46,11 +49,12 @@ class UiParticleControls {
         dropdownMenuTextColor: Color,
         createButtonColors: ButtonColors,
         controlsShape: RoundedCornerShape,
-        onCreateClicked: () -> Unit
+        onCreateClicked: () -> Unit,
+        onViewMetricsClicked: () -> Unit
     ) {
-        Row(
+        FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .semantics { contentDescription = "particle-controls" }
                 .testTag("particle-controls")
@@ -105,6 +109,17 @@ class UiParticleControls {
                     .testTag("createBtn")
             ) {
                 Text("create")
+            }
+
+            OutlinedButton(
+                onClick = onViewMetricsClicked,
+                colors = dropdownButtonColors,
+                modifier = Modifier
+                    .focusProperties { canFocus = false }
+                    .semantics { contentDescription = "viewMetricsBtn" }
+                    .testTag("viewMetricsBtn")
+            ) {
+                Text("view metrics", color = colorScheme.primary, maxLines = 1)
             }
         }
     }

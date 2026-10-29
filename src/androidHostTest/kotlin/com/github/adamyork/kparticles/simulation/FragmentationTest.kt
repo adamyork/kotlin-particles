@@ -2,8 +2,6 @@ package com.github.adamyork.kparticles.simulation
 
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
-import com.github.adamyork.kparticles.platform.engine.CommonContactDetector
-import com.github.adamyork.kparticles.platform.engine.CommonContactSolver
 import com.github.adamyork.kparticles.platform.engine.CommonParticleCollision
 import com.github.adamyork.kparticles.platform.engine.CommonParticlePhysics
 import com.github.adamyork.kparticles.platform.engine.CommonSpatialGrid
@@ -20,6 +18,7 @@ import com.github.adamyork.kparticles.platform.service.CommonRuntimeService
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
 
 /**
  * Author: Adam York
@@ -37,13 +36,14 @@ class FragmentationTest {
 
     private val generator = ManualGenerator()
 
-    private val collision = object : CommonParticleCollision(
-        CommonParticlePhysics({ CommonRuntimeService(FakeAssetService(), settings) }, settings),
-        CommonSpatialGrid(settings),
-        CommonContactDetector(),
-        CommonContactSolver(),
-        settings
-    ) {}
+    private val engineDiagnostics = EngineDiagnostics()
+
+    private val collision = CommonParticleCollision(
+        CommonParticlePhysics({ CommonRuntimeService(FakeAssetService(), settings) }, settings, engineDiagnostics),
+        CommonSpatialGrid(settings, engineDiagnostics),
+        settings,
+        engineDiagnostics
+    )
 
     private val viewPort = ViewPort(0, 768, 0, 768, 1024, 768)
 

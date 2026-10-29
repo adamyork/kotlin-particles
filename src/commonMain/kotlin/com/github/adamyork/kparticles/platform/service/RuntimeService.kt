@@ -1,7 +1,7 @@
 package com.github.adamyork.kparticles.platform.service
 
 import com.github.adamyork.kparticles.platform.common.LifeCycleState
-import com.github.adamyork.kparticles.platform.engine.data.SubstepPlan
+import com.github.adamyork.kparticles.platform.engine.data.SubframePlan
 
 /**
  * Author: Adam York
@@ -16,7 +16,7 @@ interface RuntimeService {
 
     fun getDeltaTimeCoefficient(): Double
 
-    fun getSubstepPlan(): SubstepPlan
+    fun getSubframePlan(): SubframePlan
 
     fun getDeltaTimeSeconds(): Float
 

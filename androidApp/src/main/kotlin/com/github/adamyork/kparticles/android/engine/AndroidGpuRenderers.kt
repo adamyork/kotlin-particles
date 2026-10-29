@@ -3,7 +3,7 @@ package com.github.adamyork.kparticles.android.engine
 import android.graphics.Canvas
 import com.github.adamyork.kparticles.android.engine.data.AndroidPendingGpuFrame
 import com.github.adamyork.kparticles.platform.AppScope
-import com.github.adamyork.kparticles.platform.engine.GpuUniformWriter
+import com.github.adamyork.kparticles.platform.engine.GpuDataPacketWriter
 import com.github.adamyork.kparticles.platform.engine.ParticleDrawFunction
 import com.github.adamyork.kparticles.platform.engine.ParticleFactory
 import com.github.adamyork.kparticles.platform.engine.Renderers
@@ -18,12 +18,12 @@ import me.tatarka.inject.annotations.Inject
 @Inject
 class AndroidGpuRenderers(
     particleFactory: ParticleFactory,
-    gpuUniformWriter: GpuUniformWriter
+    gpuDataPacketWriter: GpuDataPacketWriter
 ) : Renderers<Canvas> {
 
     val gpuParticleBufferCapacity = ParticleFactory.DEFAULT_GPU_PARTICLE_CAPACITY
     val gpuParticleSpawnBuffer = particleFactory.createGpuParticleStateBuffer(gpuParticleBufferCapacity)
-    val gpuParticleRuntime = AndroidGpuParticleRuntime(gpuUniformWriter)
+    val gpuParticleRuntime = AndroidGpuParticleRuntime(gpuDataPacketWriter)
     internal var pendingGpuFrame: AndroidPendingGpuFrame? = null
 
     private val gpuDrawFunction: ParticleDrawFunction<Canvas> = { drawFunctionData ->
@@ -33,7 +33,7 @@ class AndroidGpuRenderers(
             gpuParticleRuntime.submitFrame(
                 sourceBuffer = gpuParticleSpawnBuffer,
                 dirtySlotRanges = frame.dirtySlotRanges,
-                substepCount = frame.substepCount,
+                subframeCount = frame.subframeCount,
                 deltaTime = frame.deltaTime,
                 worldTime = frame.worldTime,
                 spriteTicksPerFrame = frame.spriteTicksPerFrame,

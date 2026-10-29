@@ -2,8 +2,6 @@ package com.github.adamyork.kparticles.simulation
 
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
-import com.github.adamyork.kparticles.platform.engine.CommonContactDetector
-import com.github.adamyork.kparticles.platform.engine.CommonContactSolver
 import com.github.adamyork.kparticles.platform.engine.CommonParticleCollision
 import com.github.adamyork.kparticles.platform.engine.CommonParticlePhysics
 import com.github.adamyork.kparticles.platform.engine.CommonSpatialGrid
@@ -22,6 +20,7 @@ import com.github.adamyork.kparticles.platform.service.CommonRuntimeService
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
 
 /**
  * Author: Adam York
@@ -53,14 +52,14 @@ class ContactPhysicsTest {
         settings.mediumDensity = 0.0
         settings.gravitationalConstant = 0.0
         val runtimeService = CommonRuntimeService(FakeAssetService(), settings)
-        val physics = CommonParticlePhysics({ runtimeService }, settings)
-        val collision = object : CommonParticleCollision(
+        val engineDiagnostics = EngineDiagnostics()
+        val physics = CommonParticlePhysics({ runtimeService }, settings, engineDiagnostics)
+        val collision = CommonParticleCollision(
             physics,
-            CommonSpatialGrid(settings),
-            CommonContactDetector(),
-            CommonContactSolver(),
-            settings
-        ) {}
+            CommonSpatialGrid(settings, engineDiagnostics),
+            settings,
+            engineDiagnostics
+        )
         val generator = ManualGenerator()
         val first = particle(0L, firstDimensions, firstDensity, restitution, 500.0, closingSpeed / 2.0)
         val second = particle(1L, secondDimensions, secondDensity, restitution, 500.0 + separation, -closingSpeed / 2.0)

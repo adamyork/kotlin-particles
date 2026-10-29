@@ -45,8 +45,10 @@ interface PhysicsSettingsService {
     var dustParticleSpeedCoefficient: Double
     var spatialGridCellSize: Double
     var restStepsBeforeSleep: Int
-    var maxSubstepDeltaTime: Double
-    var maxSubstepCount: Int
+    var positionCorrectionFactor: Double
+    var positionCorrectionSlop: Double
+    var maxSubframeDeltaTime: Double
+    var maxSubframeCount: Int
     var maxFrameDeltaTime: Double
     var shatterMinimumFragmentRadius: Double
     var shatterMinimumFragmentCount: Int

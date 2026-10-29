@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.LifeCycleState
-import com.github.adamyork.kparticles.platform.engine.data.SubstepPlan
+import com.github.adamyork.kparticles.platform.engine.data.SubframePlan
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.tatarka.inject.annotations.Inject
 
@@ -69,7 +69,7 @@ class CommonRuntimeService(
         return coefficient.coerceAtLeast(0.0)
     }
 
-    override fun getSubstepPlan(): SubstepPlan {
+    override fun getSubframePlan(): SubframePlan {
         val deltaTime = getDeltaTimeCoefficient().coerceAtMost(physicsSettingsService.maxFrameDeltaTime)
         val isHitch = smoothedDeltaTime > 0.0 && deltaTime > smoothedDeltaTime * HITCH_RATIO
         val blendTarget = if (smoothedDeltaTime > 0.0) minOf(deltaTime, smoothedDeltaTime * HITCH_RATIO) else deltaTime
@@ -78,13 +78,13 @@ class CommonRuntimeService(
         } else {
             blendTarget
         }
-        val substepPlan = SubstepPlan.of(
+        val subframePlan = SubframePlan.of(
             deltaTime,
-            physicsSettingsService.maxSubstepDeltaTime,
-            if (isHitch && !previousPlanWasSubdivided) physicsSettingsService.maxSubstepCount else 1
+            physicsSettingsService.maxSubframeDeltaTime,
+            if (isHitch && !previousPlanWasSubdivided) physicsSettingsService.maxSubframeCount else 1
         )
-        previousPlanWasSubdivided = substepPlan.substepCount > 1
-        return substepPlan
+        previousPlanWasSubdivided = subframePlan.subframeCount > 1
+        return subframePlan
     }
 
     override fun getDeltaTimeSeconds(): Float {

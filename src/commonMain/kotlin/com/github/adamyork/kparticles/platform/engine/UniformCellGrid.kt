@@ -1,5 +1,6 @@
 package com.github.adamyork.kparticles.platform.engine
 
+import com.github.adamyork.kparticles.platform.engine.data.DiagnosticCounter
 import com.github.adamyork.kparticles.platform.engine.data.Particle
 import kotlin.math.max
 
@@ -7,7 +8,9 @@ import kotlin.math.max
  * Author: Adam York
  * Copyright (c) Adam York
  */
-class UniformCellGrid {
+class UniformCellGrid(
+    private val engineDiagnostics: EngineDiagnostics
+) {
 
     private companion object {
         private val FORWARD_COLUMN_OFFSETS = intArrayOf(1, -1, 0, 1)
@@ -23,6 +26,9 @@ class UniformCellGrid {
     private var cellCursors = IntArray(1)
     private var particleCellIndices = IntArray(0)
     private var sortedParticles = arrayOfNulls<Particle>(0)
+    private var sortedPositionX = DoubleArray(0)
+    private var sortedPositionY = DoubleArray(0)
+    private var sortedBoundingRadius = DoubleArray(0)
     private var smallParticleCount = 0
     private val largeParticles = ArrayList<Particle>()
 
@@ -67,16 +73,25 @@ class UniformCellGrid {
         smallParticleCount = cellStarts[cellCount]
         if (sortedParticles.size < smallParticleCount) {
             sortedParticles = arrayOfNulls(smallParticleCount)
+            sortedPositionX = DoubleArray(smallParticleCount)
+            sortedPositionY = DoubleArray(smallParticleCount)
+            sortedBoundingRadius = DoubleArray(smallParticleCount)
         }
         for (particleIndex in particles.indices) {
             val cellIndex = particleCellIndices[particleIndex]
             if (cellIndex >= 0) {
-                sortedParticles[cellCursors[cellIndex]++] = particles[particleIndex]
+                val particle = particles[particleIndex]
+                val slot = cellCursors[cellIndex]++
+                sortedParticles[slot] = particle
+                sortedPositionX[slot] = particle.transform.position.x
+                sortedPositionY[slot] = particle.transform.position.y
+                sortedBoundingRadius[slot] = particle.boundingRadius()
             }
         }
     }
 
     fun forEachNearbyPair(action: (Particle, Particle) -> Unit) {
+        var testedPairCount = 0
         for (row in 0 until rows) {
             for (column in 0 until columns) {
                 val cellIndex = row * columns + column
@@ -84,7 +99,10 @@ class UniformCellGrid {
                 val cellEnd = cellStarts[cellIndex + 1]
                 for (firstIndex in cellStart until cellEnd) {
                     for (secondIndex in firstIndex + 1 until cellEnd) {
-                        action(sortedParticles[firstIndex]!!, sortedParticles[secondIndex]!!)
+                        testedPairCount++
+                        if (smallBoundsOverlap(firstIndex, secondIndex)) {
+                            action(sortedParticles[firstIndex]!!, sortedParticles[secondIndex]!!)
+                        }
                     }
                 }
                 for (offsetIndex in FORWARD_COLUMN_OFFSETS.indices) {
@@ -94,7 +112,10 @@ class UniformCellGrid {
                     val neighborCellIndex = neighborRow * columns + neighborColumn
                     for (firstIndex in cellStart until cellEnd) {
                         for (secondIndex in cellStarts[neighborCellIndex] until cellStarts[neighborCellIndex + 1]) {
-                            action(sortedParticles[firstIndex]!!, sortedParticles[secondIndex]!!)
+                            testedPairCount++
+                            if (smallBoundsOverlap(firstIndex, secondIndex)) {
+                                action(sortedParticles[firstIndex]!!, sortedParticles[secondIndex]!!)
+                            }
                         }
                     }
                 }
@@ -102,20 +123,62 @@ class UniformCellGrid {
         }
         for (largeIndex in largeParticles.indices) {
             val largeParticle = largeParticles[largeIndex]
-            for (smallIndex in 0 until smallParticleCount) {
-                action(largeParticle, sortedParticles[smallIndex]!!)
+            val largePositionX = largeParticle.transform.position.x
+            val largePositionY = largeParticle.transform.position.y
+            val largeRadius = largeParticle.boundingRadius()
+            val reach = largeRadius + cellSize * 0.5
+            val firstColumn = firstCellWithin(largePositionX, reach, originX)
+            val lastColumn = lastCellWithin(largePositionX, reach, originX, columns)
+            val firstRow = firstCellWithin(largePositionY, reach, originY)
+            val lastRow = lastCellWithin(largePositionY, reach, originY, rows)
+            for (row in firstRow..lastRow) {
+                for (column in firstColumn..lastColumn) {
+                    val cellIndex = row * columns + column
+                    for (smallIndex in cellStarts[cellIndex] until cellStarts[cellIndex + 1]) {
+                        testedPairCount++
+                        val deltaX = sortedPositionX[smallIndex] - largePositionX
+                        val deltaY = sortedPositionY[smallIndex] - largePositionY
+                        val combinedRadius = sortedBoundingRadius[smallIndex] + largeRadius
+                        if (deltaX * deltaX + deltaY * deltaY < combinedRadius * combinedRadius) {
+                            action(largeParticle, sortedParticles[smallIndex]!!)
+                        }
+                    }
+                }
             }
             for (otherLargeIndex in largeIndex + 1 until largeParticles.size) {
-                action(largeParticle, largeParticles[otherLargeIndex])
+                testedPairCount++
+                val otherLargeParticle = largeParticles[otherLargeIndex]
+                val deltaX = otherLargeParticle.transform.position.x - largePositionX
+                val deltaY = otherLargeParticle.transform.position.y - largePositionY
+                val combinedRadius = otherLargeParticle.boundingRadius() + largeRadius
+                if (deltaX * deltaX + deltaY * deltaY < combinedRadius * combinedRadius) {
+                    action(largeParticle, otherLargeParticle)
+                }
             }
         }
+        engineDiagnostics.count(DiagnosticCounter.LARGE_PARTICLES, largeParticles.size)
+        engineDiagnostics.count(DiagnosticCounter.SMALL_PARTICLES, smallParticleCount)
+        engineDiagnostics.count(DiagnosticCounter.GRID_TESTED_PAIRS, testedPairCount)
+    }
+
+    private fun firstCellWithin(center: Double, reach: Double, origin: Double): Int =
+        max(0, ((center - reach - origin) / cellSize).toInt())
+
+    private fun lastCellWithin(center: Double, reach: Double, origin: Double, cellCount: Int): Int =
+        minOf(cellCount - 1, ((center + reach - origin) / cellSize).toInt())
+
+    private fun smallBoundsOverlap(firstIndex: Int, secondIndex: Int): Boolean {
+        val deltaX = sortedPositionX[secondIndex] - sortedPositionX[firstIndex]
+        val deltaY = sortedPositionY[secondIndex] - sortedPositionY[firstIndex]
+        val combinedRadius = sortedBoundingRadius[firstIndex] + sortedBoundingRadius[secondIndex]
+        return deltaX * deltaX + deltaY * deltaY < combinedRadius * combinedRadius
     }
 
     fun forEachWithin(centerX: Double, centerY: Double, range: Double, action: (Particle) -> Unit) {
-        val firstColumn = max(0, ((centerX - range - originX) / cellSize).toInt())
-        val lastColumn = minOf(columns - 1, ((centerX + range - originX) / cellSize).toInt())
-        val firstRow = max(0, ((centerY - range - originY) / cellSize).toInt())
-        val lastRow = minOf(rows - 1, ((centerY + range - originY) / cellSize).toInt())
+        val firstColumn = firstCellWithin(centerX, range, originX)
+        val lastColumn = lastCellWithin(centerX, range, originX, columns)
+        val firstRow = firstCellWithin(centerY, range, originY)
+        val lastRow = lastCellWithin(centerY, range, originY, rows)
         val rangeSquared = range * range
         for (largeParticle in largeParticles) {
             val deltaX = largeParticle.transform.position.x - centerX

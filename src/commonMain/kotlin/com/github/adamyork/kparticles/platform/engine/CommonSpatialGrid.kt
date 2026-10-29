@@ -14,10 +14,11 @@ import kotlin.math.max
 @AppScope
 @Inject
 class CommonSpatialGrid(
-    private val physicsSettingsService: PhysicsSettingsService
+    private val physicsSettingsService: PhysicsSettingsService,
+    engineDiagnostics: EngineDiagnostics
 ) : SpatialGrid {
 
-    private val grid = UniformCellGrid()
+    private val grid = UniformCellGrid(engineDiagnostics)
     private val particles = ArrayList<Particle>()
     private var viewPortX = 0.0
     private var viewPortY = 0.0

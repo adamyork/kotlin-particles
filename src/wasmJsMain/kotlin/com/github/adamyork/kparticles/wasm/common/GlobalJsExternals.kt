@@ -51,6 +51,8 @@ fun getVisualViewport(): VisualViewport = js(
     })"""
 )
 
+fun writeClipboardText(text: String): Unit = js("{ if (navigator.clipboard) navigator.clipboard.writeText(text); }")
+
 fun hasWebGpuSupport(): Boolean = js("typeof navigator !== 'undefined' && !!navigator.gpu")
 
 fun getNavigatorGpu(): GPU = js("navigator.gpu")
@@ -80,7 +82,7 @@ fun createStorageBuffer(
     "device.createBuffer({ size: sizeBytes, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC })"
 )
 
-fun createUniformBuffer(
+fun createDataPacketBuffer(
     @Suppress("UNUSED_PARAMETER") device: GPUDevice,
     @Suppress("UNUSED_PARAMETER") sizeBytes: Int
 ): GPUBuffer = js(
@@ -129,12 +131,12 @@ fun createSimulationBindGroup(
     @Suppress("UNUSED_PARAMETER") bindGroupLayout: GPUBindGroupLayout,
     @Suppress("UNUSED_PARAMETER") stateBuffer: GPUBuffer,
     @Suppress("UNUSED_PARAMETER") spawnBuffer: GPUBuffer,
-    @Suppress("UNUSED_PARAMETER") uniformBuffer: GPUBuffer,
+    @Suppress("UNUSED_PARAMETER") dataPacketBuffer: GPUBuffer,
     @Suppress("UNUSED_PARAMETER") kinematicsBuffer: GPUBuffer,
     @Suppress("UNUSED_PARAMETER") gridBuffer: GPUBuffer,
     @Suppress("UNUSED_PARAMETER") scratchBuffer: GPUBuffer
 ): GPUBindGroup = js(
-    "device.createBindGroup({ layout: bindGroupLayout, entries: [{ binding: 0, resource: { buffer: stateBuffer } }, { binding: 1, resource: { buffer: spawnBuffer } }, { binding: 2, resource: { buffer: uniformBuffer } }, { binding: 3, resource: { buffer: kinematicsBuffer } }, { binding: 4, resource: { buffer: gridBuffer } }, { binding: 5, resource: { buffer: scratchBuffer } }] })"
+    "device.createBindGroup({ layout: bindGroupLayout, entries: [{ binding: 0, resource: { buffer: stateBuffer } }, { binding: 1, resource: { buffer: spawnBuffer } }, { binding: 2, resource: { buffer: dataPacketBuffer } }, { binding: 3, resource: { buffer: kinematicsBuffer } }, { binding: 4, resource: { buffer: gridBuffer } }, { binding: 5, resource: { buffer: scratchBuffer } }] })"
 )
 
 fun getShaderCompilationReport(
@@ -173,11 +175,11 @@ fun createRenderBindGroup(
     @Suppress("UNUSED_PARAMETER") device: GPUDevice,
     @Suppress("UNUSED_PARAMETER") pipeline: GPURenderPipeline,
     @Suppress("UNUSED_PARAMETER") stateBuffer: GPUBuffer,
-    @Suppress("UNUSED_PARAMETER") uniformBuffer: GPUBuffer,
+    @Suppress("UNUSED_PARAMETER") dataPacketBuffer: GPUBuffer,
     @Suppress("UNUSED_PARAMETER") sampler: GPUSampler,
     @Suppress("UNUSED_PARAMETER") textureView: GPUTextureView
 ): GPUBindGroup = js(
-    "device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: stateBuffer } }, { binding: 1, resource: { buffer: uniformBuffer } }, { binding: 2, resource: sampler }, { binding: 3, resource: textureView }] })"
+    "device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: stateBuffer } }, { binding: 1, resource: { buffer: dataPacketBuffer } }, { binding: 2, resource: sampler }, { binding: 3, resource: textureView }] })"
 )
 
 fun createLinearSampler(

@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.github.adamyork.kparticles.platform.common.LifeCycleState
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
 import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.service.data.LoadingTaskStatus
@@ -44,6 +45,7 @@ abstract class UiMain(
     val runtimeService: RuntimeService,
     val screenDimensionsService: ScreenDimensionsService,
     val platformInterop: PlatformInterop,
+    val engineDiagnostics: EngineDiagnostics,
 ) {
 
     abstract var uiDrawLayer: UiDrawLayer
@@ -129,7 +131,6 @@ abstract class UiMain(
         LaunchedEffect(gameLifeCycleState) {
             if (gameLifeCycleState == LifeCycleState.RUNNING) {
                 focusManager.clearFocus(force = true)
-                platformInterop.requestKeyboardFocus()
             }
         }
 
@@ -175,7 +176,8 @@ abstract class UiMain(
                             particleModes = particleModes,
                             selectedParticleMode = selectedParticleMode,
                             onParticleModeSelected = { selectedParticleMode = it },
-                            controlsShape = controlsShape
+                            controlsShape = controlsShape,
+                            engineDiagnostics = engineDiagnostics
                         )
                     }
                 }
@@ -248,7 +250,8 @@ abstract class UiMain(
                                 particleModes = particleModes,
                                 selectedParticleMode = selectedParticleMode,
                                 onParticleModeSelected = { selectedParticleMode = it },
-                                controlsShape = controlsShape
+                                controlsShape = controlsShape,
+                                engineDiagnostics = engineDiagnostics
                             )
                         }
                     }

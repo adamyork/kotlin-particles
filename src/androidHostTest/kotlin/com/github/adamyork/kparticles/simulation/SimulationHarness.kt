@@ -1,8 +1,6 @@
 package com.github.adamyork.kparticles.simulation
 
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
-import com.github.adamyork.kparticles.platform.engine.CommonContactDetector
-import com.github.adamyork.kparticles.platform.engine.CommonContactSolver
 import com.github.adamyork.kparticles.platform.engine.CommonParticleCollision
 import com.github.adamyork.kparticles.platform.engine.CommonParticleFactory
 import com.github.adamyork.kparticles.platform.engine.CommonParticlePhysics
@@ -10,7 +8,7 @@ import com.github.adamyork.kparticles.platform.engine.CommonSpatialGrid
 import com.github.adamyork.kparticles.platform.engine.data.CompletedParticleResult
 import com.github.adamyork.kparticles.platform.engine.data.Direction
 import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
-import com.github.adamyork.kparticles.platform.engine.data.SubstepPlan
+import com.github.adamyork.kparticles.platform.engine.data.SubframePlan
 import com.github.adamyork.kparticles.platform.engine.effect.AbstractGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.AnimatedItemReturnGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.BlackHoleGenerator
@@ -32,6 +30,7 @@ import com.github.adamyork.kparticles.platform.service.CommonPhysicsSettingsServ
 import com.github.adamyork.kparticles.platform.service.CommonRuntimeService
 import kotlin.math.sqrt
 import kotlin.random.Random
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
 
 /**
  * Author: Adam York
@@ -47,7 +46,9 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0) {
 
     private val runtimeService = CommonRuntimeService(assetService, physicsSettingsService)
 
-    private val particlePhysics = CommonParticlePhysics({ runtimeService }, physicsSettingsService)
+    private val engineDiagnostics = EngineDiagnostics()
+
+    private val particlePhysics = CommonParticlePhysics({ runtimeService }, physicsSettingsService, engineDiagnostics)
 
     private val generators: List<AbstractGenerator> = listOf(
         DustGenerator(physicsSettingsService),
@@ -70,19 +71,18 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0) {
 
     private val particleFactory = CommonParticleFactory(generators.toSet())
 
-    private val collision = object : CommonParticleCollision(
+    private val collision = CommonParticleCollision(
         particlePhysics,
-        CommonSpatialGrid(physicsSettingsService),
-        CommonContactDetector(),
-        CommonContactSolver(),
-        physicsSettingsService
-    ) {}
+        CommonSpatialGrid(physicsSettingsService, engineDiagnostics),
+        physicsSettingsService,
+        engineDiagnostics
+    )
 
     private val completedParticleResults = ArrayList<CompletedParticleResult>()
 
     private var frameTimeMilliseconds = INITIAL_FRAME_TIME_MILLISECONDS
 
-    private var totalSubsteps = 0
+    private var totalSubframes = 0
 
     private var simulatedTime = 0.0
 
@@ -111,21 +111,21 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0) {
         )
     }
 
-    fun advance(hostDeltaTicks: Double): SubstepPlan {
+    fun advance(hostDeltaTicks: Double): SubframePlan {
         frameTimeMilliseconds += hostDeltaTicks * MILLISECONDS_PER_TICK
         runtimeService.setCurrentFrameTime(frameTimeMilliseconds)
-        val substepPlan = runtimeService.getSubstepPlan()
-        repeat(substepPlan.substepCount) {
+        val subframePlan = runtimeService.getSubframePlan()
+        repeat(subframePlan.subframeCount) {
             particlePhysics.applyParticlePhysics(
-                particleFactory.generators(), viewPort, completedParticleResults, substepPlan.substepDeltaTime
+                particleFactory.generators(), viewPort, completedParticleResults, subframePlan.subframeDeltaTime
             )
-            collision.applyParticleCollision(particleFactory.generators(), viewPort, substepPlan.substepDeltaTime)
+            collision.applyParticleCollision(particleFactory.generators(), viewPort, subframePlan.subframeDeltaTime)
         }
         runtimeService.lastPaintTime = frameTimeMilliseconds
-        totalSubsteps += substepPlan.substepCount
-        simulatedTime += substepPlan.substepCount * substepPlan.substepDeltaTime
+        totalSubframes += subframePlan.subframeCount
+        simulatedTime += subframePlan.subframeCount * subframePlan.subframeDeltaTime
         peakCount = maxOf(peakCount, generators.sumOf { generator -> generator.particles.size })
-        return substepPlan
+        return subframePlan
     }
 
     fun simulatedTime(): Double = simulatedTime
@@ -173,7 +173,7 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0) {
             "speedMax" to speedMax,
             "centerX" to positionXSum / finiteCount,
             "centerY" to positionYSum / finiteCount,
-            "substeps" to totalSubsteps.toDouble(),
+            "substeps" to totalSubframes.toDouble(),
             "simulatedTime" to simulatedTime
         )
     }

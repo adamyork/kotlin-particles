@@ -16,10 +16,12 @@ precision highp int;
 #define STAGE_SOLVE_CONTACTS_A_TO_B 11
 #define STAGE_COUNT_CONTACTS_FROM_B 12
 #define STAGE_SOLVE_CONTACTS_B_TO_A 13
-#define STAGE_CONTACT_END 14
-#define STAGE_FREE_SLOTS 15
-#define STAGE_SPLIT 16
-#define STAGE_WALL 17
+#define STAGE_CORRECT_POSITIONS_A_TO_B 14
+#define STAGE_CORRECT_POSITIONS_B_TO_A 15
+#define STAGE_CONTACT_END 16
+#define STAGE_FREE_SLOTS 17
+#define STAGE_SPLIT 18
+#define STAGE_WALL 19
 
 #if STAGE == STAGE_GRID_SCAN
 layout(local_size_x = 1) in;
@@ -72,11 +74,11 @@ layout(std140, binding = 0) uniform SimulationUniforms {
     float shatterMinimumFragmentCount;
     float shatterMaximumFragmentCount;
     float shatterToughness;
-    float reservedShatterA;
+    float positionCorrectionSlop;
     float reservedShatterB;
-    float contactPositionRelaxationExponent;
+    float positionCorrectionFactor;
     float contactVelocityRelaxationExponent;
-    float substepIndex;
+    float subframeIndex;
     float reservedD;
 } simulation;
 
@@ -427,7 +429,7 @@ void spawnIntegrateMain() {
     }
     float spawnFlag = spawnParticles.data[index * VECTORS_PER_PARTICLE + 3u].w;
     Particle particle;
-    if (spawnFlag > 0.5 && simulation.substepIndex < 0.5) {
+    if (spawnFlag > 0.5 && simulation.subframeIndex < 0.5) {
         particle = loadSpawnParticle(index);
     } else {
         particle = loadParticle(index);
@@ -624,6 +626,7 @@ const uint ACCRETION_ABSORB_MODE = 3u;
 const float SPLIT_IDENTIFIER_BASE = 2000000.0;
 const float NO_SPLIT_REQUEST = -1.0;
 const uint CONTACT_SWEEPS_COUNT_MODE = 0u;
+const uint CONTACT_POSITION_MODE = 4u;
 const uint CONTACT_SWEEPS_SOLVE_MODE = 1u;
 const float CONTAINMENT_TOLERANCE = 0.5;
 const float MANIFOLD_TANGENT_EPSILON = 0.001;
@@ -1337,6 +1340,27 @@ Gather processPair(
         }
         return gather;
     }
+    if (mode == CONTACT_POSITION_MODE) {
+        if (consumesBody(first, second) || consumesBody(second, first)) {
+            return gather;
+        }
+        Contact positionContact = detectContact(first, second);
+        if (!positionContact.isValid) {
+            return gather;
+        }
+        float correction = max(positionContact.depth - simulation.positionCorrectionSlop, 0.0) * simulation.positionCorrectionFactor;
+        if (correction <= 0.0) {
+            return gather;
+        }
+        float pairMass = first.mass + second.mass;
+        if (selfIsFirst) {
+            gather.positionDelta = gather.positionDelta - positionContact.normal * correction * (second.mass / pairMass);
+        } else {
+            gather.positionDelta = gather.positionDelta + positionContact.normal * correction * (first.mass / pairMass);
+        }
+        gather.count = gather.count + 1.0;
+        return gather;
+    }
     Contact contact = detectContact(first, second);
     if (!contact.isValid) {
         return gather;
@@ -1378,15 +1402,12 @@ Gather processPair(
     } else {
         outcome = solveBoxContact(first, second, contact);
     }
-    float positionRelaxation = pow(1.0 / contactLoad, simulation.contactPositionRelaxationExponent);
     float velocityRelaxation = pow(1.0 / contactLoad, simulation.contactVelocityRelaxationExponent);
     if (selfIsFirst) {
-        gather.positionDelta = gather.positionDelta + (outcome.first.position - first.position) * positionRelaxation;
         gather.velocityDelta = gather.velocityDelta + (outcome.first.velocity - first.velocity) * velocityRelaxation;
         gather.angularVelocityDelta = gather.angularVelocityDelta +
             (outcome.first.angularVelocity - first.angularVelocity) * velocityRelaxation;
     } else {
-        gather.positionDelta = gather.positionDelta + (outcome.second.position - second.position) * positionRelaxation;
         gather.velocityDelta = gather.velocityDelta + (outcome.second.velocity - second.velocity) * velocityRelaxation;
         gather.angularVelocityDelta = gather.angularVelocityDelta +
             (outcome.second.angularVelocity - second.angularVelocity) * velocityRelaxation;
@@ -1518,6 +1539,38 @@ void solveContactsAToBMain() {
 void solveContactsBToAMain() {
     if (gl_GlobalInvocationID.x < uint(simulation.maxParticles)) {
         solveContacts(gl_GlobalInvocationID.x, 1u, 0u, 1u);
+    }
+}
+
+void correctPositions(uint index, uint readSet, uint writeSet) {
+    uint base = index * VECTORS_PER_PARTICLE;
+    if (!takesPartInCollisions(particles.data[base + 3u])) {
+        return;
+    }
+    Gather gather = gatherContacts(index, readSet, CONTACT_POSITION_MODE, 0u);
+    uint readOffset = kinematicsBase(readSet, index);
+    uint writeOffset = kinematicsBase(writeSet, index);
+    vec4 motion = kinematics.data[readOffset];
+    vec4 orientation = kinematics.data[readOffset + 1u];
+    float averaging = 1.0 / max(gather.count, 1.0);
+    kinematics.data[writeOffset] = vec4(
+        motion.x + gather.positionDelta.x * averaging,
+        motion.y + gather.positionDelta.y * averaging,
+        motion.z,
+        motion.w
+    );
+    kinematics.data[writeOffset + 1u] = orientation;
+}
+
+void correctPositionsAToBMain() {
+    if (gl_GlobalInvocationID.x < uint(simulation.maxParticles)) {
+        correctPositions(gl_GlobalInvocationID.x, 0u, 1u);
+    }
+}
+
+void correctPositionsBToAMain() {
+    if (gl_GlobalInvocationID.x < uint(simulation.maxParticles)) {
+        correctPositions(gl_GlobalInvocationID.x, 1u, 0u);
     }
 }
 
@@ -1934,6 +1987,10 @@ void main() {
     countContactsFromBMain();
 #elif STAGE == STAGE_SOLVE_CONTACTS_B_TO_A
     solveContactsBToAMain();
+#elif STAGE == STAGE_CORRECT_POSITIONS_A_TO_B
+    correctPositionsAToBMain();
+#elif STAGE == STAGE_CORRECT_POSITIONS_B_TO_A
+    correctPositionsBToAMain();
 #elif STAGE == STAGE_CONTACT_END
     contactEndMain();
 #elif STAGE == STAGE_FREE_SLOTS

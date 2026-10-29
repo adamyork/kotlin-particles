@@ -2,6 +2,7 @@ package com.github.adamyork.kparticles.wasm.engine
 
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
 import com.github.adamyork.kparticles.platform.engine.ParticleDrawFunction
 import com.github.adamyork.kparticles.platform.engine.Renderers
 import com.github.adamyork.kparticles.platform.engine.data.*
@@ -20,7 +21,8 @@ import kotlin.math.*
 @AppScope
 @Inject
 class WasmCpuRenderers(
-    private val physicsSettingsService: PhysicsSettingsService
+    private val physicsSettingsService: PhysicsSettingsService,
+    private val engineDiagnostics: EngineDiagnostics
 ) : Renderers<Canvas> {
 
     private companion object {
@@ -55,7 +57,13 @@ class WasmCpuRenderers(
     private val dripFillPaint = Paint().apply { isAntiAlias = true }
     private val dripGlossStripeFillPaint = Paint().apply { isAntiAlias = true }
     private val dripGlossSpecularPaint = Paint().apply { isAntiAlias = true }
+    private val bubbleBlitPaint = Paint().apply { isAntiAlias = false }
     private val bubbleImages = HashMap<Int, Image>()
+    private val simpleShapeGroups = HashMap<Int, ArrayList<Particle>>(64)
+    private val simpleShapeListPool = ArrayList<ArrayList<Particle>>()
+    private val simpleShapeBuilder = PathBuilder()
+    private val dripBodyBuilder = PathBuilder()
+    private val dripStripeBuilder = PathBuilder()
     private var dripSpecularBuffer = FloatArray(0)
     private var dripSpecularImage: Image? = null
     private var dripSpecularAlpha = -1
@@ -78,14 +86,26 @@ class WasmCpuRenderers(
         val canvas = drawFunctionData.canvas
         val viewPortOffsetX = viewPort.x.toFloat()
         val viewPortOffsetY = viewPort.y.toFloat()
-        val groups = HashMap<Int, MutableList<Particle>>(16)
+        for (retiredList in simpleShapeGroups.values) {
+            retiredList.clear()
+            simpleShapeListPool.add(retiredList)
+        }
+        simpleShapeGroups.clear()
+        val groups = simpleShapeGroups
+        val groupingMark = engineDiagnostics.startTimer()
+        var culledCount = 0
+        var drawnCount = 0
         for (generator in generators) {
             val particles = generator.particles
             var particleIndex = 0
             while (particleIndex < particles.size) {
                 val particle = particles[particleIndex]
                 particleIndex++
-                if (!particle.cullingCheck(viewPort)) continue
+                if (!particle.cullingCheck(viewPort)) {
+                    culledCount++
+                    continue
+                }
+                drawnCount++
                 val alpha = (particle.appearance.alpha.coerceIn(0.0, 1.0) * 255.0).toInt().coerceIn(0, 255)
                 val color = Color.makeARGB(
                     alpha,
@@ -95,17 +115,28 @@ class WasmCpuRenderers(
                 )
                 val bucket = groups[color]
                 if (bucket == null) {
-                    groups[color] = arrayListOf(particle)
+                    val newBucket = if (simpleShapeListPool.isEmpty()) {
+                        ArrayList()
+                    } else {
+                        simpleShapeListPool.removeAt(simpleShapeListPool.lastIndex)
+                    }
+                    newBucket.add(particle)
+                    groups[color] = newBucket
                 } else {
                     bucket.add(particle)
                 }
             }
         }
+        engineDiagnostics.stopTimer(DiagnosticPhase.SIMPLE_GROUPING, groupingMark)
+        engineDiagnostics.count(DiagnosticCounter.SIMPLE_CULLED, culledCount)
+        engineDiagnostics.count(DiagnosticCounter.SIMPLE_DRAWN, drawnCount)
+        engineDiagnostics.count(DiagnosticCounter.SIMPLE_COLOR_GROUPS, groups.size)
+        val fillMark = engineDiagnostics.startTimer()
         val groupIterator = groups.entries.iterator()
         while (groupIterator.hasNext()) {
             val entry = groupIterator.next()
             val particleList = entry.value
-            val builder = PathBuilder()
+            val builder = simpleShapeBuilder
             var groupParticleIndex = 0
             while (groupParticleIndex < particleList.size) {
                 val particle = particleList[groupParticleIndex]
@@ -114,14 +145,13 @@ class WasmCpuRenderers(
                 when (val dimensions = particle.dimensions) {
                     is CircleDimensions -> {
                         val radius = dimensions.radius.toFloat()
-                        val diameter = radius * 2f
-                        builder.addOval(Rect.makeXYWH(x - radius, y - radius, diameter, diameter))
+                        builder.addOval(x - radius, y - radius, x + radius, y + radius)
                     }
                     is RectDimensions -> {
                         val width = dimensions.width.toFloat()
                         val height = dimensions.height.toFloat()
                         if (particle.transform.angle == 0.0) {
-                            builder.addRect(Rect.makeXYWH(x - width / 2f, y - height / 2f, width, height))
+                            builder.addRect(x - width / 2f, y - height / 2f, x + width / 2f, y + height / 2f)
                         } else {
                             val halfWidth = width / 2f
                             val halfHeight = height / 2f
@@ -142,6 +172,7 @@ class WasmCpuRenderers(
             canvas.drawPath(batchPath, particlePaint)
             batchPath.close()
         }
+        engineDiagnostics.stopTimer(DiagnosticPhase.SIMPLE_FILL, fillMark)
     }
 
     private fun drawComplexShapes(drawFunctionData: DrawFunctionData<Canvas>) {
@@ -151,7 +182,9 @@ class WasmCpuRenderers(
         val viewPortOffsetX = viewPort.x.toFloat()
         val viewPortOffsetY = viewPort.y.toFloat()
         for (generator in generators) {
+            val generatorMark = engineDiagnostics.startTimer()
             drawComplexShapeGenerator(generator, viewPort, viewPortOffsetX, viewPortOffsetY, canvas)
+            engineDiagnostics.stopEffectTimer(generator.effect, generatorMark)
         }
     }
 
@@ -256,7 +289,7 @@ class WasmCpuRenderers(
             dstRight = centerX + bubbleImage.width / 2f,
             dstBottom = centerY + bubbleImage.height / 2f,
             samplingMode = SamplingMode.LINEAR,
-            paint = spritePaint,
+            paint = bubbleBlitPaint,
             strict = true
         )
     }
@@ -312,7 +345,7 @@ class WasmCpuRenderers(
         val glossIntensity = physicsSettingsService.dripGlossIntensity.toFloat()
         val stripeColor =
             Color.makeARGB((glossIntensity * DRIP_STRIPE_ALPHA_SCALE * 255f).toInt().coerceIn(0, 255), 255, 255, 255)
-        val stripeBuilder = PathBuilder()
+        val stripeBuilder = dripStripeBuilder
         var stripeCount = 0
         var specularCount = 0
         var particleIndex = 0
@@ -348,7 +381,7 @@ class WasmCpuRenderers(
                     dripFillPaint
                 )
                 canvas.drawCircle(originX, originY, tailRadius, dripFillPaint)
-                val neckBuilder = PathBuilder()
+                val neckBuilder = dripBodyBuilder
                 addCapsule(
                     neckBuilder, neckStartX, neckStartY, headX, headY, perpendicularX,
                     directionX, tailRadius, beadRadius
@@ -357,7 +390,7 @@ class WasmCpuRenderers(
                 canvas.drawPath(neckPath, dripFillPaint)
                 neckPath.close()
             } else {
-                val bodyBuilder = PathBuilder()
+                val bodyBuilder = dripBodyBuilder
                 addCapsule(
                     bodyBuilder, originX, originY, neckStartX, neckStartY, perpendicularX,
                     directionX, tailRadius, tailRadius

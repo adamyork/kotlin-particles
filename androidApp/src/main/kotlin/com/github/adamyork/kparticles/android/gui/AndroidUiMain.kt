@@ -7,6 +7,7 @@ import com.github.adamyork.kparticles.platform.gui.UiController
 import com.github.adamyork.kparticles.platform.gui.UiDrawLayer
 import com.github.adamyork.kparticles.platform.gui.UiMain
 import com.github.adamyork.kparticles.platform.service.RuntimeService
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
 
 /**
  * Author: Adam York
@@ -17,7 +18,8 @@ class AndroidUiMain(
     runtimeService: RuntimeService,
     screenDimensionsService: ScreenDimensionsService,
     platformInterop: PlatformInterop,
-) : UiMain(controller, runtimeService, screenDimensionsService, platformInterop) {
+    engineDiagnostics: EngineDiagnostics,
+) : UiMain(controller, runtimeService, screenDimensionsService, platformInterop, engineDiagnostics) {
     override var uiDrawLayer: UiDrawLayer = AndroidUiDrawLayer(screenDimensionsService)
     override val controlsPlacement: ControlsPlacement = ControlsPlacement.OVERLAY
 }

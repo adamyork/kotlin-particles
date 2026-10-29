@@ -13,17 +13,15 @@ interface PlatformInterop {
 
     fun getWindowWidth(): Double
 
-    fun hidePlatformLoader()
-
     fun getPlatformNowTime(): Double
 
     fun getBlobFromBytes(bytes: ByteArray): Any
 
+    fun copyTextToClipboard(text: String)
+
     fun isTouchDevice(): Boolean
 
     fun isGpuEngineSupported(platformData: Any? = null): Boolean
-
-    fun requestKeyboardFocus()
 
     fun <T> addEventListener(type: String, callback: (T) -> Unit)
 

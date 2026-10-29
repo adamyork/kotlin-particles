@@ -6,7 +6,7 @@ package com.github.adamyork.kparticles.android.engine.data
  */
 internal data class AndroidPendingGpuFrame(
     val dirtySlotRanges: List<IntRange>,
-    val substepCount: Int,
+    val subframeCount: Int,
     val deltaTime: Double,
     val worldTime: Double,
     val spriteTicksPerFrame: Double

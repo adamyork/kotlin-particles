@@ -9,7 +9,7 @@ import com.github.adamyork.kparticles.platform.common.data.ViewPort
 internal class AndroidGpuParticleFrame(
     val sourceBuffer: FloatArray,
     val dirtySlotRanges: List<IntRange>,
-    val substepCount: Int,
+    val subframeCount: Int,
     val deltaTime: Double,
     val worldTime: Double,
     val spriteTicksPerFrame: Double,

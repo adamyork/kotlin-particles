@@ -55,8 +55,10 @@ class CommonPhysicsSettingsService : PhysicsSettingsService {
     override var dustParticleSpeedCoefficient: Double = .25
     override var spatialGridCellSize: Double = 64.0
     override var restStepsBeforeSleep: Int = 30
-    override var maxSubstepDeltaTime: Double = 2.0
-    override var maxSubstepCount: Int = 8
+    override var positionCorrectionFactor: Double = 0.8
+    override var positionCorrectionSlop: Double = 0.1
+    override var maxSubframeDeltaTime: Double = 2.0
+    override var maxSubframeCount: Int = 8
     override var maxFrameDeltaTime: Double = 60.0
     override var shatterMinimumFragmentRadius: Double = 1.0
     override var shatterMinimumFragmentCount: Int = 2

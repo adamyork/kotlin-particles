@@ -23,7 +23,9 @@ data class Particle(
     val animation: ParticleAnimation? = null
 ) {
     companion object {
-        private const val VISIBILITY_BUFFER = 50
+        private const val CULLING_EXTENT_SCALE: Double = 1.25
+        private const val CULLING_MARGIN: Double = 2.0
+        private const val MINIMUM_VISIBLE_ALPHA: Double = 1.0 / 255.0
         const val MINIMUM_MASS: Double = 0.000000001
         const val BOUNDED_Z: Double = 1.0
         const val MAXIMUM_ANGULAR_VELOCITY: Double = 0.5
@@ -73,11 +75,15 @@ data class Particle(
     }
 
     fun cullingCheck(viewPort: ViewPort): Boolean {
-        val localCord = viewPort.globalToLocal(transform.position.x.toInt(), transform.position.y.toInt())
-        return localCord.y < viewPort.height &&
-                localCord.y > -VISIBILITY_BUFFER &&
-                localCord.x > -VISIBILITY_BUFFER &&
-                localCord.x < viewPort.width + VISIBILITY_BUFFER
+        if (!lifecycle.isVisible() || lifecycle.isExpired()) return false
+        if (appearance.alpha < MINIMUM_VISIBLE_ALPHA) return false
+        val extent = boundingRadius() * CULLING_EXTENT_SCALE + CULLING_MARGIN
+        val localX = transform.position.x - viewPort.x
+        val localY = transform.position.y - viewPort.y
+        return localX + extent > 0.0 &&
+                localX - extent < viewPort.width &&
+                localY + extent > 0.0 &&
+                localY - extent < viewPort.height
     }
 
     fun mass(): Double = material.density * dimensions.area()

@@ -1,6 +1,8 @@
 package com.github.adamyork.kparticles.android.common
 
 import android.app.ActivityManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
@@ -29,7 +31,11 @@ class AndroidInterop : PlatformInterop {
     @Volatile
     private var initializedActivityManager: ActivityManager? = null
 
+    @Volatile
+    private var initializedClipboardManager: ClipboardManager? = null
+
     fun initialize(context: Context) {
+        initializedClipboardManager = context.getSystemService(ClipboardManager::class.java)
         initializedActivityManager = resolveActivityManager(context)
     }
 
@@ -45,9 +51,6 @@ class AndroidInterop : PlatformInterop {
         return Resources.getSystem().displayMetrics.widthPixels.toDouble()
     }
 
-    override fun hidePlatformLoader() {
-    }
-
     override fun getPlatformNowTime(): Double {
         return if (lastFrameTimeMs > 0.0) {
             lastFrameTimeMs
@@ -58,6 +61,10 @@ class AndroidInterop : PlatformInterop {
 
     override fun getBlobFromBytes(bytes: ByteArray): Any {
         return bytes
+    }
+
+    override fun copyTextToClipboard(text: String) {
+        initializedClipboardManager?.setPrimaryClip(ClipData.newPlainText("metrics", text))
     }
 
     override fun isTouchDevice(): Boolean {
@@ -72,9 +79,6 @@ class AndroidInterop : PlatformInterop {
         } ?: return false
         val glEsVersion = activityManager.deviceConfigurationInfo?.reqGlEsVersion ?: 0
         return glEsVersion >= 0x00030001
-    }
-
-    override fun requestKeyboardFocus() {
     }
 
     private fun resolveActivityManager(context: Context): ActivityManager? {

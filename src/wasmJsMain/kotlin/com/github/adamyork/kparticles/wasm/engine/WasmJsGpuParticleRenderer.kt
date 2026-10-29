@@ -1,7 +1,7 @@
 package com.github.adamyork.kparticles.wasm.engine
 
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
-import com.github.adamyork.kparticles.platform.engine.GpuUniformWriter
+import com.github.adamyork.kparticles.platform.engine.GpuDataPacketWriter
 import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGenerator
 import com.github.adamyork.kparticles.wasm.common.*
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -20,7 +20,7 @@ import kotlin.math.max
  */
 @OptIn(ExperimentalWasmJsInterop::class)
 class WasmJsGpuParticleRenderer(
-    private val gpuUniformWriter: GpuUniformWriter
+    private val gpuDataPacketWriter: GpuDataPacketWriter
 ) {
 
     companion object {
@@ -49,6 +49,8 @@ class WasmJsGpuParticleRenderer(
             "solveContactsAToBMain",
             "countContactsFromBMain",
             "solveContactsBToAMain",
+            "correctPositionsAToBMain",
+            "correctPositionsBToAMain",
             "contactEndMain",
             "freeSlotsMain",
             "splitMain",
@@ -73,8 +75,8 @@ class WasmJsGpuParticleRenderer(
 
     private var stateBuffer: GPUBuffer? = null
     private var spawnBuffer: GPUBuffer? = null
-    private var simulationUniformBuffer: GPUBuffer? = null
-    private var renderUniformBuffer: GPUBuffer? = null
+    private var simulationDataPacketBuffer: GPUBuffer? = null
+    private var renderDataPacketBuffer: GPUBuffer? = null
     private var mapItemSampler: GPUSampler? = null
     private var mapItemTextureView: GPUTextureView? = null
     private var mapItemSpriteWidth: Int = 1
@@ -91,8 +93,8 @@ class WasmJsGpuParticleRenderer(
     private var renderBindGroupShapes: GPUBindGroup? = null
     private var renderBindGroupDust: GPUBindGroup? = null
 
-    private val simulationUniformData = FloatArray(GpuUniformWriter.SIMULATION_UNIFORM_FLOATS)
-    private val renderUniformData = FloatArray(GpuUniformWriter.RENDER_UNIFORM_FLOATS)
+    private val simulationDataPacket = FloatArray(GpuDataPacketWriter.SIMULATION_PACKET_FLOATS)
+    private val renderDataPacket = FloatArray(GpuDataPacketWriter.RENDER_PACKET_FLOATS)
     private var uploadScratchBuffer: ArrayBuffer? = null
     private var uploadScratchView: DataView? = null
 
@@ -137,11 +139,11 @@ class WasmJsGpuParticleRenderer(
 
         val createdState = createStorageBuffer(gpuDevice, particleBufferSize)
         val createdSpawn = createStorageBuffer(gpuDevice, particleBufferSize)
-        val createdSimulationUniform = createUniformBuffer(gpuDevice, simulationUniformData.size * BYTES_PER_FLOAT)
+        val createdSimulationDataPacketBuffer = createDataPacketBuffer(gpuDevice, simulationDataPacket.size * BYTES_PER_FLOAT)
         val createdKinematics = createStorageBuffer(gpuDevice, maxParticles * KINEMATICS_BYTES_PER_PARTICLE)
         val createdGrid = createStorageBuffer(gpuDevice, GRID_BUFFER_BYTES)
         val createdScratch = createStorageBuffer(gpuDevice, (maxParticles * 4 + SCRATCH_EXTRA_UNSIGNED_INTEGERS) * BYTES_PER_FLOAT)
-        val createdRenderUniform = createUniformBuffer(gpuDevice, renderUniformData.size * BYTES_PER_FLOAT)
+        val createdRenderDataPacketBuffer = createDataPacketBuffer(gpuDevice, renderDataPacket.size * BYTES_PER_FLOAT)
         val createdMapItemSampler = createLinearSampler(gpuDevice)
         val deviceQueue = getGpuQueue(gpuDevice)
         var createdSheetFrameCount = 1
@@ -200,7 +202,7 @@ class WasmJsGpuParticleRenderer(
             simulationLayout,
             createdState,
             createdSpawn,
-            createdSimulationUniform,
+            createdSimulationDataPacketBuffer,
             createdKinematics,
             createdGrid,
             createdScratch
@@ -209,7 +211,7 @@ class WasmJsGpuParticleRenderer(
             gpuDevice,
             createdRenderPipelineShapes,
             createdState,
-            createdRenderUniform,
+            createdRenderDataPacketBuffer,
             createdMapItemSampler,
             createdMapItemTextureView
         )
@@ -217,7 +219,7 @@ class WasmJsGpuParticleRenderer(
             gpuDevice,
             createdRenderPipelineDust,
             createdState,
-            createdRenderUniform,
+            createdRenderDataPacketBuffer,
             createdMapItemSampler,
             createdMapItemTextureView
         )
@@ -231,8 +233,8 @@ class WasmJsGpuParticleRenderer(
         mapItemSheetFrameCount = createdSheetFrameCount
         stateBuffer = createdState
         spawnBuffer = createdSpawn
-        simulationUniformBuffer = createdSimulationUniform
-        renderUniformBuffer = createdRenderUniform
+        simulationDataPacketBuffer = createdSimulationDataPacketBuffer
+        renderDataPacketBuffer = createdRenderDataPacketBuffer
         mapItemSampler = createdMapItemSampler
         mapItemTextureView = createdMapItemTextureView
         simulationPipelines.clear()
@@ -254,7 +256,7 @@ class WasmJsGpuParticleRenderer(
     fun updateGpuParticleBuffer(
         sourceBuffer: FloatArray,
         dirtySlotRanges: List<IntRange>,
-        substepCount: Int,
+        subframeCount: Int,
         deltaTime: Double,
         worldTime: Double,
         spriteTicksPerFrame: Double,
@@ -264,7 +266,7 @@ class WasmJsGpuParticleRenderer(
         val gpuDevice = device ?: return
         val gpuQueue = queue ?: return
         val spawn = spawnBuffer ?: return
-        val simulationUniform = simulationUniformBuffer ?: return
+        val activeSimulationBuffer = simulationDataPacketBuffer ?: return
         val bindGroup = simulationBindGroup ?: return
 
         for (slotRange in dirtySlotRanges) {
@@ -285,17 +287,17 @@ class WasmJsGpuParticleRenderer(
         }
 
         lastSpriteTicksPerFrame = spriteTicksPerFrame
-        for (substepIndex in 0 until substepCount) {
-            gpuUniformWriter.writeSimulationUniforms(
-                simulationUniformData,
+        for (subframeIndex in 0 until subframeCount) {
+            gpuDataPacketWriter.writeSimulationDataPacket(
+                simulationDataPacket,
                 deltaTime,
-                worldTime + substepIndex * deltaTime,
+                worldTime + subframeIndex * deltaTime,
                 spriteTicksPerFrame,
                 maxParticles,
                 viewPort,
-                substepIndex
+                subframeIndex
             )
-            writeFloatArrayBuffer(gpuQueue, simulationUniform, simulationUniformData)
+            writeFloatArrayBuffer(gpuQueue, activeSimulationBuffer, simulationDataPacket)
             val encoder: GPUCommandEncoder = createCommandEncoder(gpuDevice)
             val computePass: GPUComputePassEncoder = beginComputePass(encoder)
             setComputeBindGroup(computePass, bindGroup)
@@ -329,8 +331,8 @@ class WasmJsGpuParticleRenderer(
             }
         }
 
-        gpuUniformWriter.writeRenderUniforms(
-            renderUniformData,
+        gpuDataPacketWriter.writeRenderDataPacket(
+            renderDataPacket,
             viewPort,
             targetCanvas.width,
             targetCanvas.height,
@@ -340,8 +342,8 @@ class WasmJsGpuParticleRenderer(
             mapItemSheetFrameCount,
             lastSpriteTicksPerFrame
         )
-        val renderUniform = renderUniformBuffer ?: return
-        writeFloatArrayBuffer(gpuQueue, renderUniform, renderUniformData)
+        val activeRenderBuffer = renderDataPacketBuffer ?: return
+        writeFloatArrayBuffer(gpuQueue, activeRenderBuffer, renderDataPacket)
 
         val textureView: GPUTextureView = getCurrentTextureView(webGpuContext)
         val shapesBindGroup = renderBindGroupShapes ?: return

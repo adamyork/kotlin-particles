@@ -5,6 +5,7 @@ import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.data.CommonImage
 import com.github.adamyork.kparticles.platform.engine.data.CompletedParticleResult
+import com.github.adamyork.kparticles.platform.engine.data.DiagnosticPhase
 import com.github.adamyork.kparticles.platform.engine.data.DrawFunctionData
 import com.github.adamyork.kparticles.platform.engine.data.DrawResult
 import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
@@ -29,6 +30,7 @@ abstract class CommonEngine<CanvasType> @AppScope @Inject constructor(
     val platformInterop: PlatformInterop,
     val collision: ParticleCollision,
     protected val renderers: Renderers<CanvasType>,
+    protected val engineDiagnostics: EngineDiagnostics,
 ) : Engine {
 
     private val logger = KotlinLogging.logger {}
@@ -61,8 +63,17 @@ abstract class CommonEngine<CanvasType> @AppScope @Inject constructor(
             val renderTypeGenerators = generatorsByRenderType.getValue(renderType)
             if (renderTypeGenerators.none { generator -> generator.particles.isNotEmpty() }) continue
             val drawFunctionData = DrawFunctionData(renderTypeGenerators, viewPort, canvas, spriteSheet)
+            val renderTypeMark = engineDiagnostics.startTimer()
             renderers.getForType(renderType)(drawFunctionData)
+            engineDiagnostics.stopTimer(drawPhaseOf(renderType), renderTypeMark)
         }
+    }
+
+    private fun drawPhaseOf(renderType: RenderType): DiagnosticPhase = when (renderType) {
+        RenderType.SIMPLE_SHAPE -> DiagnosticPhase.DRAW_SIMPLE_SHAPE
+        RenderType.COMPLEX_SHAPE -> DiagnosticPhase.DRAW_COMPLEX_SHAPE
+        RenderType.SPRITE -> DiagnosticPhase.DRAW_SPRITE
+        RenderType.ANIMATED_SPRITE -> DiagnosticPhase.DRAW_ANIMATED_SPRITE
     }
 
     override suspend fun initialize(collectibleAsset: ImageAsset) {

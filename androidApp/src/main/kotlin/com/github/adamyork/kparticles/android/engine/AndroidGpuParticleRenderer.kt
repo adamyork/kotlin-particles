@@ -10,7 +10,7 @@ import android.opengl.GLUtils
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
 import com.github.adamyork.kparticles.android.engine.data.AndroidGpuParticleFrame
-import com.github.adamyork.kparticles.platform.engine.GpuUniformWriter
+import com.github.adamyork.kparticles.platform.engine.GpuDataPacketWriter
 import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGenerator
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.ByteBuffer
@@ -24,7 +24,7 @@ import kotlin.math.ceil
  */
 internal class AndroidGpuParticleRenderer(
     private val maxParticles: Int,
-    private val gpuUniformWriter: GpuUniformWriter,
+    private val gpuDataPacketWriter: GpuDataPacketWriter,
     private val computeShaderSource: String,
     private val vertexShaderSource: String,
     private val fragmentShaderSource: String,
@@ -45,8 +45,8 @@ internal class AndroidGpuParticleRenderer(
         private const val KINEMATICS_BUFFER_BINDING = 2
         private const val GRID_BUFFER_BINDING = 3
         private const val SCRATCH_BUFFER_BINDING = 4
-        private const val SIMULATION_UNIFORM_BINDING = 0
-        private const val RENDER_UNIFORM_BINDING = 1
+        private const val SIMULATION_PACKET_BINDING = 0
+        private const val RENDER_PACKET_BINDING = 1
         private const val MINIMUM_COMPUTE_STORAGE_BLOCKS = 4
         private const val MINIMUM_VERTEX_STORAGE_BLOCKS = 1
         private const val MINIMUM_STORAGE_BUFFER_BINDINGS = 5
@@ -66,6 +66,8 @@ internal class AndroidGpuParticleRenderer(
             "SOLVE_CONTACTS_A_TO_B",
             "COUNT_CONTACTS_FROM_B",
             "SOLVE_CONTACTS_B_TO_A",
+            "CORRECT_POSITIONS_A_TO_B",
+            "CORRECT_POSITIONS_B_TO_A",
             "CONTACT_END",
             "FREE_SLOTS",
             "SPLIT",
@@ -87,17 +89,17 @@ internal class AndroidGpuParticleRenderer(
     private var kinematicsBuffer = 0
     private var gridBuffer = 0
     private var scratchBuffer = 0
-    private var simulationUniformBuffer = 0
-    private var renderUniformBuffer = 0
+    private var simulationDataPacketBuffer = 0
+    private var renderDataPacketBuffer = 0
     private var mapItemTexture = 0
     private var mapItemSheetFrameCount = 1
 
     private var uRenderDustPass = -1
 
-    private val simulationUniformData = FloatArray(GpuUniformWriter.SIMULATION_UNIFORM_FLOATS)
-    private val renderUniformData = FloatArray(GpuUniformWriter.RENDER_UNIFORM_FLOATS)
+    private val simulationDataPacket = FloatArray(GpuDataPacketWriter.SIMULATION_PACKET_FLOATS)
+    private val renderDataPacket = FloatArray(GpuDataPacketWriter.RENDER_PACKET_FLOATS)
     private var uploadFloatBuffer: FloatBuffer? = null
-    private var uniformFloatBuffer: FloatBuffer? = null
+    private var packetFloatBuffer: FloatBuffer? = null
 
     private var frameCounter = 0
     private var rendererReady = false
@@ -143,8 +145,8 @@ internal class AndroidGpuParticleRenderer(
             kinematicsBuffer = buffers[2]
             gridBuffer = buffers[3]
             scratchBuffer = buffers[4]
-            simulationUniformBuffer = buffers[5]
-            renderUniformBuffer = buffers[6]
+            simulationDataPacketBuffer = buffers[5]
+            renderDataPacketBuffer = buffers[6]
             val particleBytes = maxParticles * FLOATS_PER_PARTICLE * BYTES_PER_FLOAT
             val scratchBytes = (maxParticles * 4 + SCRATCH_EXTRA_UNSIGNED_INTEGERS) * BYTES_PER_FLOAT
             initializeZeroedBuffer(GLES31.GL_SHADER_STORAGE_BUFFER, stateBuffer, particleBytes)
@@ -154,17 +156,17 @@ internal class AndroidGpuParticleRenderer(
             initializeZeroedBuffer(GLES31.GL_SHADER_STORAGE_BUFFER, scratchBuffer, scratchBytes)
             initializeZeroedBuffer(
                 GLES31.GL_UNIFORM_BUFFER,
-                simulationUniformBuffer,
-                simulationUniformData.size * BYTES_PER_FLOAT
+                simulationDataPacketBuffer,
+                simulationDataPacket.size * BYTES_PER_FLOAT
             )
             initializeZeroedBuffer(
                 GLES31.GL_UNIFORM_BUFFER,
-                renderUniformBuffer,
-                renderUniformData.size * BYTES_PER_FLOAT
+                renderDataPacketBuffer,
+                renderDataPacket.size * BYTES_PER_FLOAT
             )
             uploadFloatBuffer = createFloatBuffer(maxParticles * FLOATS_PER_PARTICLE)
-            uniformFloatBuffer = createFloatBuffer(
-                maxOf(simulationUniformData.size, renderUniformData.size)
+            packetFloatBuffer = createFloatBuffer(
+                maxOf(simulationDataPacket.size, renderDataPacket.size)
             )
             mapItemTexture = createMapItemTexture()
             GLES31.glUseProgram(renderProgram)
@@ -190,26 +192,26 @@ internal class AndroidGpuParticleRenderer(
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, KINEMATICS_BUFFER_BINDING, kinematicsBuffer)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, GRID_BUFFER_BINDING, gridBuffer)
         GLES31.glBindBufferBase(GLES31.GL_SHADER_STORAGE_BUFFER, SCRATCH_BUFFER_BINDING, scratchBuffer)
-        GLES31.glBindBufferBase(GLES31.GL_UNIFORM_BUFFER, SIMULATION_UNIFORM_BINDING, simulationUniformBuffer)
-        for (substepIndex in 0 until frame.substepCount) {
-            gpuUniformWriter.writeSimulationUniforms(
-                simulationUniformData,
+        GLES31.glBindBufferBase(GLES31.GL_UNIFORM_BUFFER, SIMULATION_PACKET_BINDING, simulationDataPacketBuffer)
+        for (subframeIndex in 0 until frame.subframeCount) {
+            gpuDataPacketWriter.writeSimulationDataPacket(
+                simulationDataPacket,
                 frame.deltaTime,
-                frame.worldTime + substepIndex * frame.deltaTime,
+                frame.worldTime + subframeIndex * frame.deltaTime,
                 frame.spriteTicksPerFrame,
                 maxParticles,
                 frame.viewPort,
-                substepIndex
+                subframeIndex
             )
-            uploadUniforms(simulationUniformBuffer, simulationUniformData)
+            uploadDataPacket(simulationDataPacketBuffer, simulationDataPacket)
             for (stageIndex in simulationPrograms.indices) {
                 GLES31.glUseProgram(simulationPrograms[stageIndex])
                 GLES31.glDispatchCompute(simulationWorkgroupCounts[stageIndex], 1, 1)
                 GLES31.glMemoryBarrier(GLES31.GL_SHADER_STORAGE_BARRIER_BIT)
             }
         }
-        gpuUniformWriter.writeRenderUniforms(
-            renderUniformData,
+        gpuDataPacketWriter.writeRenderDataPacket(
+            renderDataPacket,
             frame.viewPort,
             frame.viewPort.width,
             frame.viewPort.height,
@@ -219,10 +221,10 @@ internal class AndroidGpuParticleRenderer(
             mapItemSheetFrameCount,
             frame.spriteTicksPerFrame
         )
-        uploadUniforms(renderUniformBuffer, renderUniformData)
+        uploadDataPacket(renderDataPacketBuffer, renderDataPacket)
         GLES31.glClear(GLES31.GL_COLOR_BUFFER_BIT)
         GLES31.glUseProgram(renderProgram)
-        GLES31.glBindBufferBase(GLES31.GL_UNIFORM_BUFFER, RENDER_UNIFORM_BINDING, renderUniformBuffer)
+        GLES31.glBindBufferBase(GLES31.GL_UNIFORM_BUFFER, RENDER_PACKET_BINDING, renderDataPacketBuffer)
         GLES31.glActiveTexture(GLES31.GL_TEXTURE0)
         GLES31.glBindTexture(GLES31.GL_TEXTURE_2D, mapItemTexture)
         GLES30.glBindVertexArray(vertexArrayObject)
@@ -273,8 +275,8 @@ internal class AndroidGpuParticleRenderer(
         }
     }
 
-    private fun uploadUniforms(bufferId: Int, data: FloatArray) {
-        val stagingBuffer = uniformFloatBuffer ?: return
+    private fun uploadDataPacket(bufferId: Int, data: FloatArray) {
+        val stagingBuffer = packetFloatBuffer ?: return
         stagingBuffer.clear()
         stagingBuffer.put(data, 0, data.size)
         stagingBuffer.position(0)

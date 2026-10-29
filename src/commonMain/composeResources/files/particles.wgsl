@@ -37,11 +37,11 @@ struct SimulationUniforms {
   shatterMinimumFragmentCount: f32,
   shatterMaximumFragmentCount: f32,
   shatterToughness: f32,
-  reservedShatterA: f32,
+  positionCorrectionSlop: f32,
   reservedShatterB: f32,
-  contactPositionRelaxationExponent: f32,
+  positionCorrectionFactor: f32,
   contactVelocityRelaxationExponent: f32,
-  substepIndex: f32,
+  subframeIndex: f32,
   reservedD: f32,
 };
 
@@ -401,7 +401,7 @@ fn spawnIntegrateMain(@builtin(global_invocation_id) globalInvocationId: vec3<u3
   }
   let spawnFlag = spawnParticles.data[index * VECTORS_PER_PARTICLE + 3u].w;
   var particle: Particle;
-  if (spawnFlag > 0.5 && simulation.substepIndex < 0.5) {
+  if (spawnFlag > 0.5 && simulation.subframeIndex < 0.5) {
     particle = loadSpawnParticle(index);
   } else {
     particle = loadParticle(index);
@@ -607,6 +607,7 @@ fn massListBase() -> u32 {
   return SCRATCH_LARGE_LIST + u32(simulation.maxParticles) * 2u;
 }
 const CONTACT_SWEEPS_COUNT_MODE = 0u;
+const CONTACT_POSITION_MODE = 4u;
 const CONTACT_SWEEPS_SOLVE_MODE = 1u;
 const CONTAINMENT_TOLERANCE = 0.5;
 const MANIFOLD_TANGENT_EPSILON = 0.001;
@@ -1323,6 +1324,27 @@ fn processPair(
     }
     return gather;
   }
+  if (mode == CONTACT_POSITION_MODE) {
+    if (consumesBody(first, second) || consumesBody(second, first)) {
+      return gather;
+    }
+    let positionContact = detectContact(first, second);
+    if (!positionContact.isValid) {
+      return gather;
+    }
+    let correction = max(positionContact.depth - simulation.positionCorrectionSlop, 0.0) * simulation.positionCorrectionFactor;
+    if (correction <= 0.0) {
+      return gather;
+    }
+    let pairMass = first.mass + second.mass;
+    if (selfIsFirst) {
+      gather.positionDelta = gather.positionDelta - positionContact.normal * correction * (second.mass / pairMass);
+    } else {
+      gather.positionDelta = gather.positionDelta + positionContact.normal * correction * (first.mass / pairMass);
+    }
+    gather.count = gather.count + 1.0;
+    return gather;
+  }
   let contact = detectContact(first, second);
   if (!contact.isValid) {
     return gather;
@@ -1364,15 +1386,12 @@ fn processPair(
   } else {
     outcome = solveBoxContact(first, second, contact);
   }
-  let positionRelaxation = pow(1.0 / contactLoad, simulation.contactPositionRelaxationExponent);
   let velocityRelaxation = pow(1.0 / contactLoad, simulation.contactVelocityRelaxationExponent);
   if (selfIsFirst) {
-    gather.positionDelta = gather.positionDelta + (outcome.first.position - first.position) * positionRelaxation;
     gather.velocityDelta = gather.velocityDelta + (outcome.first.velocity - first.velocity) * velocityRelaxation;
     gather.angularVelocityDelta = gather.angularVelocityDelta +
       (outcome.first.angularVelocity - first.angularVelocity) * velocityRelaxation;
   } else {
-    gather.positionDelta = gather.positionDelta + (outcome.second.position - second.position) * positionRelaxation;
     gather.velocityDelta = gather.velocityDelta + (outcome.second.velocity - second.velocity) * velocityRelaxation;
     gather.angularVelocityDelta = gather.angularVelocityDelta +
       (outcome.second.angularVelocity - second.angularVelocity) * velocityRelaxation;
@@ -1509,6 +1528,40 @@ fn solveContactsAToBMain(@builtin(global_invocation_id) globalInvocationId: vec3
 fn solveContactsBToAMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
   if (globalInvocationId.x < u32(simulation.maxParticles)) {
     solveContacts(globalInvocationId.x, 1u, 0u, 1u);
+  }
+}
+
+fn correctPositions(index: u32, readSet: u32, writeSet: u32) {
+  let base = index * VECTORS_PER_PARTICLE;
+  if (!takesPartInCollisions(particles.data[base + 3u])) {
+    return;
+  }
+  let gather = gatherContacts(index, readSet, CONTACT_POSITION_MODE, 0u);
+  let readOffset = kinematicsBase(readSet, index);
+  let writeOffset = kinematicsBase(writeSet, index);
+  let motion = kinematics.data[readOffset];
+  let orientation = kinematics.data[readOffset + 1u];
+  let averaging = 1.0 / max(gather.count, 1.0);
+  kinematics.data[writeOffset] = vec4<f32>(
+    motion.x + gather.positionDelta.x * averaging,
+    motion.y + gather.positionDelta.y * averaging,
+    motion.z,
+    motion.w
+  );
+  kinematics.data[writeOffset + 1u] = orientation;
+}
+
+@compute @workgroup_size(64)
+fn correctPositionsAToBMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
+  if (globalInvocationId.x < u32(simulation.maxParticles)) {
+    correctPositions(globalInvocationId.x, 0u, 1u);
+  }
+}
+
+@compute @workgroup_size(64)
+fn correctPositionsBToAMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
+  if (globalInvocationId.x < u32(simulation.maxParticles)) {
+    correctPositions(globalInvocationId.x, 1u, 0u);
   }
 }
 

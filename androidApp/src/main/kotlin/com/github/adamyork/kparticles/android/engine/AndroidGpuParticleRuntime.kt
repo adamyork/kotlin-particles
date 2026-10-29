@@ -6,7 +6,7 @@ import android.opengl.*
 import android.view.TextureView
 import com.github.adamyork.kparticles.android.engine.data.AndroidGpuParticleFrame
 import com.github.adamyork.kparticles.platform.common.data.ViewPort
-import com.github.adamyork.kparticles.platform.engine.GpuUniformWriter
+import com.github.adamyork.kparticles.platform.engine.GpuDataPacketWriter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +17,7 @@ import java.lang.ref.WeakReference
  * Copyright (c) Adam York
  */
 class AndroidGpuParticleRuntime(
-    private val gpuUniformWriter: GpuUniformWriter
+    private val gpuDataPacketWriter: GpuDataPacketWriter
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -80,7 +80,7 @@ class AndroidGpuParticleRuntime(
     fun submitFrame(
         sourceBuffer: FloatArray,
         dirtySlotRanges: List<IntRange>,
-        substepCount: Int,
+        subframeCount: Int,
         deltaTime: Double,
         worldTime: Double,
         spriteTicksPerFrame: Double,
@@ -93,7 +93,7 @@ class AndroidGpuParticleRuntime(
             AndroidGpuParticleFrame(
                 sourceBuffer = sourceBuffer,
                 dirtySlotRanges = dirtySlotRanges,
-                substepCount = substepCount,
+                subframeCount = subframeCount,
                 deltaTime = deltaTime,
                 worldTime = worldTime,
                 spriteTicksPerFrame = spriteTicksPerFrame,
@@ -104,7 +104,7 @@ class AndroidGpuParticleRuntime(
 
     private fun createRenderer(): AndroidGpuParticleRenderer = AndroidGpuParticleRenderer(
         maxParticles = maxParticles.coerceAtLeast(1),
-        gpuUniformWriter = gpuUniformWriter,
+        gpuDataPacketWriter = gpuDataPacketWriter,
         computeShaderSource = computeShaderSource,
         vertexShaderSource = vertexShaderSource,
         fragmentShaderSource = fragmentShaderSource,

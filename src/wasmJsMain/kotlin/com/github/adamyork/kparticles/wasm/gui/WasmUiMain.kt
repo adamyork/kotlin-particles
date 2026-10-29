@@ -2,6 +2,7 @@ package com.github.adamyork.kparticles.wasm.gui
 
 import androidx.compose.ui.unit.dp
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
 import com.github.adamyork.kparticles.platform.gui.ScreenDimensionsService
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.gui.UiController
@@ -17,8 +18,9 @@ class WasmUiMain(
     runtimeService: RuntimeService,
     screenDimensionsService: ScreenDimensionsService,
     platformInterop: PlatformInterop,
-    particleLayer: WasmJsUiParticleLayer
-) : UiMain(controller, runtimeService, screenDimensionsService, platformInterop) {
+    particleLayer: WasmJsUiParticleLayer,
+    engineDiagnostics: EngineDiagnostics
+) : UiMain(controller, runtimeService, screenDimensionsService, platformInterop, engineDiagnostics) {
     override var uiDrawLayer: UiDrawLayer = WasmJsUiDrawLayer(screenDimensionsService, particleLayer)
     override val centerHudWithinViewport: Boolean = true
     override val hudTopInset = 20.dp

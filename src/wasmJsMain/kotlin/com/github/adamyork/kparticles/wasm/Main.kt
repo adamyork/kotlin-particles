@@ -36,7 +36,7 @@ fun main() {
                 maxHeight = "${component.platformInterop.getWindowHeight().toInt()}px"
             }
         }
-        component.platformInterop.hidePlatformLoader()
+        (document.getElementById("loading-screen") as? HTMLElement)?.style?.display = "none"
         val testBed = component.testBed
         val testbedColorScheme = component.testBedColorScheme
         ComposeViewport(viewportContainerId = "ComposeTarget") {

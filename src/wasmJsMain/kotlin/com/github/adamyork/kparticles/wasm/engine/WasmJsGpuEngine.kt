@@ -20,6 +20,8 @@ import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.Canvas
 import org.w3c.dom.HTMLCanvasElement
 import kotlin.time.Duration.Companion.milliseconds
+import com.github.adamyork.kparticles.platform.engine.EngineDiagnostics
+import com.github.adamyork.kparticles.platform.engine.data.DiagnosticCounter
 
 /**
  * Author: Adam York
@@ -35,7 +37,8 @@ class WasmJsGpuEngine(
     runtimeService: RuntimeService,
     platformInterop: PlatformInterop,
     collision: ParticleCollision,
-    gpuRenderers: WasmGpuRenderers
+    gpuRenderers: WasmGpuRenderers,
+    engineDiagnostics: EngineDiagnostics
 ) : WasmJsEngine(
     particlePhysics,
     particleFactory,
@@ -43,7 +46,8 @@ class WasmJsGpuEngine(
     runtimeService,
     platformInterop,
     collision,
-    gpuRenderers
+    gpuRenderers,
+    engineDiagnostics
 ) {
 
     private companion object {
@@ -63,6 +67,7 @@ class WasmJsGpuEngine(
 
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         logger.info { "Initializing GPU engine" }
+        engineDiagnostics.engineLabel = "Wasm GPU"
         super.initialize(collectibleAsset)
         val overlayCanvas = waitForOverlayCanvasReady()
             ?: throw IllegalStateException("WebGPU particle overlay canvas could not be created")
@@ -86,9 +91,10 @@ class WasmJsGpuEngine(
     }
 
     override fun manageParticles(viewPort: ViewPort) {
-        val substepPlan = runtimeService.getSubstepPlan()
+        val subframePlan = runtimeService.getSubframePlan()
+        engineDiagnostics.count(DiagnosticCounter.SUBFRAMES, subframePlan.subframeCount)
         val frameStartWorldTime = worldTime
-        worldTime += substepPlan.substepCount * substepPlan.substepDeltaTime
+        worldTime += subframePlan.subframeCount * subframePlan.subframeDeltaTime
         val spawnWriteResult = particleFactory.writeGpuParticleStateSpawnBuffer(
             gpuParticleSpawnBuffer,
             gpuParticleBufferCapacity,
@@ -106,8 +112,8 @@ class WasmJsGpuEngine(
         gpuParticleRenderer.updateGpuParticleBuffer(
             sourceBuffer = gpuParticleSpawnBuffer,
             dirtySlotRanges = spawnWriteResult.dirtySlotRanges,
-            substepCount = substepPlan.substepCount,
-            deltaTime = substepPlan.substepDeltaTime,
+            subframeCount = subframePlan.subframeCount,
+            deltaTime = subframePlan.subframeDeltaTime,
             worldTime = frameStartWorldTime,
             spriteTicksPerFrame = spriteTicksPerFrame,
             viewPort = viewPort
