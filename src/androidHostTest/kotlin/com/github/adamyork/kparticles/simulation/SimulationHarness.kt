@@ -25,6 +25,8 @@ import com.github.adamyork.kparticles.platform.engine.effect.ItemReturnGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.ProjectileGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.ShatterGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.SpinnersGenerator
+import com.github.adamyork.kparticles.platform.engine.effect.SpriteExplodeBackdropGenerator
+import com.github.adamyork.kparticles.platform.engine.effect.SpriteExplodeGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.StressTestGenerator
 import com.github.adamyork.kparticles.platform.service.CommonPhysicsSettingsService
 import com.github.adamyork.kparticles.platform.service.CommonRuntimeService
@@ -66,7 +68,9 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0) {
         StressTestGenerator(platformInterop, physicsSettingsService),
         ShatterGenerator(physicsSettingsService),
         DripsGenerator(physicsSettingsService),
-        SpinnersGenerator(physicsSettingsService)
+        SpinnersGenerator(physicsSettingsService),
+        SpriteExplodeGenerator(physicsSettingsService),
+        SpriteExplodeBackdropGenerator()
     )
 
     private val particleFactory = CommonParticleFactory(generators.toSet())

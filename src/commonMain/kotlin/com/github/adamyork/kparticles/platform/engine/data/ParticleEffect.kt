@@ -24,6 +24,8 @@ enum class ParticleEffect(
     STRESS_TEST("Stress Test", RenderType.SIMPLE_SHAPE),
     SHATTER("Shatter", RenderType.SIMPLE_SHAPE),
     DRIPS("Drips", RenderType.COMPLEX_SHAPE, GpuRenderKind.DRIP),
-    SPINNERS("Spinners", RenderType.SIMPLE_SHAPE)
+    SPINNERS("Spinners", RenderType.SIMPLE_SHAPE),
+    SPRITE_EXPLODE("Sprite Explode", RenderType.SIMPLE_SHAPE),
+    SPRITE_EXPLODE_BACKDROP("Sprite Explode Backdrop", RenderType.SPRITE, GpuRenderKind.SPRITE)
 }
 

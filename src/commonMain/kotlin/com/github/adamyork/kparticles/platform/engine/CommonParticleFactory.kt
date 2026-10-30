@@ -4,6 +4,7 @@ import com.github.adamyork.kparticles.platform.common.data.ViewPort
 import com.github.adamyork.kparticles.platform.engine.data.*
 import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGenerator
 import com.github.adamyork.kparticles.platform.service.AssetService
+import com.github.adamyork.kparticles.platform.service.data.ImageAsset
 import me.tatarka.inject.annotations.Inject
 
 /**
@@ -37,6 +38,12 @@ class CommonParticleFactory(
     override fun populateColorMap(assetService: AssetService) {
         for (effectGenerator in effectGeneratorsByEffect.values) {
             effectGenerator.populateColor(assetService)
+        }
+    }
+
+    override fun populateItemImage(itemImage: ImageAsset) {
+        for (effectGenerator in effectGeneratorsByEffect.values) {
+            effectGenerator.populateItemImage(itemImage)
         }
     }
 

@@ -64,6 +64,7 @@ class CommonPhysicsSettingsService : PhysicsSettingsService {
     override var shatterMinimumFragmentCount: Int = 2
     override var shatterMaximumFragmentCount: Int = 16
     override var shatterToughness: Double = 25.0
+    override var spriteExplodePixelStride: Int = 1
     override var dripTrailRadiusRatio: Double = 0.45
     override var dripNeckLengthRatio: Double = 3.0
     override var dripGlossIntensity: Double = 0.6

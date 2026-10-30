@@ -90,6 +90,8 @@ data class Particle(
 
     fun inertialMass(): Double = max(mass(), MINIMUM_MASS)
 
+    fun gravitationalMass(): Double = if (material.exertsGravity) mass() else 0.0
+
     fun frontalLength(): Double = (dimensions.boundingWidth() + dimensions.boundingHeight()) / 2.0
 
     fun collisionRadius(): Double = dimensions.collisionRadius()

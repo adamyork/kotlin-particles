@@ -54,6 +54,7 @@ interface PhysicsSettingsService {
     var shatterMinimumFragmentCount: Int
     var shatterMaximumFragmentCount: Int
     var shatterToughness: Double
+    var spriteExplodePixelStride: Int
     var dripTrailRadiusRatio: Double
     var dripNeckLengthRatio: Double
     var dripGlossIntensity: Double

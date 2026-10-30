@@ -78,6 +78,7 @@ class UiController(
             withContext(Dispatchers.Default) {
                 engine.initialize(collectibleAsset)
                 particleFactory.populateColorMap(assetService)
+                particleFactory.populateItemImage(collectibleAsset)
             }
             withContext(Dispatchers.Main) {
                 stateElements.viewPort = viewPort

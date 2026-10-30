@@ -6,6 +6,7 @@ import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGener
 import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
 import com.github.adamyork.kparticles.platform.engine.data.ParticleWriteResult
 import com.github.adamyork.kparticles.platform.service.AssetService
+import com.github.adamyork.kparticles.platform.service.data.ImageAsset
 
 /**
  * Author: Adam York
@@ -14,10 +15,12 @@ import com.github.adamyork.kparticles.platform.service.AssetService
 interface ParticleFactory {
 
     companion object {
-        const val DEFAULT_GPU_PARTICLE_CAPACITY: Int = 8192
+        const val DEFAULT_GPU_PARTICLE_CAPACITY: Int = 32768
     }
 
     fun populateColorMap(assetService: AssetService)
+
+    fun populateItemImage(itemImage: ImageAsset)
 
     fun generators(): List<ParticleEffectGenerator>
 

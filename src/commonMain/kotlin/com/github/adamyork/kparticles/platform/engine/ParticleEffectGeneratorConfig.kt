@@ -16,6 +16,8 @@ import com.github.adamyork.kparticles.platform.engine.effect.ParticleEffectGener
 import com.github.adamyork.kparticles.platform.engine.effect.ProjectileGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.ShatterGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.SpinnersGenerator
+import com.github.adamyork.kparticles.platform.engine.effect.SpriteExplodeBackdropGenerator
+import com.github.adamyork.kparticles.platform.engine.effect.SpriteExplodeGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.StressTestGenerator
 import me.tatarka.inject.annotations.IntoSet
 import me.tatarka.inject.annotations.Provides
@@ -89,5 +91,13 @@ interface ParticleEffectGeneratorConfig {
     @Provides
     @IntoSet
     fun provideSpinners(impl: SpinnersGenerator): ParticleEffectGenerator = impl
+
+    @Provides
+    @IntoSet
+    fun provideSpriteExplode(impl: SpriteExplodeGenerator): ParticleEffectGenerator = impl
+
+    @Provides
+    @IntoSet
+    fun provideSpriteExplodeBackdrop(impl: SpriteExplodeBackdropGenerator): ParticleEffectGenerator = impl
 
 }

@@ -11,7 +11,8 @@ data class ParticleMaterial(
     val adhesion: Double = 0.0,
     val friction: Double = DEFAULT_FRICTION,
     val staticFriction: Double = DEFAULT_FRICTION,
-    val rollingResistance: Double = DEFAULT_ROLLING_RESISTANCE
+    val rollingResistance: Double = DEFAULT_ROLLING_RESISTANCE,
+    val exertsGravity: Boolean = true
 ) {
 
     companion object {

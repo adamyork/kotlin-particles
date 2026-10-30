@@ -77,6 +77,7 @@ abstract class UiMain(
                 ParticleEffect.SHATTER,
                 ParticleEffect.DRIPS,
                 ParticleEffect.SPINNERS,
+                ParticleEffect.SPRITE_EXPLODE,
                 ParticleEffect.STRESS_TEST
             )
         }

@@ -142,6 +142,7 @@ class CommonParticlePhysics(
 
             particle.lifecycle.age += deltaTime
             if (particle.lifecycle.age < particle.lifecycle.delay) continue
+            if (particle.lifecycle.age < particle.lifecycle.pinnedUntil) continue
             val isAsleep = updateRestCount(particle, restKey)
 
             val activeAge = particle.lifecycle.age - particle.lifecycle.delay
@@ -239,13 +240,13 @@ class CommonParticlePhysics(
         val softeningSquared = physicsSettingsService.gravitationalSoftening * physicsSettingsService.gravitationalSoftening
         val minimumAcceleration = max(physicsSettingsService.gravityMinimumAcceleration, Double.MIN_VALUE)
         val planeThickness = physicsSettingsService.gravityPlaneThickness
-        val lowestSourceMass = if (gravitySources.isEmpty()) 0.0 else gravitySources[gravitySources.size - 1].mass()
+        val lowestSourceMass = if (gravitySources.isEmpty()) 0.0 else gravitySources[gravitySources.size - 1].gravitationalMass()
         for (sourceIndex in gravitySources.indices) {
             val source = gravitySources[sourceIndex]
             if (source.lifecycle.isExpired()) continue
-            val range = sqrt(gravitationalConstant * source.mass() / minimumAcceleration)
+            val range = sqrt(gravitationalConstant * source.gravitationalMass() / minimumAcceleration)
             collision.forEachParticleWithin(source.transform.position.x, source.transform.position.y, range) { other ->
-                if (other !== source && !other.lifecycle.isExpired() && (other.mass() < lowestSourceMass || !isGravitySource(other)) &&
+                if (other !== source && !other.lifecycle.isExpired() && (other.gravitationalMass() < lowestSourceMass || !isGravitySource(other)) &&
                     abs(other.transform.position.z - source.transform.position.z) < planeThickness
                 ) {
                     applyPull(source, other, gravitationalConstant, softeningSquared, deltaTime)
@@ -292,18 +293,18 @@ class CommonParticlePhysics(
         if (sourceCount <= 0) return
         var lowestSourceMass = 0.0
         for (candidate in candidates) {
-            val candidateMass = candidate.mass()
+            val candidateMass = candidate.gravitationalMass()
             if (candidateMass < Particle.MINIMUM_MASS || candidateMass < GRAVITY_SOURCE_MINIMUM_MASS) continue
             if (gravitySources.size == sourceCount && candidateMass <= lowestSourceMass) continue
             var insertIndex = gravitySources.size
-            while (insertIndex > 0 && gravitySources[insertIndex - 1].mass() < candidateMass) insertIndex--
+            while (insertIndex > 0 && gravitySources[insertIndex - 1].gravitationalMass() < candidateMass) insertIndex--
             gravitySources.add(insertIndex, candidate)
             if (gravitySources.size > sourceCount) gravitySources.removeAt(gravitySources.size - 1)
-            lowestSourceMass = gravitySources[gravitySources.size - 1].mass()
+            lowestSourceMass = gravitySources[gravitySources.size - 1].gravitationalMass()
         }
         if (gravitySources.isEmpty()) return
-        val minimumSourceMass = gravitySources[0].mass() * GRAVITY_SOURCE_MINIMUM_MASS_RATIO
-        while (gravitySources.size > 1 && gravitySources[gravitySources.size - 1].mass() < minimumSourceMass) {
+        val minimumSourceMass = gravitySources[0].gravitationalMass() * GRAVITY_SOURCE_MINIMUM_MASS_RATIO
+        while (gravitySources.size > 1 && gravitySources[gravitySources.size - 1].gravitationalMass() < minimumSourceMass) {
             gravitySources.removeAt(gravitySources.size - 1)
         }
     }
@@ -326,10 +327,10 @@ class CommonParticlePhysics(
         val deltaY = pullingParticle.transform.position.y - pulledParticle.transform.position.y
         val softenedDistanceSquared = deltaX * deltaX + deltaY * deltaY + softeningSquared
         val inverseDistanceCubed = 1.0 / (softenedDistanceSquared * sqrt(softenedDistanceSquared))
-        val pulledAcceleration = gravitationalConstant * pullingParticle.mass() * inverseDistanceCubed * deltaTime
+        val pulledAcceleration = gravitationalConstant * pullingParticle.gravitationalMass() * inverseDistanceCubed * deltaTime
         pulledParticle.dynamics.velocity.x += deltaX * pulledAcceleration
         pulledParticle.dynamics.velocity.y += deltaY * pulledAcceleration
-        val pullingAcceleration = gravitationalConstant * pulledParticle.mass() * inverseDistanceCubed * deltaTime
+        val pullingAcceleration = gravitationalConstant * pulledParticle.gravitationalMass() * inverseDistanceCubed * deltaTime
         pullingParticle.dynamics.velocity.x -= deltaX * pullingAcceleration
         pullingParticle.dynamics.velocity.y -= deltaY * pullingAcceleration
     }

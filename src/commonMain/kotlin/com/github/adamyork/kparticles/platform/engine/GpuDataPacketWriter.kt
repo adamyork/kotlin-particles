@@ -23,7 +23,6 @@ class GpuDataPacketWriter(
         const val CONTACT_VELOCITY_RELAXATION_EXPONENT: Float = 0.75f
     }
 
-    @Suppress("DuplicatedCode")
     fun writeSimulationDataPacket(
         targetBuffer: FloatArray,
         deltaTime: Double,
@@ -34,50 +33,50 @@ class GpuDataPacketWriter(
         subframeIndex: Int
     ) {
         val cellSize = max(1.0, physicsSettingsService.spatialGridCellSize)
-        var writeIndex = 0
-        targetBuffer[writeIndex++] = deltaTime.toFloat()
-        targetBuffer[writeIndex++] = worldTime.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.gravity.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.mediumDensity.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.boundaryZ.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.boundaryDepth.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.wallRestitution.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.friction.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.drag.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.dragCoefficient.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.minActiveVelocity.toFloat()
-        targetBuffer[writeIndex++] = spriteTicksPerFrame.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.flowAmplitude.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.flowFrequency.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.flowWavelength.toFloat()
-        targetBuffer[writeIndex++] = maximumParticles.toFloat()
-        targetBuffer[writeIndex++] = viewPort.x.toFloat()
-        targetBuffer[writeIndex++] = viewPort.y.toFloat()
-        targetBuffer[writeIndex++] = viewPort.width.toFloat()
-        targetBuffer[writeIndex++] = viewPort.height.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.collisionPlaneThickness.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.gravityPlaneThickness.toFloat()
-        targetBuffer[writeIndex++] = cellSize.toFloat()
-        targetBuffer[writeIndex++] = max(1, (viewPort.width / cellSize).toInt() + 1).toFloat()
-        targetBuffer[writeIndex++] = max(1, (viewPort.height / cellSize).toInt() + 1).toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.gravitationalConstant.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.gravitationalSoftening.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.gravitySourceCount.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.gravityMinimumAcceleration.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.accretionMassRatio.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.shatterMinimumFragmentRadius.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.shatterMinimumFragmentCount.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.shatterMaximumFragmentCount.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.shatterToughness.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.positionCorrectionSlop.toFloat()
-        targetBuffer[writeIndex++] = 0f
-        targetBuffer[writeIndex++] = physicsSettingsService.positionCorrectionFactor.toFloat()
-        targetBuffer[writeIndex++] = CONTACT_VELOCITY_RELAXATION_EXPONENT
-        targetBuffer[writeIndex++] = subframeIndex.toFloat()
-        targetBuffer[writeIndex] = 0f
+        floatArrayOf(
+            deltaTime.toFloat(),
+            worldTime.toFloat(),
+            physicsSettingsService.gravity.toFloat(),
+            physicsSettingsService.mediumDensity.toFloat(),
+            physicsSettingsService.boundaryZ.toFloat(),
+            physicsSettingsService.boundaryDepth.toFloat(),
+            physicsSettingsService.wallRestitution.toFloat(),
+            physicsSettingsService.friction.toFloat(),
+            physicsSettingsService.drag.toFloat(),
+            physicsSettingsService.dragCoefficient.toFloat(),
+            physicsSettingsService.minActiveVelocity.toFloat(),
+            spriteTicksPerFrame.toFloat(),
+            physicsSettingsService.flowAmplitude.toFloat(),
+            physicsSettingsService.flowFrequency.toFloat(),
+            physicsSettingsService.flowWavelength.toFloat(),
+            maximumParticles.toFloat(),
+            viewPort.x.toFloat(),
+            viewPort.y.toFloat(),
+            viewPort.width.toFloat(),
+            viewPort.height.toFloat(),
+            physicsSettingsService.collisionPlaneThickness.toFloat(),
+            physicsSettingsService.gravityPlaneThickness.toFloat(),
+            cellSize.toFloat(),
+            max(1, (viewPort.width / cellSize).toInt() + 1).toFloat(),
+            max(1, (viewPort.height / cellSize).toInt() + 1).toFloat(),
+            physicsSettingsService.gravitationalConstant.toFloat(),
+            physicsSettingsService.gravitationalSoftening.toFloat(),
+            physicsSettingsService.gravitySourceCount.toFloat(),
+            physicsSettingsService.gravityMinimumAcceleration.toFloat(),
+            physicsSettingsService.accretionMassRatio.toFloat(),
+            physicsSettingsService.shatterMinimumFragmentRadius.toFloat(),
+            physicsSettingsService.shatterMinimumFragmentCount.toFloat(),
+            physicsSettingsService.shatterMaximumFragmentCount.toFloat(),
+            physicsSettingsService.shatterToughness.toFloat(),
+            physicsSettingsService.positionCorrectionSlop.toFloat(),
+            0f,
+            physicsSettingsService.positionCorrectionFactor.toFloat(),
+            CONTACT_VELOCITY_RELAXATION_EXPONENT,
+            subframeIndex.toFloat(),
+            0f
+        ).copyInto(targetBuffer)
     }
 
-    @Suppress("DuplicatedCode")
     fun writeRenderDataPacket(
         targetBuffer: FloatArray,
         viewPort: ViewPort,
@@ -89,30 +88,31 @@ class GpuDataPacketWriter(
         spriteSheetFrameCount: Int,
         spriteTicksPerFrame: Double
     ) {
-        var writeIndex = 0
-        targetBuffer[writeIndex++] = viewPort.x.toFloat()
-        targetBuffer[writeIndex++] = viewPort.y.toFloat()
-        targetBuffer[writeIndex++] = canvasWidth.toFloat()
-        targetBuffer[writeIndex++] = canvasHeight.toFloat()
-        targetBuffer[writeIndex++] = renderScale
-        targetBuffer[writeIndex++] = spriteFrameWidth.toFloat()
-        targetBuffer[writeIndex++] = spriteFrameHeight.toFloat()
-        targetBuffer[writeIndex++] = spriteSheetFrameCount.toFloat()
-        targetBuffer[writeIndex++] = spriteTicksPerFrame.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.dripTrailRadiusRatio.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.dripNeckLengthRatio.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.dripGlossIntensity.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.dripGlossStripeOffsetRatio.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.dripGlossStripeWidthRatio.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.dripGlossSpecularRadiusRatio.toFloat()
-        targetBuffer[writeIndex++] = physicsSettingsService.dripGlossSpecularOffsetRatio.toFloat()
-        targetBuffer[writeIndex++] = BlobProjectileGenerator.PROJECTILE_BLOB_LOBE_COUNT.toFloat()
-        targetBuffer[writeIndex++] = BlobProjectileGenerator.PROJECTILE_BLOB_AMPLITUDE_RATIO
-        targetBuffer[writeIndex++] = BlobProjectileGenerator.PROJECTILE_BLOB_BASE_FREQUENCY
-        targetBuffer[writeIndex++] = BlobProjectileGenerator.PROJECTILE_BLOB_FREQUENCY_STEP
-        targetBuffer[writeIndex++] = BlobProjectileGenerator.PROJECTILE_BLOB_PHASE_STEP
-        targetBuffer[writeIndex++] = 0f
-        targetBuffer[writeIndex++] = 0f
-        targetBuffer[writeIndex] = 0f
+        floatArrayOf(
+            viewPort.x.toFloat(),
+            viewPort.y.toFloat(),
+            canvasWidth.toFloat(),
+            canvasHeight.toFloat(),
+            renderScale,
+            spriteFrameWidth.toFloat(),
+            spriteFrameHeight.toFloat(),
+            spriteSheetFrameCount.toFloat(),
+            spriteTicksPerFrame.toFloat(),
+            physicsSettingsService.dripTrailRadiusRatio.toFloat(),
+            physicsSettingsService.dripNeckLengthRatio.toFloat(),
+            physicsSettingsService.dripGlossIntensity.toFloat(),
+            physicsSettingsService.dripGlossStripeOffsetRatio.toFloat(),
+            physicsSettingsService.dripGlossStripeWidthRatio.toFloat(),
+            physicsSettingsService.dripGlossSpecularRadiusRatio.toFloat(),
+            physicsSettingsService.dripGlossSpecularOffsetRatio.toFloat(),
+            BlobProjectileGenerator.PROJECTILE_BLOB_LOBE_COUNT.toFloat(),
+            BlobProjectileGenerator.PROJECTILE_BLOB_AMPLITUDE_RATIO,
+            BlobProjectileGenerator.PROJECTILE_BLOB_BASE_FREQUENCY,
+            BlobProjectileGenerator.PROJECTILE_BLOB_FREQUENCY_STEP,
+            BlobProjectileGenerator.PROJECTILE_BLOB_PHASE_STEP,
+            0f,
+            0f,
+            0f
+        ).copyInto(targetBuffer)
     }
 }

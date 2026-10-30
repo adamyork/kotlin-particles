@@ -2,6 +2,7 @@ package com.github.adamyork.kparticles.platform.engine.effect
 
 import com.github.adamyork.kparticles.platform.engine.data.*
 import com.github.adamyork.kparticles.platform.service.AssetService
+import com.github.adamyork.kparticles.platform.service.data.ImageAsset
 
 /**
  * Author: Adam York
@@ -24,6 +25,8 @@ interface ParticleEffectGenerator {
         get() = emptyList()
 
     fun populateColor(assetService: AssetService) {}
+
+    fun populateItemImage(itemImage: ImageAsset) {}
 
     fun create(request: ParticleEffectRequest): MutableList<Particle>
 

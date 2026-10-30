@@ -15,6 +15,11 @@ abstract class AbstractGenerator(
 
     override val particles: ArrayList<Particle> = ArrayList()
 
+    private companion object {
+        private const val GPU_PINNED_UNTIL_OFFSET: Int = 60
+        private const val GPU_NON_GRAVITATING_OFFSET: Int = 61
+    }
+
     var random: Random = Random.Default
 
     private var nextParticleIdValue: Long = 0L
@@ -99,6 +104,8 @@ abstract class AbstractGenerator(
         targetBuffer[writeIndex++] = particle.transform.origin.y.toFloat()
         targetBuffer[writeIndex++] = (particle.animation?.frame ?: 0).toFloat()
         targetBuffer[writeIndex] = (particle.animation?.maxFrames ?: 0).toFloat()
+        targetBuffer[baseIndex + GPU_PINNED_UNTIL_OFFSET] = particle.lifecycle.pinnedUntil.toFloat()
+        targetBuffer[baseIndex + GPU_NON_GRAVITATING_OFFSET] = if (particle.material.exertsGravity) 0f else 1f
     }
 
     protected open fun gpuSplitFragmentsUseWallPlane(): Boolean = false

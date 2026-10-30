@@ -401,6 +401,9 @@ Particle integrateParticle(Particle source) {
     if (particle.age < particle.delay) {
         return particle;
     }
+    if (particle.age < particle.reservedB.x) {
+        return particle;
+    }
     float activeAge = particle.age - particle.delay;
     float progress = clamp(activeAge / particle.lifetime, 0.0, 1.0);
     if (particle.adhesion > 0.0) {
@@ -704,6 +707,9 @@ void gridCountMain() {
             shapeArea = dimensions.y * dimensions.z;
         }
         massValue = particles.data[base + 2u].w * shapeArea;
+        if (particles.data[base + 15u].y > 0.5) {
+            massValue = 0.0;
+        }
         cellIndex = gridCellIndexFor(positionVector.xy);
         if (cellIndex >= 0) {
             float boundingRadius = dimensions.y;

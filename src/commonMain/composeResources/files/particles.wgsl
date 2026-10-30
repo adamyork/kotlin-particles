@@ -372,6 +372,9 @@ fn integrateParticle(source: Particle) -> Particle {
   if (particle.age < particle.delay) {
     return particle;
   }
+  if (particle.age < particle.reservedB.x) {
+    return particle;
+  }
   let activeAge = particle.age - particle.delay;
   let progress = clamp(activeAge / particle.lifetime, 0.0, 1.0);
   if (particle.adhesion > 0.0) {
@@ -686,6 +689,9 @@ fn gridCountMain(@builtin(global_invocation_id) globalInvocationId: vec3<u32>) {
       shapeArea = dimensions.y * dimensions.z;
     }
     massValue = particles.data[base + 2u].w * shapeArea;
+    if (particles.data[base + 15u].y > 0.5) {
+      massValue = 0.0;
+    }
     cellIndex = gridCellIndexFor(positionVector.xy);
     if (cellIndex >= 0) {
       var boundingRadius = dimensions.y;
