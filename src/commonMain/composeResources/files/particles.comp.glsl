@@ -79,7 +79,7 @@ layout(std140, binding = 0) uniform SimulationUniforms {
     float positionCorrectionFactor;
     float contactVelocityRelaxationExponent;
     float subframeIndex;
-    float reservedD;
+    float windVelocity;
 } simulation;
 
 layout(std430, binding = 2) buffer KinematicsBuffer {
@@ -322,9 +322,9 @@ float quadraticDragFactor(Particle particle, float mass, float relativeSpeed) {
 
 float flowVelocityXAt(float positionY) {
     if (simulation.flowAmplitude == 0.0 || simulation.flowWavelength <= 0.0) {
-        return 0.0;
+        return simulation.windVelocity;
     }
-    return simulation.flowAmplitude * cos(TWO_PI * positionY / simulation.flowWavelength + simulation.worldTime * simulation.flowFrequency);
+    return simulation.windVelocity + simulation.flowAmplitude * cos(TWO_PI * positionY / simulation.flowWavelength + simulation.worldTime * simulation.flowFrequency);
 }
 
 Particle integrateAdhesive(Particle source) {

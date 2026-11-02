@@ -122,7 +122,7 @@ class CommonParticleCollision(
         engineDiagnostics.stopTimer(DiagnosticPhase.PAIR_SOLVE, pairsMark)
         engineDiagnostics.count(DiagnosticCounter.CANDIDATE_PAIRS, candidatePairCount)
         engineDiagnostics.count(DiagnosticCounter.CONTACT_PAIRS, contactPairCount)
-        engineDiagnostics.count(DiagnosticCounter.GRID_PARTICLES, spatialGrid.placedParticles().size)
+        engineDiagnostics.count(DiagnosticCounter.GRID_PARTICLES, spatialGrid.getAllPlacedParticles().size)
         val correctionMark = engineDiagnostics.startTimer()
         repeat(POSITION_CORRECTION_ITERATIONS) {
             for (touchingIndex in touchingFirstParticles.indices) {
@@ -159,7 +159,7 @@ class CommonParticleCollision(
         secondParticle.transform.position.y += contact.normalY * correction * (firstParticleMass / totalMass)
     }
 
-    override fun placedParticles(): List<Particle> = spatialGrid.placedParticles()
+    override fun getAllPlacedParticles(): List<Particle> = spatialGrid.getAllPlacedParticles()
 
     override fun forEachParticleWithin(centerX: Double, centerY: Double, range: Double, action: (Particle) -> Unit) {
         spatialGrid.forEachParticleWithin(centerX, centerY, range, action)

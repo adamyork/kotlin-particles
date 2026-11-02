@@ -12,7 +12,7 @@ interface ParticleCollision {
 
     fun applyParticleCollision(generators: List<ParticleEffectGenerator>, viewPort: ViewPort, deltaTime: Double)
 
-    fun placedParticles(): List<Particle>
+    fun getAllPlacedParticles(): List<Particle>
 
     fun forEachParticleWithin(centerX: Double, centerY: Double, range: Double, action: (Particle) -> Unit)
 }

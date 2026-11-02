@@ -1,6 +1,5 @@
 package com.github.adamyork.kparticles.wasm.service
 
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.service.AbstractPlatformAssetService
@@ -23,18 +22,6 @@ import org.jetbrains.skia.Image
 class WasmJsAssetService(
     httpClient: HttpClient
 ) : AbstractPlatformAssetService(httpClient) {
-
-    override suspend fun loadBufferedImageAsync(file: String): ImageBitmap {
-        logger.debug { "HTTP GET: $file" }
-        val response = httpClient.get(file)
-        check(response.status.isSuccess()) { "Failed to load image from URL: $file (status=${response.status})" }
-        val skiaImage = Image.makeFromEncoded(response.body<ByteArray>())
-        try {
-            return skiaImage.toComposeImageBitmap()
-        } finally {
-            skiaImage.close()
-        }
-    }
 
     override suspend fun loadParticleShader(): String {
         logger.debug { "HTTP GET: particles.wgsl" }

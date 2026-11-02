@@ -45,7 +45,7 @@ class FragmentationTest {
         engineDiagnostics
     )
 
-    private val viewPort = ViewPort(0, 768, 0, 768, 1024, 768)
+    private val viewPort = ViewPort(0, 768, 1024, 768)
 
     private fun circle(id: Long, hardness: Int, positionX: Double, velocityX: Double): Particle = Particle(
         id = id,

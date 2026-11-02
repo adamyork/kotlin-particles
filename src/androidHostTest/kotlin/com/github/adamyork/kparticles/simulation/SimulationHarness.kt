@@ -8,7 +8,7 @@ import com.github.adamyork.kparticles.platform.engine.CommonSpatialGrid
 import com.github.adamyork.kparticles.platform.engine.data.CompletedParticleResult
 import com.github.adamyork.kparticles.platform.engine.data.Direction
 import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
-import com.github.adamyork.kparticles.platform.engine.data.SubframePlan
+import com.github.adamyork.kparticles.platform.engine.data.SubframeSchedule
 import com.github.adamyork.kparticles.platform.engine.effect.AbstractGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.AnimatedItemReturnGenerator
 import com.github.adamyork.kparticles.platform.engine.effect.BlackHoleGenerator
@@ -92,7 +92,7 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0) {
 
     private var peakCount = 0
 
-    val viewPort = ViewPort(0, 768, 0, 768, 1024, 768)
+    val viewPort = ViewPort(0, 768, 1024, 768)
 
     init {
         runtimeService.deriveGravityFromViewportHeight(viewPort.height)
@@ -115,21 +115,21 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0) {
         )
     }
 
-    fun advance(hostDeltaTicks: Double): SubframePlan {
+    fun advance(hostDeltaTicks: Double): SubframeSchedule {
         frameTimeMilliseconds += hostDeltaTicks * MILLISECONDS_PER_TICK
         runtimeService.setCurrentFrameTime(frameTimeMilliseconds)
-        val subframePlan = runtimeService.getSubframePlan()
-        repeat(subframePlan.subframeCount) {
+        val subframeSchedule = runtimeService.getSubframeSchedule()
+        repeat(subframeSchedule.subframeCount) {
             particlePhysics.applyParticlePhysics(
-                particleFactory.generators(), viewPort, completedParticleResults, subframePlan.subframeDeltaTime
+                particleFactory.generators(), viewPort, completedParticleResults, subframeSchedule.subframeDeltaTime
             )
-            collision.applyParticleCollision(particleFactory.generators(), viewPort, subframePlan.subframeDeltaTime)
+            collision.applyParticleCollision(particleFactory.generators(), viewPort, subframeSchedule.subframeDeltaTime)
         }
         runtimeService.lastPaintTime = frameTimeMilliseconds
-        totalSubframes += subframePlan.subframeCount
-        simulatedTime += subframePlan.subframeCount * subframePlan.subframeDeltaTime
+        totalSubframes += subframeSchedule.subframeCount
+        simulatedTime += subframeSchedule.subframeCount * subframeSchedule.subframeDeltaTime
         peakCount = maxOf(peakCount, generators.sumOf { generator -> generator.particles.size })
-        return subframePlan
+        return subframeSchedule
     }
 
     fun simulatedTime(): Double = simulatedTime

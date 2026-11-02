@@ -8,7 +8,7 @@ import kotlin.math.max
  * Author: Adam York
  * Copyright (c) Adam York
  */
-class UniformCellGrid(
+class SortedCellGrid(
     private val engineDiagnostics: EngineDiagnostics
 ) {
 

@@ -17,5 +17,5 @@ interface SpatialGrid {
 
     fun forEachParticleWithin(centerX: Double, centerY: Double, range: Double, action: (Particle) -> Unit)
 
-    fun placedParticles(): List<Particle>
+    fun getAllPlacedParticles(): List<Particle>
 }

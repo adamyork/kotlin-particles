@@ -1,7 +1,6 @@
 package com.github.adamyork.kparticles.android.service
 
 import android.graphics.*
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.github.adamyork.kotlin_particles.generated.resources.Res
 import com.github.adamyork.kparticles.platform.AppScope
@@ -34,17 +33,6 @@ class AndroidAssetService(
         }
         finishInit(bytes = bytes, listener = listener)
     }
-
-    override suspend fun loadBufferedImageAsync(file: String): ImageBitmap {
-        logger.debug { "HTTP GET: $file" }
-        val response = httpClient.get(file)
-        check(response.status.isSuccess()) { "Failed to load image from URL: $file (status=${response.status})" }
-        val bytes = response.body<ByteArray>()
-        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            ?: error("Failed to decode byte array into Android Bitmap")
-        return bitmap.asImageBitmap()
-    }
-
 
     override suspend fun loadParticleShader(): String {
         val bytes = withContext(Dispatchers.IO) {

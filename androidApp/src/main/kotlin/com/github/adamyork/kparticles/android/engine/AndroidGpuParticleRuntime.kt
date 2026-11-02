@@ -140,18 +140,15 @@ class AndroidGpuParticleRuntime(
                     glRenderer.onSurfaceCreated()
                     glRenderer.onSurfaceChanged(width, height)
                 }
-
                 override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
                     logger.info { "[GPU][Runtime] SurfaceTexture size changed ($width x $height)" }
                     glRenderer.onSurfaceChanged(width, height)
                 }
-
                 override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
                     logger.info { "[GPU][Runtime] SurfaceTexture destroyed" }
                     releaseEgl()
                     return true
                 }
-
                 override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
                 }
             }

@@ -79,6 +79,7 @@ class CommonParticlePhysics(
             physicsSettingsService.drag,
             physicsSettingsService.dragCoefficient,
             physicsSettingsService.flowAmplitude,
+            physicsSettingsService.windVelocity,
             viewPort.x.toDouble(),
             viewPort.y.toDouble(),
             viewPort.width.toDouble(),
@@ -139,12 +140,10 @@ class CommonParticlePhysics(
                 particles.removeAt(particleIndex)
                 continue
             }
-
             particle.lifecycle.age += deltaTime
             if (particle.lifecycle.age < particle.lifecycle.delay) continue
             if (particle.lifecycle.age < particle.lifecycle.pinnedUntil) continue
             val isAsleep = updateRestCount(particle, restKey)
-
             val activeAge = particle.lifecycle.age - particle.lifecycle.delay
             val progress = (activeAge / particle.lifecycle.lifetime).coerceIn(0.0, 1.0)
             if (isSamplingMotion) {
@@ -158,8 +157,6 @@ class CommonParticlePhysics(
                     oldestEffectOrdinal = effectOrdinal
                 }
             }
-
-
             if (isAsleep) asleepParticleCount++ else awakeParticleCount++
             if (!isAsleep) {
                 if (particle.material.adhesion > 0.0) {
@@ -192,13 +189,11 @@ class CommonParticlePhysics(
                     particle.transform.position.y += particle.dynamics.velocity.y * deltaTime
                     particle.transform.position.z += particle.dynamics.velocity.z * deltaTime
                 }
-
                 if (particle.dynamics.angularVelocity != 0.0) {
                     particle.transform.angle = (particle.transform.angle + particle.dynamics.angularVelocity * deltaTime) % (2.0 * PI)
                 }
             }
             particle.dimensions.advance(deltaTime)
-
             particle.appearance.color = interpolateColor(particle.appearance.startColor, particle.appearance.endColor, progress)
             val startAlpha = particle.appearance.initialAlpha
             val endAlpha = particle.appearance.endAlpha
@@ -208,7 +203,6 @@ class CommonParticlePhysics(
             if (animation != null) {
                 animation.frame = ((particle.lifecycle.age / spriteTicksPerFrame).toInt()) % animation.maxFrames
             }
-
         }
     }
 
@@ -236,7 +230,7 @@ class CommonParticlePhysics(
     override fun applyGravitation(collision: ParticleCollision, deltaTime: Double) {
         val gravitationalConstant = physicsSettingsService.gravitationalConstant
         if (gravitationalConstant <= 0.0) return
-        selectGravitySources(collision.placedParticles(), physicsSettingsService.gravitySourceCount)
+        selectGravitySources(collision.getAllPlacedParticles(), physicsSettingsService.gravitySourceCount)
         val softeningSquared = physicsSettingsService.gravitationalSoftening * physicsSettingsService.gravitationalSoftening
         val minimumAcceleration = max(physicsSettingsService.gravityMinimumAcceleration, Double.MIN_VALUE)
         val planeThickness = physicsSettingsService.gravityPlaneThickness
@@ -338,8 +332,9 @@ class CommonParticlePhysics(
     private fun flowVelocityXAt(positionY: Double): Double {
         val amplitude = physicsSettingsService.flowAmplitude
         val wavelength = physicsSettingsService.flowWavelength
-        if (amplitude == 0.0 || wavelength <= 0.0) return 0.0
-        return amplitude * cos(2.0 * PI * positionY / wavelength + worldTime * physicsSettingsService.flowFrequency)
+        val windVelocity = physicsSettingsService.windVelocity
+        if (amplitude == 0.0 || wavelength <= 0.0) return windVelocity
+        return windVelocity + amplitude * cos(2.0 * PI * positionY / wavelength + worldTime * physicsSettingsService.flowFrequency)
     }
 
     private fun integrateAdhesiveParticle(

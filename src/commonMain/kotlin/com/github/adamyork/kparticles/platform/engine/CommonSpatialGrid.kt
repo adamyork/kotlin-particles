@@ -18,7 +18,7 @@ class CommonSpatialGrid(
     engineDiagnostics: EngineDiagnostics
 ) : SpatialGrid {
 
-    private val grid = UniformCellGrid(engineDiagnostics)
+    private val grid = SortedCellGrid(engineDiagnostics)
     private val particles = ArrayList<Particle>()
     private var viewPortX = 0.0
     private var viewPortY = 0.0
@@ -39,7 +39,7 @@ class CommonSpatialGrid(
         particles.add(particle)
     }
 
-    override fun placedParticles(): List<Particle> = particles
+    override fun getAllPlacedParticles(): List<Particle> = particles
 
     override fun forEachCollisionPair(action: (Particle, Particle) -> Unit) {
         buildGridIfNeeded()

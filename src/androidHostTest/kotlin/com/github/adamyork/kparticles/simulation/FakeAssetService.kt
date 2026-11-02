@@ -1,6 +1,5 @@
 package com.github.adamyork.kparticles.simulation
 
-import androidx.compose.ui.graphics.ImageBitmap
 import com.github.adamyork.kparticles.platform.AppProperties
 import com.github.adamyork.kparticles.platform.ColorWrapper
 import com.github.adamyork.kparticles.platform.EngineConfig
@@ -45,10 +44,6 @@ class FakeAssetService : AssetService {
     override var particleFragmentShaderSource: String = ""
 
     override suspend fun initialize(listener: LoadingProgressListener) {
-    }
-
-    override suspend fun loadBufferedImageAsync(file: String): ImageBitmap {
-        throw UnsupportedOperationException("images are not available in simulation tests")
     }
 
     override suspend fun loadItem(id: Int): ImageAsset {

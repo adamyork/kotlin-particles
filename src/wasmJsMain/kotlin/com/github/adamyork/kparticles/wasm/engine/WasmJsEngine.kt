@@ -72,17 +72,17 @@ open class WasmJsEngine(
     }
 
     override fun manageParticles(viewPort: ViewPort) {
-        val subframePlan = runtimeService.getSubframePlan()
+        val subframeSchedule = runtimeService.getSubframeSchedule()
         engineDiagnostics.beginEngineWork()
-        engineDiagnostics.count(DiagnosticCounter.SUBFRAMES, subframePlan.subframeCount)
-        repeat(subframePlan.subframeCount) {
+        engineDiagnostics.count(DiagnosticCounter.SUBFRAMES, subframeSchedule.subframeCount)
+        repeat(subframeSchedule.subframeCount) {
             val physicsMark = engineDiagnostics.startTimer()
             particlePhysics.applyParticlePhysics(
-                particleFactory.generators(), viewPort, completedParticleResults, subframePlan.subframeDeltaTime
+                particleFactory.generators(), viewPort, completedParticleResults, subframeSchedule.subframeDeltaTime
             )
             engineDiagnostics.stopTimer(DiagnosticPhase.PHYSICS, physicsMark)
             val collisionMark = engineDiagnostics.startTimer()
-            collision.applyParticleCollision(particleFactory.generators(), viewPort, subframePlan.subframeDeltaTime)
+            collision.applyParticleCollision(particleFactory.generators(), viewPort, subframeSchedule.subframeDeltaTime)
             engineDiagnostics.stopTimer(DiagnosticPhase.COLLISION_TOTAL, collisionMark)
         }
     }

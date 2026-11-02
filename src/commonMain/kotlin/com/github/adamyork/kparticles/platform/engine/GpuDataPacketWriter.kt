@@ -73,7 +73,7 @@ class GpuDataPacketWriter(
             physicsSettingsService.positionCorrectionFactor.toFloat(),
             CONTACT_VELOCITY_RELAXATION_EXPONENT,
             subframeIndex.toFloat(),
-            0f
+            physicsSettingsService.windVelocity.toFloat()
         ).copyInto(targetBuffer)
     }
 

@@ -31,7 +31,6 @@ abstract class UiDrawLayer(
             ForegroundLayerCanvas(foregroundBitmap)
             OverlayLayer()
         }
-
         LaunchedEffect(isRunning) {
             onFpsLabelChanged(if (isRunning) "FPS: running" else "FPS: paused")
         }

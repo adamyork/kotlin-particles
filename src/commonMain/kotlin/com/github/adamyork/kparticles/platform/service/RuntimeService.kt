@@ -1,7 +1,7 @@
 package com.github.adamyork.kparticles.platform.service
 
 import com.github.adamyork.kparticles.platform.common.LifeCycleState
-import com.github.adamyork.kparticles.platform.engine.data.SubframePlan
+import com.github.adamyork.kparticles.platform.engine.data.SubframeSchedule
 
 /**
  * Author: Adam York
@@ -11,12 +11,13 @@ interface RuntimeService {
 
     var lifeCycleState: LifeCycleState
     var lastPaintTime: Double
+    val physicsSettingsService: PhysicsSettingsService
 
     fun deriveGravityFromViewportHeight(viewportHeight: Int)
 
     fun getDeltaTimeCoefficient(): Double
 
-    fun getSubframePlan(): SubframePlan
+    fun getSubframeSchedule(): SubframeSchedule
 
     fun getDeltaTimeSeconds(): Float
 

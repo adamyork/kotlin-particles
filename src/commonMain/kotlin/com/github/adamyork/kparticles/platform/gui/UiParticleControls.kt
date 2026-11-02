@@ -2,23 +2,11 @@ package com.github.adamyork.kparticles.platform.gui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonColors
-import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,7 +24,6 @@ import com.github.adamyork.kparticles.platform.engine.data.ParticleEffect
  */
 class UiParticleControls {
 
-    @OptIn(ExperimentalLayoutApi::class)
     @Composable
     fun Build(
         particleModes: List<ParticleEffect>,
@@ -50,7 +37,8 @@ class UiParticleControls {
         createButtonColors: ButtonColors,
         controlsShape: RoundedCornerShape,
         onCreateClicked: () -> Unit,
-        onViewMetricsClicked: () -> Unit
+        onViewMetricsClicked: () -> Unit,
+        onViewPhysicsClicked: () -> Unit
     ) {
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -99,7 +87,6 @@ class UiParticleControls {
                     }
                 }
             }
-
             Button(
                 onClick = onCreateClicked,
                 colors = createButtonColors,
@@ -110,7 +97,6 @@ class UiParticleControls {
             ) {
                 Text("create")
             }
-
             OutlinedButton(
                 onClick = onViewMetricsClicked,
                 colors = dropdownButtonColors,
@@ -120,6 +106,16 @@ class UiParticleControls {
                     .testTag("viewMetricsBtn")
             ) {
                 Text("view metrics", color = colorScheme.primary, maxLines = 1)
+            }
+            OutlinedButton(
+                onClick = onViewPhysicsClicked,
+                colors = dropdownButtonColors,
+                modifier = Modifier
+                    .focusProperties { canFocus = false }
+                    .semantics { contentDescription = "viewPhysicsBtn" }
+                    .testTag("viewPhysicsBtn")
+            ) {
+                Text("physics", color = colorScheme.primary, maxLines = 1)
             }
         }
     }

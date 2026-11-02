@@ -8,9 +8,6 @@ interface PhysicsSettingsService {
 
     fun deriveGravityFromViewportHeight(viewportHeight: Int, ticksPerSecond: Int)
 
-    var maxXVelocity: Double
-    var maxYVelocity: Double
-    var jumpDistance: Double
     var gravity: Double
     var gravityMetersPerSecondSquared: Double
     var viewportHeightMeters: Double
@@ -31,18 +28,9 @@ interface PhysicsSettingsService {
     var flowAmplitude: Double
     var flowFrequency: Double
     var flowWavelength: Double
-    var yVelocityCoefficient: Double
-    var xMovementDistance: Double
-    var xAccelerationRate: Double
-    var xDeaccelerationRate: Double
-    var projectileSpeed: Double
-    var collisionVelocityDecay: Double
+    var windVelocity: Double
     var minActiveVelocity: Double
     var minActiveVelocityPerGravity: Double
-    var collisionKnockbackStrength: Int
-    var mapItemReturnParticleMinTravelDist: Double
-    var mapItemReturnParticleSpeed: Double
-    var dustParticleSpeedCoefficient: Double
     var spatialGridCellSize: Double
     var restStepsBeforeSleep: Int
     var positionCorrectionFactor: Double

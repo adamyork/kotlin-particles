@@ -13,6 +13,7 @@ import com.github.adamyork.kparticles.platform.gui.data.UiState
 import com.github.adamyork.kparticles.platform.service.AssetService
 import com.github.adamyork.kparticles.platform.service.LoadingProgressListener
 import com.github.adamyork.kparticles.platform.service.LoadingViewModel
+import com.github.adamyork.kparticles.platform.service.PhysicsSettingsService
 import com.github.adamyork.kparticles.platform.service.RuntimeService
 import com.github.adamyork.kparticles.platform.service.data.ImageAsset
 import com.github.adamyork.kparticles.platform.service.data.LoadingTask
@@ -138,6 +139,14 @@ class UiController(
     }
 
 
+    val physicsSettingsService: PhysicsSettingsService
+        get() = runtimeService.physicsSettingsService
+
+    fun applyGravity(metersPerSecondSquared: Double) {
+        physicsSettingsService.gravityMetersPerSecondSquared = metersPerSecondSquared
+        runtimeService.deriveGravityFromViewportHeight(stateElements.viewPort.height)
+    }
+
     fun setSelectedParticleEffect(effect: ParticleEffect) {
         engine.selectedParticleEffect = effect
     }
@@ -167,8 +176,6 @@ class UiController(
         return ViewPort(
             assetService.appProperties.viewport.x,
             assetService.appProperties.viewport.y,
-            0,
-            0,
             screenDimensions.width,
             screenDimensions.height
         )

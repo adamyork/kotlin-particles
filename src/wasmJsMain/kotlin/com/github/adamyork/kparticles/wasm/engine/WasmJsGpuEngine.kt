@@ -91,10 +91,10 @@ class WasmJsGpuEngine(
     }
 
     override fun manageParticles(viewPort: ViewPort) {
-        val subframePlan = runtimeService.getSubframePlan()
-        engineDiagnostics.count(DiagnosticCounter.SUBFRAMES, subframePlan.subframeCount)
+        val subframeSchedule = runtimeService.getSubframeSchedule()
+        engineDiagnostics.count(DiagnosticCounter.SUBFRAMES, subframeSchedule.subframeCount)
         val frameStartWorldTime = worldTime
-        worldTime += subframePlan.subframeCount * subframePlan.subframeDeltaTime
+        worldTime += subframeSchedule.subframeCount * subframeSchedule.subframeDeltaTime
         val spawnWriteResult = particleFactory.writeGpuParticleStateSpawnBuffer(
             gpuParticleSpawnBuffer,
             gpuParticleBufferCapacity,
@@ -112,8 +112,8 @@ class WasmJsGpuEngine(
         gpuParticleRenderer.updateGpuParticleBuffer(
             sourceBuffer = gpuParticleSpawnBuffer,
             dirtySlotRanges = spawnWriteResult.dirtySlotRanges,
-            subframeCount = subframePlan.subframeCount,
-            deltaTime = subframePlan.subframeDeltaTime,
+            subframeCount = subframeSchedule.subframeCount,
+            deltaTime = subframeSchedule.subframeDeltaTime,
             worldTime = frameStartWorldTime,
             spriteTicksPerFrame = spriteTicksPerFrame,
             viewPort = viewPort

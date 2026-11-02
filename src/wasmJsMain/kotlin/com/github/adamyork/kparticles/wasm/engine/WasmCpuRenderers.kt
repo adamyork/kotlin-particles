@@ -209,7 +209,6 @@ class WasmCpuRenderers(
                 ParticleEffect.BUBBLE -> if (particle.lifecycle.isVisible()) {
                     drawBubble(particle, viewPortOffsetX, viewPortOffsetY, canvas)
                 }
-
                 ParticleEffect.BLOB_PROJECTILE -> drawProjectileBlob(particle, viewPortOffsetX, viewPortOffsetY, canvas)
                 else -> Unit
             }

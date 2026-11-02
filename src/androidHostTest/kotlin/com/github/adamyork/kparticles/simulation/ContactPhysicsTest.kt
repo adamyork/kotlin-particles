@@ -65,7 +65,7 @@ class ContactPhysicsTest {
         val second = particle(1L, secondDimensions, secondDensity, restitution, 500.0 + separation, -closingSpeed / 2.0)
         generator.particles.add(first)
         generator.particles.add(second)
-        val viewPort = ViewPort(0, 768, 0, 768, 1024, 768)
+        val viewPort = ViewPort(0, 768, 1024, 768)
         val momentumBefore = momentum(first, second)
         val energyBefore = energy(first, second)
         collision.applyParticleCollision(listOf(generator), viewPort, 1.0)

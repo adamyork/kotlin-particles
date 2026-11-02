@@ -42,7 +42,7 @@ struct SimulationUniforms {
   positionCorrectionFactor: f32,
   contactVelocityRelaxationExponent: f32,
   subframeIndex: f32,
-  reservedD: f32,
+  windVelocity: f32,
 };
 
 @group(0) @binding(0) var<storage, read_write> particles: ParticleBuffer;
@@ -293,9 +293,9 @@ fn quadraticDragFactor(particle: Particle, mass: f32, relativeSpeed: f32) -> f32
 
 fn flowVelocityXAt(positionY: f32) -> f32 {
   if (simulation.flowAmplitude == 0.0 || simulation.flowWavelength <= 0.0) {
-    return 0.0;
+    return simulation.windVelocity;
   }
-  return simulation.flowAmplitude * cos(TWO_PI * positionY / simulation.flowWavelength + simulation.worldTime * simulation.flowFrequency);
+  return simulation.windVelocity + simulation.flowAmplitude * cos(TWO_PI * positionY / simulation.flowWavelength + simulation.worldTime * simulation.flowFrequency);
 }
 
 fn integrateAdhesive(source: Particle) -> Particle {

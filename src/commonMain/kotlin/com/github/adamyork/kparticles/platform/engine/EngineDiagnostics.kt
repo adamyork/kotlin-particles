@@ -150,7 +150,13 @@ class EngineDiagnostics {
 
     fun isSamplingFrame(): Boolean = isSampledFrame
 
-    fun recordMotion(speedSum: Double, speedMaximum: Double, particleCount: Int, oldestAge: Double, oldestEffectOrdinal: Int) {
+    fun recordMotion(
+        speedSum: Double,
+        speedMaximum: Double,
+        particleCount: Int,
+        oldestAge: Double,
+        oldestEffectOrdinal: Int
+    ) {
         currentSpeedSum += speedSum
         currentSpeedMaximum = maxOf(currentSpeedMaximum, speedMaximum)
         currentMotionCount += particleCount
@@ -249,7 +255,8 @@ class EngineDiagnostics {
         val frameCount = minOf(completedFrames, HISTORY_FRAMES.toLong()).toInt()
         val report = StringBuilder()
         report.appendLine("engine: $engineLabel")
-        val samplingText = if (TIMING_SAMPLE_INTERVAL_FRAMES == 1L) "every frame" else "1 in $TIMING_SAMPLE_INTERVAL_FRAMES frames"
+        val samplingText =
+            if (TIMING_SAMPLE_INTERVAL_FRAMES == 1L) "every frame" else "1 in $TIMING_SAMPLE_INTERVAL_FRAMES frames"
         report.appendLine("frames since start or reset: $completedFrames, recent window: $frameCount (timings sampled $samplingText)")
         if (frameCount < 2) {
             report.appendLine("not enough frames yet, let it run and open this again")
@@ -261,7 +268,7 @@ class EngineDiagnostics {
         appendPopulation(report, frameCount)
         appendPhases(report, frameCount)
         appendCounters(report, frameCount)
-        appendEffects(report, frameCount)
+        appendEffects(report)
         return report.toString()
     }
 
@@ -353,7 +360,13 @@ class EngineDiagnostics {
         appendFrameRateLine(report, "99th percentile", ninetyNinthInterval)
         appendFrameRateLine(report, "worst", runIntervalMaximum)
         if (runEngineWorkFrames > 0L) {
-            report.appendLine("  engine work per frame: average ${format((runEngineWorkSum / runEngineWorkFrames).toFloat())} ms, max ${format(runEngineWorkMaximum)} ms")
+            report.appendLine(
+                "  engine work per frame: average ${format((runEngineWorkSum / runEngineWorkFrames).toFloat())} ms, max ${
+                    format(
+                        runEngineWorkMaximum
+                    )
+                } ms"
+            )
         }
     }
 
@@ -389,14 +402,30 @@ class EngineDiagnostics {
         report.appendLine("    time was spent outside the engine: $slowOutsideFrameCount")
         if (worstSlot >= 0) {
             appendFrameDetail(
-                report, "worst frame in last $frameCount", worstInterval,
-                engineWorkHistory[worstSlot], phaseHistory, worstSlot * phaseCount, counterHistory, worstSlot * counterCount, effectParticleHistory, worstSlot * effectCount
+                report,
+                "worst frame in last $frameCount",
+                worstInterval,
+                engineWorkHistory[worstSlot],
+                phaseHistory,
+                worstSlot * phaseCount,
+                counterHistory,
+                worstSlot * counterCount,
+                effectParticleHistory,
+                worstSlot * effectCount
             )
         }
         if (lifetimeWorstFrameNumber > 0L) {
             appendFrameDetail(
-                report, "worst frame of whole run (frame $lifetimeWorstFrameNumber)", lifetimeWorstIntervalMilliseconds,
-                lifetimeWorstEngineWorkMilliseconds, lifetimeWorstPhases, 0, lifetimeWorstCounters, 0, lifetimeWorstEffectParticles, 0
+                report,
+                "worst frame of whole run (frame $lifetimeWorstFrameNumber)",
+                lifetimeWorstIntervalMilliseconds,
+                lifetimeWorstEngineWorkMilliseconds,
+                lifetimeWorstPhases,
+                0,
+                lifetimeWorstCounters,
+                0,
+                lifetimeWorstEffectParticles,
+                0
             )
         }
     }
@@ -443,13 +472,31 @@ class EngineDiagnostics {
         report.appendLine("  expired since start: $expiredTotal")
         if (expiredTotal > 0L) report.appendLine("  average lifespan: ${format((lifespanTotal / expiredTotal).toFloat())}")
         if (longestEffectOrdinal >= 0) {
-            report.appendLine("  longest lived: ${ParticleEffect.entries[longestEffectOrdinal].displayName} ${format(longestLifespan.toFloat())}")
+            report.appendLine(
+                "  longest lived: ${ParticleEffect.entries[longestEffectOrdinal].displayName} ${
+                    format(
+                        longestLifespan.toFloat()
+                    )
+                }"
+            )
         }
         if (lastOldestEffectOrdinal >= 0) {
-            report.appendLine("  oldest alive: ${ParticleEffect.entries[lastOldestEffectOrdinal].displayName} ${format(lastOldestAge.toFloat())}")
+            report.appendLine(
+                "  oldest alive: ${ParticleEffect.entries[lastOldestEffectOrdinal].displayName} ${
+                    format(
+                        lastOldestAge.toFloat()
+                    )
+                }"
+            )
         }
         if (speedSampleCount > 0) {
-            report.appendLine("  speed in window: average ${format(speedAverageTotal / speedSampleCount)}, max ${format(speedMaximum)}")
+            report.appendLine(
+                "  speed in window: average ${format(speedAverageTotal / speedSampleCount)}, max ${
+                    format(
+                        speedMaximum
+                    )
+                }"
+            )
             report.appendLine("  fastest since start: ${format(lifetimeFastestSpeed.toFloat())}")
         }
         report.appendLine("  contact pairs since start: ${lifetimeCounterTotals[DiagnosticCounter.CONTACT_PAIRS.ordinal]}")
@@ -459,7 +506,7 @@ class EngineDiagnostics {
             val averageLifespan = (expiredLifespanSums[effectIndex] / expiredCounts[effectIndex]).toFloat()
             report.appendLine(
                 "    ${ParticleEffect.entries[effectIndex].displayName}: ${expiredCounts[effectIndex]}, " +
-                    "${format(averageLifespan)}, ${format(longestLifespans[effectIndex].toFloat())}"
+                        "${format(averageLifespan)}, ${format(longestLifespans[effectIndex].toFloat())}"
             )
         }
     }
@@ -478,7 +525,16 @@ class EngineDiagnostics {
     ) {
         report.appendLine("  $heading: ${format(interval)} ms (${format(1000f / interval)} fps)")
         if (engineWork >= 0f) {
-            report.appendLine("    engine work: ${format(engineWork)} ms, outside the engine: ${format(maxOf(interval - engineWork, 0f))} ms")
+            report.appendLine(
+                "    engine work: ${format(engineWork)} ms, outside the engine: ${
+                    format(
+                        maxOf(
+                            interval - engineWork,
+                            0f
+                        )
+                    )
+                } ms"
+            )
         }
         for (phase in DiagnosticPhase.entries) {
             val value = phases[phaseOffset + phase.ordinal]
@@ -522,7 +578,14 @@ class EngineDiagnostics {
                 windowSamples++
             }
             val windowAverage = if (windowSamples == 0) 0f else windowTotal / windowSamples
-            report.appendLine("  ${phase.label}: ${format(average)} / ${format(maximum)} (${format(windowAverage)})${phaseMark(average, maximum)}")
+            report.appendLine(
+                "  ${phase.label}: ${format(average)} / ${format(maximum)} (${format(windowAverage)})${
+                    phaseMark(
+                        average,
+                        maximum
+                    )
+                }"
+            )
         }
     }
 
@@ -539,7 +602,7 @@ class EngineDiagnostics {
         }
     }
 
-    private fun appendEffects(report: StringBuilder, frameCount: Int) {
+    private fun appendEffects(report: StringBuilder) {
         report.appendLine()
         report.appendLine("live particles by effect, whole run (average / max), draw ms average for complex shapes")
         for (effect in ParticleEffect.entries) {

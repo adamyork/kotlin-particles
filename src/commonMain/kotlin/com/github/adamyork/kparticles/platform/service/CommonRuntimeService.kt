@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.github.adamyork.kparticles.platform.AppScope
 import com.github.adamyork.kparticles.platform.common.LifeCycleState
-import com.github.adamyork.kparticles.platform.engine.data.SubframePlan
+import com.github.adamyork.kparticles.platform.engine.data.SubframeSchedule
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.tatarka.inject.annotations.Inject
 
@@ -17,7 +17,7 @@ import me.tatarka.inject.annotations.Inject
 @Inject
 class CommonRuntimeService(
     val assetService: AssetService,
-    private val physicsSettingsService: PhysicsSettingsService
+    override val physicsSettingsService: PhysicsSettingsService
 ) : RuntimeService {
 
     private val logger = KotlinLogging.logger {}
@@ -48,7 +48,7 @@ class CommonRuntimeService(
     private var cachedFps: Double = 0.0
     private var currentFrameTime: Double = 0.0
     private var smoothedDeltaTime: Double = 0.0
-    private var previousPlanWasSubdivided: Boolean = false
+    private var previousScheduleWasSubdivided: Boolean = false
 
     override fun deriveGravityFromViewportHeight(viewportHeight: Int) {
         physicsSettingsService.deriveGravityFromViewportHeight(
@@ -69,7 +69,7 @@ class CommonRuntimeService(
         return coefficient.coerceAtLeast(0.0)
     }
 
-    override fun getSubframePlan(): SubframePlan {
+    override fun getSubframeSchedule(): SubframeSchedule {
         val deltaTime = getDeltaTimeCoefficient().coerceAtMost(physicsSettingsService.maxFrameDeltaTime)
         val isHitch = smoothedDeltaTime > 0.0 && deltaTime > smoothedDeltaTime * HITCH_RATIO
         val blendTarget = if (smoothedDeltaTime > 0.0) minOf(deltaTime, smoothedDeltaTime * HITCH_RATIO) else deltaTime
@@ -78,13 +78,13 @@ class CommonRuntimeService(
         } else {
             blendTarget
         }
-        val subframePlan = SubframePlan.of(
+        val subframeSchedule = SubframeSchedule.of(
             deltaTime,
             physicsSettingsService.maxSubframeDeltaTime,
-            if (isHitch && !previousPlanWasSubdivided) physicsSettingsService.maxSubframeCount else 1
+            if (isHitch && !previousScheduleWasSubdivided) physicsSettingsService.maxSubframeCount else 1
         )
-        previousPlanWasSubdivided = subframePlan.subframeCount > 1
-        return subframePlan
+        previousScheduleWasSubdivided = subframeSchedule.subframeCount > 1
+        return subframeSchedule
     }
 
     override fun getDeltaTimeSeconds(): Float {
@@ -103,17 +103,14 @@ class CommonRuntimeService(
         if (currentPaintTime <= 0.0) {
             return 0.0
         }
-
         if (currentPaintTime != lastObservedPaintTime) {
             lastObservedPaintTime = currentPaintTime
-
             if (fpsWindowStartTime == 0.0) {
                 fpsWindowStartTime = currentPaintTime
                 fpsFrameCountInWindow = 1
             } else {
                 fpsFrameCountInWindow += 1
             }
-
             val elapsedWindowMs = currentPaintTime - fpsWindowStartTime
             if (elapsedWindowMs >= FPS_SAMPLE_WINDOW_MS) {
                 cachedFps = (fpsFrameCountInWindow.toDouble() * 1000.0) / elapsedWindowMs
@@ -131,6 +128,5 @@ class CommonRuntimeService(
     override fun getCurrentFrameTime(): Double {
         return currentFrameTime
     }
-
 
 }

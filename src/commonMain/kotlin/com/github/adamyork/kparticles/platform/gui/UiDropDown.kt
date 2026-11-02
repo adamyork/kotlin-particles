@@ -31,6 +31,7 @@ class UiDropDown {
     ) {
         var isParticleModeMenuExpanded by remember { mutableStateOf(false) }
         var isMetricsVisible by remember { mutableStateOf(false) }
+        var isPhysicsVisible by remember { mutableStateOf(false) }
         val focusManager = LocalFocusManager.current
         val colorScheme = MaterialTheme.colorScheme
         val createButtonColors = ButtonDefaults.buttonColors(
@@ -59,8 +60,19 @@ class UiDropDown {
                 controller.createParticles(selectedParticleMode)
                 focusManager.clearFocus(force = true)
             },
-            onViewMetricsClicked = { isMetricsVisible = true }
+            onViewMetricsClicked = { isMetricsVisible = true },
+            onViewPhysicsClicked = { isPhysicsVisible = true }
         )
+        if (isPhysicsVisible) {
+            UiPhysicsDialog().Build(
+                physicsSettingsService = controller.physicsSettingsService,
+                onGravityChanged = { controller.applyGravity(it) },
+                onDismiss = {
+                    isPhysicsVisible = false
+                    focusManager.clearFocus(force = true)
+                }
+            )
+        }
         if (isMetricsVisible) {
             UiMetricsDialog().Build(
                 engineDiagnostics = engineDiagnostics,

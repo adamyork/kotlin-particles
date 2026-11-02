@@ -13,7 +13,7 @@ data class StateElements(
 ) {
     companion object {
         val emptyStateElements: StateElements = StateElements(
-            viewPort = ViewPort(0, 0, 0, 0, 1, 1),
+            viewPort = ViewPort(0, 0, 1, 1),
             mapItemCollectibleAsset = ImageAsset.getTmpImageAsset()
         )
     }

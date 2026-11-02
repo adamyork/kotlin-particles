@@ -144,12 +144,10 @@ class AndroidCpuRenderers(
                     ParticleEffect.BUBBLE -> if (particle.lifecycle.isVisible()) {
                         drawBubble(particle, viewPortOffsetX, viewPortOffsetY, canvas)
                     }
-
                     ParticleEffect.BLOB_PROJECTILE -> drawProjectileBlob(particle, viewPortOffsetX, viewPortOffsetY, canvas)
                     ParticleEffect.DRIPS -> if (particle.lifecycle.isVisible()) {
                         drawDrip(particle, viewPortOffsetX, viewPortOffsetY, canvas)
                     }
-
                     else -> Unit
                 }
             }
