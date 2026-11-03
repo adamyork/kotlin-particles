@@ -1,6 +1,6 @@
 package com.github.adamyork.kparticles.android.service
 
-import android.graphics.*
+import android.graphics.BitmapFactory
 import androidx.compose.ui.graphics.asImageBitmap
 import com.github.adamyork.kotlin_particles.generated.resources.Res
 import com.github.adamyork.kparticles.platform.AppScope
@@ -11,7 +11,6 @@ import com.github.adamyork.kparticles.platform.service.data.ImageAsset
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
-import io.ktor.http.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.tatarka.inject.annotations.Inject

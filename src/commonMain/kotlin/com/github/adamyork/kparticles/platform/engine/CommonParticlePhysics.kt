@@ -32,6 +32,7 @@ class CommonParticlePhysics(
         private const val GRAVITY_SOURCE_MINIMUM_MASS: Double = 0.015
         private const val REST_COUNT_BITS: Int = 20
         private const val REST_COUNT_MASK: Long = (1L shl REST_COUNT_BITS) - 1L
+        private const val ENVIRONMENT_VALUE_COUNT: Int = 10
     }
 
     private var worldTime = 0.0
@@ -40,7 +41,9 @@ class CommonParticlePhysics(
 
     private var stepCounter = 0L
 
-    private var lastEnvironment = DoubleArray(0)
+    private val environment = DoubleArray(ENVIRONMENT_VALUE_COUNT)
+
+    private val lastEnvironment = DoubleArray(ENVIRONMENT_VALUE_COUNT)
 
     private var asleepParticleCount = 0
 
@@ -73,21 +76,20 @@ class CommonParticlePhysics(
             statusProvider.assetService.appProperties.engine.spriteAnimationFramePerSec.toDouble()).coerceAtLeast(1.0)
         worldTime += deltaTime
         stepCounter++
-        val environment = doubleArrayOf(
-            gravity,
-            mediumDensity,
-            physicsSettingsService.drag,
-            physicsSettingsService.dragCoefficient,
-            physicsSettingsService.flowAmplitude,
-            physicsSettingsService.windVelocity,
-            viewPort.x.toDouble(),
-            viewPort.y.toDouble(),
-            viewPort.width.toDouble(),
-            viewPort.height.toDouble()
-        )
+        var environmentIndex = 0
+        environment[environmentIndex++] = gravity
+        environment[environmentIndex++] = mediumDensity
+        environment[environmentIndex++] = physicsSettingsService.drag
+        environment[environmentIndex++] = physicsSettingsService.dragCoefficient
+        environment[environmentIndex++] = physicsSettingsService.flowAmplitude
+        environment[environmentIndex++] = physicsSettingsService.windVelocity
+        environment[environmentIndex++] = viewPort.x.toDouble()
+        environment[environmentIndex++] = viewPort.y.toDouble()
+        environment[environmentIndex++] = viewPort.width.toDouble()
+        environment[environmentIndex] = viewPort.height.toDouble()
         if (!environment.contentEquals(lastEnvironment)) {
             restFrameCounts.clear()
-            lastEnvironment = environment
+            environment.copyInto(lastEnvironment)
         }
         asleepParticleCount = 0
         awakeParticleCount = 0

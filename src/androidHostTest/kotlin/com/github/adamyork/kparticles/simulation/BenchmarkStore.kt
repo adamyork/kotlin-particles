@@ -22,7 +22,7 @@ class BenchmarkStore(private val file: File) {
     }
 
     fun write(values: Map<String, Double>) {
-        file.absoluteFile.parentFile.mkdirs()
+        file.absoluteFile.parentFile?.mkdirs()
         file.writeText(values.toSortedMap().entries.joinToString(separator = "\n", postfix = "\n") { entry ->
             "${entry.key}=${entry.value}"
         })
