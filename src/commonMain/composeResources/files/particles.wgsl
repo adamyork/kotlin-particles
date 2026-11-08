@@ -69,13 +69,6 @@ const MAXIMUM_ANGULAR_VELOCITY = 0.5;
 const SOLVER_ITERATIONS = 6u;
 const WALL_CONTACT_TOLERANCE = 0.5;
 
-const RENDER_KIND_SHAPE = 0.0;
-const RENDER_KIND_DUST = 1.0;
-const RENDER_KIND_SPRITE = 2.0;
-const RENDER_KIND_ANIMATED_SPRITE = 3.0;
-const RENDER_KIND_BLOB = 4.0;
-const RENDER_KIND_BUBBLE = 5.0;
-const RENDER_KIND_DRIP = 6.0;
 
 struct Particle {
   position: vec3<f32>,
@@ -1960,25 +1953,25 @@ struct RenderUniforms {
   canvasWidth: f32,
   canvasHeight: f32,
   renderScale: f32,
-  spriteFrameWidth: f32,
-  spriteFrameHeight: f32,
-  spriteSheetFrameCount: f32,
   spriteTicksPerFrame: f32,
-  dripTrailRadiusRatio: f32,
-  dripNeckLengthRatio: f32,
-  dripGlossIntensity: f32,
-  dripGlossStripeOffsetRatio: f32,
-  dripGlossStripeWidthRatio: f32,
-  dripGlossSpecularRadiusRatio: f32,
-  dripGlossSpecularOffsetRatio: f32,
-  blobLobeCount: f32,
-  blobAmplitudeRatio: f32,
-  blobBaseFrequency: f32,
-  blobFrequencyStep: f32,
-  blobPhaseStep: f32,
-  reservedA: f32,
-  reservedB: f32,
-  reservedC: f32,
+  styleUniform0: f32,
+  styleUniform1: f32,
+  styleUniform2: f32,
+  styleUniform3: f32,
+  styleUniform4: f32,
+  styleUniform5: f32,
+  styleUniform6: f32,
+  styleUniform7: f32,
+  styleUniform8: f32,
+  styleUniform9: f32,
+  styleUniform10: f32,
+  styleUniform11: f32,
+  styleUniform12: f32,
+  styleUniform13: f32,
+  styleUniform14: f32,
+  styleUniform15: f32,
+  styleUniform16: f32,
+  styleUniform17: f32,
 };
 
 struct VertexOutput {
@@ -1992,19 +1985,37 @@ struct VertexOutput {
   @location(6) pixelRadius: f32,
 };
 
+struct StyleVertexInput {
+  positionAngle: vec4<f32>,
+  dimensions: vec4<f32>,
+  origin: vec4<f32>,
+  age: f32,
+  scale: f32,
+  corner: vec2<f32>,
+  isRectangle: bool,
+};
+
+struct StyleQuad {
+  center: vec2<f32>,
+  offset: vec2<f32>,
+  uv: vec2<f32>,
+};
+
+struct StyleFragmentInput {
+  color: vec4<f32>,
+  quadCoordinate: vec2<f32>,
+  shapeKind: f32,
+  uv: vec2<f32>,
+  age: f32,
+  pixelRadius: f32,
+};
+
 @group(0) @binding(0) var<storage, read> renderParticles: ParticleBuffer;
 @group(0) @binding(1) var<uniform> renderUniforms: RenderUniforms;
 @group(0) @binding(2) var renderSampler: sampler;
 @group(0) @binding(3) var renderTexture: texture_2d<f32>;
 
-const BUBBLE_FILL_TOP_LEFT_ALPHA = 0.4;
-const BUBBLE_FILL_BOTTOM_RIGHT_ALPHA = 0.051;
-const BUBBLE_RIM_ALPHA = 0.8;
-const BUBBLE_RIM_STROKE_WIDTH_PIXELS = 2.0;
-const BUBBLE_HIGHLIGHT_ALPHA = 0.9;
-const BUBBLE_HIGHLIGHT_RADIUS_RATIO = 0.28;
-const BUBBLE_HIGHLIGHT_OFFSET_RATIO = 0.38;
-const MAXIMUM_BLOB_LOBES = 16u;
+override activeStyleCode: f32 = 0.0;
 
 fn quadCorner(vertexIndex: u32) -> vec2<f32> {
   switch (vertexIndex) {
@@ -2030,6 +2041,8 @@ fn hiddenVertex() -> VertexOutput {
   return output;
 }
 
+{{STYLE_FUNCTIONS}}
+
 @vertex
 fn vertexMain(
   @builtin(vertex_index) vertexIndex: u32,
@@ -2047,62 +2060,35 @@ fn vertexMain(
   if (lifecycle.w < 0.5 || age < delay) {
     return hiddenVertex();
   }
-  let scale = renderUniforms.renderScale;
   let renderKind = kindData.z;
+  if (abs(renderKind - activeStyleCode) > 0.5) {
+    return hiddenVertex();
+  }
+  let scale = renderUniforms.renderScale;
   let isRectangleShape = dimensions.x > 0.5;
-  let isSprite = renderKind > 1.5 && renderKind < 3.5;
-  let isBlob = renderKind > 3.5 && renderKind < 4.5;
-  let isDrip = renderKind > 5.5;
-  var halfExtent = vec2<f32>(dimensions.y * 0.5, dimensions.y * 0.5);
+  let corner = quadCorner(vertexIndex);
+  let vertexInput = StyleVertexInput(positionAngle, dimensions, origin, age, scale, corner, isRectangleShape);
+  var halfExtent = vec2<f32>(dimensions.y, dimensions.y);
   if (isRectangleShape) {
     halfExtent = vec2<f32>(dimensions.y * 0.5, dimensions.z * 0.5);
-  } else {
-    halfExtent = vec2<f32>(dimensions.y, dimensions.y);
   }
-  if (isSprite) {
-    halfExtent = vec2<f32>(renderUniforms.spriteFrameWidth * 0.5, renderUniforms.spriteFrameHeight * 0.5);
-  }
-  if (isBlob) {
-    halfExtent = halfExtent * (1.0 + renderUniforms.blobAmplitudeRatio);
-  }
+{{STYLE_HALF_EXTENT_HOOKS}}
   halfExtent = max(halfExtent * scale, vec2<f32>(0.5, 0.5));
-  let corner = quadCorner(vertexIndex);
-  var quadCenter = positionAngle.xy;
-  var quadOffset = vec2<f32>(corner.x * halfExtent.x, corner.y * halfExtent.y);
-  if (isRectangleShape && !isSprite) {
+  var quad: StyleQuad;
+  quad.center = positionAngle.xy;
+  quad.offset = vec2<f32>(corner.x * halfExtent.x, corner.y * halfExtent.y);
+  if (isRectangleShape) {
     let cosine = cos(positionAngle.w);
     let sine = sin(positionAngle.w);
-    quadOffset = vec2<f32>(
-      quadOffset.x * cosine - quadOffset.y * sine,
-      quadOffset.x * sine + quadOffset.y * cosine
+    quad.offset = vec2<f32>(
+      quad.offset.x * cosine - quad.offset.y * sine,
+      quad.offset.x * sine + quad.offset.y * cosine
     );
   }
-  var uv = vec2<f32>((corner.x + 1.0) * 0.5, (corner.y + 1.0) * 0.5);
-  if (isSprite) {
-    var frameIndex = 0.0;
-    if (renderKind > 2.5) {
-      frameIndex = floor(age / renderUniforms.spriteTicksPerFrame) % max(origin.w, 1.0);
-    }
-    uv = vec2<f32>((uv.x + frameIndex) / max(renderUniforms.spriteSheetFrameCount, 1.0), uv.y);
-  }
-  if (isDrip) {
-    let beadRadius = dimensions.y;
-    let tail = origin.xy;
-    let head = positionAngle.xy;
-    let axis = (head - tail) * scale;
-    let axisLength = length(axis);
-    var direction = vec2<f32>(0.0, 1.0);
-    if (axisLength > 0.0001) {
-      direction = axis / axisLength;
-    }
-    let beadPixels = max(beadRadius * scale, 0.5);
-    let halfLength = axisLength * 0.5 + beadPixels;
-    quadCenter = (head + tail) * 0.5;
-    quadOffset = direction * (corner.x * halfLength) + vec2<f32>(-direction.y, direction.x) * (corner.y * beadPixels);
-    uv = vec2<f32>(halfLength, beadPixels);
-  }
-  let localX = (quadCenter.x - renderUniforms.viewportX) * scale + quadOffset.x;
-  let localY = (quadCenter.y - renderUniforms.viewportY) * scale + quadOffset.y;
+  quad.uv = vec2<f32>((corner.x + 1.0) * 0.5, (corner.y + 1.0) * 0.5);
+{{STYLE_QUAD_HOOKS}}
+  let localX = (quad.center.x - renderUniforms.viewportX) * scale + quad.offset.x;
+  let localY = (quad.center.y - renderUniforms.viewportY) * scale + quad.offset.y;
   var output: VertexOutput;
   output.position = vec4<f32>(
     (localX / renderUniforms.canvasWidth) * 2.0 - 1.0,
@@ -2114,112 +2100,14 @@ fn vertexMain(
   output.quadCoordinate = corner;
   output.renderKind = renderKind;
   output.shapeKind = dimensions.x;
-  output.uv = uv;
+  output.uv = quad.uv;
   output.age = age;
   output.pixelRadius = max(dimensions.y * scale, 1.0);
   return output;
 }
 
-fn blobBoundaryScale(angle: f32, age: f32) -> f32 {
-  let lobeCount = min(u32(renderUniforms.blobLobeCount), MAXIMUM_BLOB_LOBES);
-  let lobeStep = TWO_PI / f32(lobeCount);
-  var normalizedAngle = angle;
-  if (normalizedAngle < 0.0) {
-    normalizedAngle = normalizedAngle + TWO_PI;
-  }
-  let position = normalizedAngle / lobeStep;
-  let segmentIndex = u32(floor(position)) % lobeCount;
-  let fraction = position - floor(position);
-  var lobeRadii = array<f32, 4>(1.0, 1.0, 1.0, 1.0);
-  for (var tapIndex = 0u; tapIndex < 4u; tapIndex = tapIndex + 1u) {
-    let lobeIndex = (segmentIndex + lobeCount + tapIndex - 1u) % lobeCount;
-    let frequency = renderUniforms.blobBaseFrequency + f32(lobeIndex) * renderUniforms.blobFrequencyStep;
-    let phase = f32(lobeIndex) * renderUniforms.blobPhaseStep;
-    lobeRadii[tapIndex] = 1.0 + renderUniforms.blobAmplitudeRatio * sin(age * frequency + phase);
-  }
-  let startTangent = (lobeRadii[2] - lobeRadii[0]) * 0.5;
-  let endTangent = (lobeRadii[3] - lobeRadii[1]) * 0.5;
-  let squared = fraction * fraction;
-  let cubed = squared * fraction;
-  return (2.0 * cubed - 3.0 * squared + 1.0) * lobeRadii[1] +
-    (cubed - 2.0 * squared + fraction) * startTangent +
-    (-2.0 * cubed + 3.0 * squared) * lobeRadii[2] +
-    (cubed - squared) * endTangent;
-}
-
-fn bubbleFragmentColor(quadCoordinate: vec2<f32>, pixelRadius: f32) -> vec4<f32> {
-  let distanceFromCenter = length(quadCoordinate);
-  if (distanceFromCenter > 1.0) {
-    return vec4<f32>(0.0, 0.0, 0.0, 0.0);
-  }
-  let diagonal = (quadCoordinate.x + quadCoordinate.y) * 0.5;
-  let gradientProgress = clamp((diagonal + 1.0) * 0.5, 0.0, 1.0);
-  let fillAlpha = mix(BUBBLE_FILL_TOP_LEFT_ALPHA, BUBBLE_FILL_BOTTOM_RIGHT_ALPHA, gradientProgress);
-  var outputColor = vec4<f32>(1.0, 1.0, 1.0, fillAlpha);
-  let rimStrokeWidthNormalized = BUBBLE_RIM_STROKE_WIDTH_PIXELS / max(pixelRadius, 1.0);
-  let rimInnerEdge = 1.0 - rimStrokeWidthNormalized;
-  if (distanceFromCenter >= rimInnerEdge) {
-    outputColor = vec4<f32>(
-      mix(outputColor.rgb, vec3<f32>(1.0, 1.0, 1.0), BUBBLE_RIM_ALPHA),
-      outputColor.a + BUBBLE_RIM_ALPHA * (1.0 - outputColor.a)
-    );
-  }
-  let highlightCenter = vec2<f32>(-BUBBLE_HIGHLIGHT_OFFSET_RATIO, -BUBBLE_HIGHLIGHT_OFFSET_RATIO);
-  let highlightDistance = length(quadCoordinate - highlightCenter) / BUBBLE_HIGHLIGHT_RADIUS_RATIO;
-  if (highlightDistance < 1.0) {
-    let highlightSourceAlpha = BUBBLE_HIGHLIGHT_ALPHA * (1.0 - highlightDistance);
-    outputColor = vec4<f32>(
-      mix(outputColor.rgb, vec3<f32>(1.0, 1.0, 1.0), highlightSourceAlpha),
-      outputColor.a + highlightSourceAlpha * (1.0 - outputColor.a)
-    );
-  }
-  return outputColor;
-}
-
-fn dripFragmentColor(color: vec4<f32>, quadCoordinate: vec2<f32>, uv: vec2<f32>) -> vec4<f32> {
-  let beadRadius = uv.y;
-  let trailRadius = beadRadius * renderUniforms.dripTrailRadiusRatio;
-  let streakLength = max(2.0 * (uv.x - uv.y), 0.0);
-  let neckSetting = max(beadRadius * renderUniforms.dripNeckLengthRatio, 0.0001);
-  let neckLength = min(streakLength, neckSetting);
-  let tailRadius = mix(beadRadius, trailRadius, clamp(streakLength / neckSetting, 0.0, 1.0));
-  let axisPosition = quadCoordinate.x * uv.x + streakLength * 0.5;
-  let perpendicularPosition = quadCoordinate.y * uv.y;
-  var isInside = false;
-  if (axisPosition < 0.0) {
-    isInside = length(vec2<f32>(axisPosition, perpendicularPosition)) <= tailRadius;
-  } else if (axisPosition > streakLength) {
-    isInside = length(vec2<f32>(axisPosition - streakLength, perpendicularPosition)) <= beadRadius;
-  } else {
-    let neckProgress = clamp((axisPosition - (streakLength - neckLength)) / max(neckLength, 0.0001), 0.0, 1.0);
-    isInside = abs(perpendicularPosition) <= mix(tailRadius, beadRadius, neckProgress);
-  }
-  if (!isInside) {
-    return vec4<f32>(0.0, 0.0, 0.0, 0.0);
-  }
-  var stripeGloss = 0.0;
-  if (axisPosition >= 0.0 && axisPosition <= streakLength - neckLength) {
-    let stripeWidth = max(trailRadius * renderUniforms.dripGlossStripeWidthRatio, 0.0001);
-    stripeGloss = clamp(
-      1.0 - abs(perpendicularPosition - trailRadius * renderUniforms.dripGlossStripeOffsetRatio) / stripeWidth,
-      0.0,
-      1.0
-    );
-  }
-  let specularOffset = beadRadius * renderUniforms.dripGlossSpecularOffsetRatio;
-  let specularCenter = vec2<f32>(streakLength - specularOffset, specularOffset);
-  let specularRadius = max(beadRadius * renderUniforms.dripGlossSpecularRadiusRatio, 0.0001);
-  let specularGloss = clamp(
-    1.0 - length(vec2<f32>(axisPosition, perpendicularPosition) - specularCenter) / specularRadius,
-    0.0,
-    1.0
-  );
-  let glossAmount = clamp(max(stripeGloss, specularGloss) * renderUniforms.dripGlossIntensity, 0.0, 1.0);
-  return vec4<f32>(mix(color.rgb, vec3<f32>(1.0, 1.0, 1.0), glossAmount), color.a);
-}
-
 @fragment
-fn fragmentMainShapes(
+fn fragmentMain(
   @location(0) color: vec4<f32>,
   @location(1) quadCoordinate: vec2<f32>,
   @location(2) renderKind: f32,
@@ -2228,47 +2116,7 @@ fn fragmentMainShapes(
   @location(5) age: f32,
   @location(6) pixelRadius: f32
 ) -> @location(0) vec4<f32> {
-  if (renderKind > 0.5 && renderKind < 1.5) {
-    return vec4<f32>(0.0, 0.0, 0.0, 0.0);
-  }
-  if (renderKind > 1.5 && renderKind < 3.5) {
-    return textureSampleLevel(renderTexture, renderSampler, uv, 0.0);
-  }
-  if (renderKind > 3.5 && renderKind < 4.5) {
-    let boundaryScale = blobBoundaryScale(atan2(quadCoordinate.y, quadCoordinate.x), age);
-    if (length(quadCoordinate) * (1.0 + renderUniforms.blobAmplitudeRatio) > boundaryScale) {
-      return vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    }
-    return color;
-  }
-  if (renderKind > 4.5 && renderKind < 5.5) {
-    return bubbleFragmentColor(quadCoordinate, pixelRadius);
-  }
-  if (renderKind > 5.5) {
-    return dripFragmentColor(color, quadCoordinate, uv);
-  }
-  if (shapeKind < 0.5 && dot(quadCoordinate, quadCoordinate) > 1.0) {
-    return vec4<f32>(0.0, 0.0, 0.0, 0.0);
-  }
-  return color;
-}
-
-@fragment
-fn fragmentMainDust(
-  @location(0) color: vec4<f32>,
-  @location(1) quadCoordinate: vec2<f32>,
-  @location(2) renderKind: f32,
-  @location(3) shapeKind: f32,
-  @location(4) uv: vec2<f32>,
-  @location(5) age: f32,
-  @location(6) pixelRadius: f32
-) -> @location(0) vec4<f32> {
-  let layoutAnchorSample = textureSampleLevel(renderTexture, renderSampler, uv, 0.0);
-  if (renderKind < 0.5 || renderKind > 1.5) {
-    return vec4<f32>(0.0, 0.0, 0.0, 0.0);
-  }
-  if (shapeKind < 0.5 && dot(quadCoordinate, quadCoordinate) > 1.0) {
-    return vec4<f32>(0.0, 0.0, 0.0, 0.0);
-  }
-  return vec4<f32>(color.rgb * color.a, color.a) + layoutAnchorSample * 0.0;
+  let fragmentInput = StyleFragmentInput(color, quadCoordinate, shapeKind, uv, age, pixelRadius);
+{{STYLE_FRAGMENT_DISPATCH}}
+  return vec4<f32>(0.0, 0.0, 0.0, 0.0);
 }

@@ -1,0 +1,28 @@
+package com.github.adamyork.kparticles.platform.assets
+
+import com.github.adamyork.kparticles.platform.AppProperties
+import com.github.adamyork.kparticles.platform.assets.data.ImageAsset
+
+/**
+ * Author: Adam York
+ * Copyright (c) Adam York
+ */
+interface AssetService {
+
+    var applicationYamlFile: String
+    var appProperties: AppProperties
+    var particleShaderSource: String
+    var particleComputeShaderSource: String
+    var particleVertexShaderSource: String
+    var particleFragmentShaderSource: String
+
+    suspend fun initialize(listener: LoadingProgressListener)
+
+    suspend fun loadItem(id: Int): ImageAsset
+
+    suspend fun loadParticleShader(): String
+
+    suspend fun loadParticleGlShaders()
+
+
+}

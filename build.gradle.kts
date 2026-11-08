@@ -1,30 +1,22 @@
-@file:Suppress("UnstableApiUsage")
-
-import java.time.Duration
-
 plugins {
-    alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.ksp)
     alias(libs.plugins.compose)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.android.application) apply false
+    `maven-publish`
 }
-
 
 group = "com.github.adamyork"
 version = "0.0.1"
 
-repositories {
-    google()
-    mavenCentral()
-    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-}
-
 kotlin {
+    explicitApi()
+
     android {
-        namespace = "com.github.adamyork.kparticles.core"
+        namespace = "com.github.adamyork.particles"
         compileSdk = 36
         minSdk = 24
         androidResources {
@@ -37,43 +29,20 @@ kotlin {
 
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
-        binaries.executable()
-        browser {
-            commonWebpackConfig {
-                devServer = (devServer
-                    ?: org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig.DevServer()).apply {
-                    static(
-                        project.layout.buildDirectory.dir("dist/wasmJs/productionExecutable").get().asFile.absolutePath
-                    )
-                }
-            }
-        }
+        browser()
     }
 
     sourceSets {
         getByName("commonMain").dependencies {
-            implementation(libs.kotlin.inject.runtime)
-            implementation(libs.cache4k)
             implementation(libs.kotlin.logging)
             implementation(libs.compose.runtime)
-            implementation(libs.compose.foundation)
             implementation(libs.compose.ui)
-            implementation(libs.compose.material3)
             implementation(libs.compose.components.resources)
-            implementation(libs.compose.material.icons.core)
-            implementation(libs.compose.material.icons.extended)
-            implementation(libs.ktor.client.core)
-            implementation(libs.kaml)
-            implementation(libs.kotlinx.datetime)
-            implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.serialization.json)
-            implementation(libs.lifecycle.viewmodel)
-            implementation(libs.lifecycle.viewmodel.compose)
         }
 
         getByName("androidMain").dependencies {
-            implementation(libs.ktor.client.okhttp)
-            implementation(libs.kotlinx.coroutines.android)
+            implementation(libs.androidx.core.ktx)
+            api(libs.kotlinx.coroutines.core)
         }
 
         getByName("androidHostTest").dependencies {
@@ -82,67 +51,13 @@ kotlin {
         }
 
         getByName("wasmJsMain").dependencies {
-            implementation(libs.ktor.client.js)
             implementation(libs.kotlinx.browser)
+            implementation(libs.kotlinx.coroutines.core)
         }
     }
 }
 
 compose.resources {
     publicResClass = true
-}
-
-val prepareDevServer = tasks.register<Copy>("prepareDevServer") {
-    description = "Prepares static assets and Compose resources for the dev server."
-    from(project.file("src/wasmJsMain/web"))
-    from(project.file("src/commonMain/composeResources/files"))
-    from(tasks.named("wasmJsProcessResources"))
-    into(layout.buildDirectory.dir("dist/wasmJs/productionExecutable"))
-}
-
-tasks.named("prepareDevServer").configure {
-    dependsOn("wasmJsProcessResources")
-}
-
-tasks.named("wasmJsBrowserDevelopmentRun").configure {
-    dependsOn(prepareDevServer)
-}
-
-val benchmarkFile = layout.projectDirectory.file("src/androidHostTest/benchmarks/physics.benchmarks")
-
-val updateBenchmarksRequested = gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "updateBenchmarks" }
-
-val skipSimulationTests = providers.gradleProperty("skipSimulationTests").map { it == "true" }.getOrElse(false)
-
-tasks.withType<Test>().configureEach {
-    timeout.set(Duration.ofMinutes(3))
-    systemProperty("kparticles.benchmarkFile", benchmarkFile.asFile.absolutePath)
-    systemProperty("kparticles.updateBenchmarks", updateBenchmarksRequested.toString())
-    testLogging {
-        showStandardStreams = true
-        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-    }
-    inputs.files(benchmarkFile)
-    if (updateBenchmarksRequested) {
-        outputs.upToDateWhen { false }
-    }
-}
-
-tasks.matching { task ->
-    task.name.startsWith("wasmJsBrowser") &&
-        (task.name.endsWith("Run") || task.name.endsWith("Webpack") || task.name.endsWith("Distribution"))
-}.configureEach {
-    if (!skipSimulationTests) {
-        dependsOn("testAndroidHostTest")
-    }
-}
-
-tasks.register("updateBenchmarks") {
-    group = "verification"
-    description = "Runs the simulation tests, reports drift from the stored benchmarks, then rewrites them."
-    dependsOn("testAndroidHostTest")
-}
-
-dependencies {
-    add("kspWasmJs", libs.kotlin.inject.compiler)
+    packageOfResClass = "com.github.adamyork.particles.resources"
 }

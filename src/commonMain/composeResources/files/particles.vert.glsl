@@ -12,26 +12,29 @@ layout(std140, binding = 1) uniform RenderUniforms {
     float canvasWidth;
     float canvasHeight;
     float renderScale;
-    float spriteFrameWidth;
-    float spriteFrameHeight;
-    float spriteSheetFrameCount;
     float spriteTicksPerFrame;
-    float dripTrailRadiusRatio;
-    float dripNeckLengthRatio;
-    float dripGlossIntensity;
-    float dripGlossStripeOffsetRatio;
-    float dripGlossStripeWidthRatio;
-    float dripGlossSpecularRadiusRatio;
-    float dripGlossSpecularOffsetRatio;
-    float blobLobeCount;
-    float blobAmplitudeRatio;
-    float blobBaseFrequency;
-    float blobFrequencyStep;
-    float blobPhaseStep;
-    float reservedA;
-    float reservedB;
-    float reservedC;
+    float styleUniform0;
+    float styleUniform1;
+    float styleUniform2;
+    float styleUniform3;
+    float styleUniform4;
+    float styleUniform5;
+    float styleUniform6;
+    float styleUniform7;
+    float styleUniform8;
+    float styleUniform9;
+    float styleUniform10;
+    float styleUniform11;
+    float styleUniform12;
+    float styleUniform13;
+    float styleUniform14;
+    float styleUniform15;
+    float styleUniform16;
+    float styleUniform17;
 } renderUniforms;
+
+uniform int uActiveStyle;
+uniform int uInstanceOffset;
 
 out vec4 vColor;
 out vec2 vQuadCoordinate;
@@ -42,6 +45,22 @@ flat out float vAge;
 flat out float vPixelRadius;
 
 const uint VECTORS_PER_PARTICLE = 16u;
+
+struct StyleVertexInput {
+    vec4 positionAngle;
+    vec4 dimensions;
+    vec4 origin;
+    float age;
+    float scale;
+    vec2 corner;
+    bool isRectangle;
+};
+
+struct StyleQuad {
+    vec2 center;
+    vec2 offset;
+    vec2 uv;
+};
 
 vec2 quadCorner(int vertexIndex) {
     switch (vertexIndex) {
@@ -66,8 +85,10 @@ void emitHiddenVertex() {
     vPixelRadius = 0.0;
 }
 
+/*{{STYLE_FUNCTIONS}}*/
+
 void main() {
-    uint base = uint(gl_InstanceID) * VECTORS_PER_PARTICLE;
+    uint base = uint(gl_InstanceID + uInstanceOffset) * VECTORS_PER_PARTICLE;
     vec4 positionAngle = renderParticles.data[base + 0u];
     vec4 lifecycle = renderParticles.data[base + 3u];
     vec4 dimensions = renderParticles.data[base + 4u];
@@ -80,60 +101,36 @@ void main() {
         emitHiddenVertex();
         return;
     }
-    float renderScale = renderUniforms.renderScale;
     float renderKind = kindData.z;
+    if (abs(renderKind - float(uActiveStyle)) > 0.5) {
+        emitHiddenVertex();
+        return;
+    }
+    float renderScale = renderUniforms.renderScale;
     bool isRectangleShape = dimensions.x > 0.5;
-    bool isSprite = renderKind > 1.5 && renderKind < 3.5;
-    bool isBlob = renderKind > 3.5 && renderKind < 4.5;
-    bool isDrip = renderKind > 5.5;
+    vec2 corner = quadCorner(gl_VertexID);
+    StyleVertexInput vertexInput = StyleVertexInput(positionAngle, dimensions, origin, age, renderScale, corner, isRectangleShape);
     vec2 halfExtent = vec2(dimensions.y, dimensions.y);
     if (isRectangleShape) {
         halfExtent = vec2(dimensions.y * 0.5, dimensions.z * 0.5);
     }
-    if (isSprite) {
-        halfExtent = vec2(renderUniforms.spriteFrameWidth * 0.5, renderUniforms.spriteFrameHeight * 0.5);
-    }
-    if (isBlob) {
-        halfExtent = halfExtent * (1.0 + renderUniforms.blobAmplitudeRatio);
-    }
+/*{{STYLE_HALF_EXTENT_HOOKS}}*/
     halfExtent = max(halfExtent * renderScale, vec2(0.5, 0.5));
-    vec2 corner = quadCorner(gl_VertexID);
-    vec2 quadCenter = positionAngle.xy;
-    vec2 quadOffset = vec2(corner.x * halfExtent.x, corner.y * halfExtent.y);
-    if (isRectangleShape && !isSprite) {
+    StyleQuad quad;
+    quad.center = positionAngle.xy;
+    quad.offset = vec2(corner.x * halfExtent.x, corner.y * halfExtent.y);
+    if (isRectangleShape) {
         float cosine = cos(positionAngle.w);
         float sine = sin(positionAngle.w);
-        quadOffset = vec2(
-            quadOffset.x * cosine - quadOffset.y * sine,
-            quadOffset.x * sine + quadOffset.y * cosine
+        quad.offset = vec2(
+            quad.offset.x * cosine - quad.offset.y * sine,
+            quad.offset.x * sine + quad.offset.y * cosine
         );
     }
-    vec2 uv = vec2((corner.x + 1.0) * 0.5, (corner.y + 1.0) * 0.5);
-    if (isSprite) {
-        float frameIndex = 0.0;
-        if (renderKind > 2.5) {
-            frameIndex = mod(floor(age / renderUniforms.spriteTicksPerFrame), max(origin.w, 1.0));
-        }
-        uv = vec2((uv.x + frameIndex) / max(renderUniforms.spriteSheetFrameCount, 1.0), uv.y);
-    }
-    if (isDrip) {
-        float beadRadius = dimensions.y;
-        vec2 tail = origin.xy;
-        vec2 head = positionAngle.xy;
-        vec2 axis = (head - tail) * renderScale;
-        float axisLength = length(axis);
-        vec2 direction = vec2(0.0, 1.0);
-        if (axisLength > 0.0001) {
-            direction = axis / axisLength;
-        }
-        float beadPixels = max(beadRadius * renderScale, 0.5);
-        float halfLength = axisLength * 0.5 + beadPixels;
-        quadCenter = (head + tail) * 0.5;
-        quadOffset = direction * (corner.x * halfLength) + vec2(-direction.y, direction.x) * (corner.y * beadPixels);
-        uv = vec2(halfLength, beadPixels);
-    }
-    float localX = (quadCenter.x - renderUniforms.viewportX) * renderScale + quadOffset.x;
-    float localY = (quadCenter.y - renderUniforms.viewportY) * renderScale + quadOffset.y;
+    quad.uv = vec2((corner.x + 1.0) * 0.5, (corner.y + 1.0) * 0.5);
+/*{{STYLE_QUAD_HOOKS}}*/
+    float localX = (quad.center.x - renderUniforms.viewportX) * renderScale + quad.offset.x;
+    float localY = (quad.center.y - renderUniforms.viewportY) * renderScale + quad.offset.y;
     gl_Position = vec4(
         (localX / renderUniforms.canvasWidth) * 2.0 - 1.0,
         -((localY / renderUniforms.canvasHeight) * 2.0 - 1.0),
@@ -144,7 +141,7 @@ void main() {
     vQuadCoordinate = corner;
     vRenderKind = renderKind;
     vShapeKind = dimensions.x;
-    vUv = uv;
+    vUv = quad.uv;
     vAge = age;
     vPixelRadius = max(dimensions.y * renderScale, 1.0);
 }
