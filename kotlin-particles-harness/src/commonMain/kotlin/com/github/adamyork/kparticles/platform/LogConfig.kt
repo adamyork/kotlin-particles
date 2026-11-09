@@ -33,8 +33,8 @@ object LogConfig {
                             else -> "\u001B[36m"
                         }
                         println("$color[$timestamp] [sparrow-wasm] [kotlin] [$level] [$loggerName] -> $message")
-                    } catch (e: Exception) {
-                        println("\u001B[31mLogging error: ${e.message}\u001B[0m")
+                    } catch (exception: Exception) {
+                        println("\u001B[31mLogging error: ${exception.message}\u001B[0m")
                     }
                 }
             }

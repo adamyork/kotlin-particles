@@ -2041,7 +2041,7 @@ fn hiddenVertex() -> VertexOutput {
   return output;
 }
 
-{{STYLE_FUNCTIONS}}
+/*{{STYLE_FUNCTIONS}}*/
 
 @vertex
 fn vertexMain(
@@ -2072,7 +2072,7 @@ fn vertexMain(
   if (isRectangleShape) {
     halfExtent = vec2<f32>(dimensions.y * 0.5, dimensions.z * 0.5);
   }
-{{STYLE_HALF_EXTENT_HOOKS}}
+/*{{STYLE_HALF_EXTENT_HOOKS}}*/
   halfExtent = max(halfExtent * scale, vec2<f32>(0.5, 0.5));
   var quad: StyleQuad;
   quad.center = positionAngle.xy;
@@ -2086,7 +2086,7 @@ fn vertexMain(
     );
   }
   quad.uv = vec2<f32>((corner.x + 1.0) * 0.5, (corner.y + 1.0) * 0.5);
-{{STYLE_QUAD_HOOKS}}
+/*{{STYLE_QUAD_HOOKS}}*/
   let localX = (quad.center.x - renderUniforms.viewportX) * scale + quad.offset.x;
   let localY = (quad.center.y - renderUniforms.viewportY) * scale + quad.offset.y;
   var output: VertexOutput;
@@ -2117,6 +2117,6 @@ fn fragmentMain(
   @location(6) pixelRadius: f32
 ) -> @location(0) vec4<f32> {
   let fragmentInput = StyleFragmentInput(color, quadCoordinate, shapeKind, uv, age, pixelRadius);
-{{STYLE_FRAGMENT_DISPATCH}}
+/*{{STYLE_FRAGMENT_DISPATCH}}*/
   return vec4<f32>(0.0, 0.0, 0.0, 0.0);
 }

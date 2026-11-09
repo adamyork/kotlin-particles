@@ -90,20 +90,4 @@ class GpuShaderComposerTest {
         assertTrue(GpuShaderComposer.annotateCompilationReport(glslComposed, styleShaders, glslReport).endsWith("[render style BLOB]"))
     }
 
-    @Test
-    fun manifestForTheOfflineValidatorDescribesEveryStyle() {
-        val offsets = GpuShaderComposer.uniformOffsets(styleShaders)
-        val entries = styleShaders.mapIndexed { index, styleShader ->
-            val uniformSource = styleShader.uniformSource
-            val values = FloatArray(uniformSource?.floatCount ?: 0)
-            uniformSource?.writeUniforms(values, 0)
-            "{\"id\":\"${styleShader.renderStyle.id}\",\"code\":${styleShader.renderStyle.code.toInt()}," +
-                    "\"blend\":\"${styleShader.blendMode}\",\"uniformOffset\":${offsets[index]}," +
-                    "\"uniformValues\":[${values.joinToString(",")}]}"
-        }
-        File(OUTPUT_DIRECTORY).mkdirs()
-        File("$OUTPUT_DIRECTORY/manifest.json").writeText("{\"styles\":[${entries.joinToString(",")}]}\n")
-        assertEquals(styleShaders.size, entries.size)
-    }
-
 }

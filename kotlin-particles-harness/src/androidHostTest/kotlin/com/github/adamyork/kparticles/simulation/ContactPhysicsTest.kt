@@ -6,7 +6,6 @@ import com.github.adamyork.particles.engine.CommonParticleCollision
 import com.github.adamyork.particles.engine.CommonParticlePhysics
 import com.github.adamyork.particles.engine.CommonSpatialGrid
 import com.github.adamyork.particles.engine.ParticleEffectRegistry
-import com.github.adamyork.particles.engine.data.ParticleEffect
 import com.github.adamyork.particles.engine.data.CircleDimensions
 import com.github.adamyork.particles.engine.data.Particle
 import com.github.adamyork.particles.engine.data.ParticleAppearance
@@ -42,10 +41,8 @@ class ContactPhysicsTest {
     private fun collide(
         firstDimensions: ParticleDimensions,
         secondDimensions: ParticleDimensions,
-        firstDensity: Double,
         secondDensity: Double,
         restitution: Double,
-        closingSpeed: Double,
         separation: Double
     ): Outcome {
         val settings = CommonPhysicsSettingsService()
@@ -65,8 +62,8 @@ class ContactPhysicsTest {
             engineDiagnostics
         )
         val generator = ManualGenerator()
-        val first = particle(0L, firstDimensions, firstDensity, restitution, 500.0, closingSpeed / 2.0)
-        val second = particle(1L, secondDimensions, secondDensity, restitution, 500.0 + separation, -closingSpeed / 2.0)
+        val first = particle(0L, firstDimensions, FIRST_DENSITY, restitution, 500.0, CLOSING_SPEED / 2.0)
+        val second = particle(1L, secondDimensions, secondDensity, restitution, 500.0 + separation, -CLOSING_SPEED / 2.0)
         generator.particles.add(first)
         generator.particles.add(second)
         val viewPort = HarnessViewPort(0, 768, 1024, 768)
@@ -75,7 +72,7 @@ class ContactPhysicsTest {
         collision.applyParticleCollision(listOf(generator), viewPort, 1.0)
         val momentumAfter = momentum(first, second)
         return Outcome(
-            closingSpeed = closingSpeed,
+            closingSpeed = CLOSING_SPEED,
             separatingSpeed = second.dynamics.velocity.x - first.dynamics.velocity.x,
             momentumError = momentumAfter - momentumBefore,
             energyBefore = energyBefore,
@@ -131,7 +128,7 @@ class ContactPhysicsTest {
         for (restitution in RESTITUTIONS) {
             assertPhysical(
                 "circle e=$restitution",
-                collide(circle(10.0), circle(10.0), 1.0, 1.0, restitution, 20.0, 19.0),
+                collide(circle(10.0), circle(10.0), 1.0, restitution, 19.0),
                 restitution
             )
         }
@@ -142,7 +139,7 @@ class ContactPhysicsTest {
         for (restitution in RESTITUTIONS) {
             assertPhysical(
                 "unequal circle e=$restitution",
-                collide(circle(10.0), circle(6.0), 1.0, 3.0, restitution, 20.0, 15.0),
+                collide(circle(10.0), circle(6.0), 3.0, restitution, 15.0),
                 restitution
             )
         }
@@ -153,7 +150,7 @@ class ContactPhysicsTest {
         for (restitution in RESTITUTIONS) {
             assertPhysical(
                 "box e=$restitution",
-                collide(box(20.0), box(20.0), 1.0, 1.0, restitution, 20.0, 19.0),
+                collide(box(20.0), box(20.0), 1.0, restitution, 19.0),
                 restitution
             )
         }
@@ -164,7 +161,7 @@ class ContactPhysicsTest {
         for (restitution in RESTITUTIONS) {
             assertPhysical(
                 "unequal box e=$restitution",
-                collide(box(20.0), box(12.0), 1.0, 3.0, restitution, 20.0, 15.0),
+                collide(box(20.0), box(12.0), 3.0, restitution, 15.0),
                 restitution
             )
         }
@@ -172,6 +169,8 @@ class ContactPhysicsTest {
 
     private companion object {
         val RESTITUTIONS = listOf(0.0, 0.5, 1.0)
+        const val FIRST_DENSITY: Double = 1.0
+        const val CLOSING_SPEED: Double = 20.0
     }
 
 }

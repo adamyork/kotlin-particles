@@ -3,7 +3,6 @@ package com.github.adamyork.kparticles.platform.effects
 import com.github.adamyork.particles.engine.data.ParticleEffect
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import com.github.adamyork.kparticles.platform.effects.style.EffectStyles
-import com.github.adamyork.kparticles.platform.Projectile
 
 /**
  * Author: Adam York

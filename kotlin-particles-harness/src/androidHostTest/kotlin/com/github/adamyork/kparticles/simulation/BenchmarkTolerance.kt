@@ -1,6 +1,5 @@
 package com.github.adamyork.kparticles.simulation
 
-import com.github.adamyork.particles.engine.data.ParticleEffect
 import com.github.adamyork.kparticles.platform.effects.ParticleEffects
 
 /**

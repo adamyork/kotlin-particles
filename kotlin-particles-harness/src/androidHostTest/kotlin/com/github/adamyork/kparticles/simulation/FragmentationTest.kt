@@ -6,7 +6,6 @@ import com.github.adamyork.particles.engine.CommonParticleCollision
 import com.github.adamyork.particles.engine.CommonParticlePhysics
 import com.github.adamyork.particles.engine.CommonSpatialGrid
 import com.github.adamyork.particles.engine.ParticleEffectRegistry
-import com.github.adamyork.particles.engine.data.ParticleEffect
 import com.github.adamyork.particles.engine.data.CircleDimensions
 import com.github.adamyork.particles.engine.data.Particle
 import com.github.adamyork.particles.engine.data.ParticleAppearance

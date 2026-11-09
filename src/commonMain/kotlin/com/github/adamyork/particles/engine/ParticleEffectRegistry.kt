@@ -16,28 +16,24 @@ public class ParticleEffectRegistry(initialEffects: List<ParticleEffect> = empty
         public const val MAXIMUM_REGISTERED_EFFECTS: Int = 64
     }
 
-    private val registeredEffects = ArrayList<ParticleEffect>()
-
     private val indexByEffect = HashMap<ParticleEffect, Int>()
 
     private val registeredGenerators = ArrayList<ParticleEffectGenerator>()
 
     private val generatorsByEffect = HashMap<ParticleEffect, ParticleEffectGenerator>()
 
-    private val registeredRenderStyles = ArrayList<ParticleRenderStyle>(ParticleRenderStyle.BUILT_IN)
-
     private var customRenderStyleCount = 0
 
     private var sealed = false
 
     public val effects: List<ParticleEffect>
-        get() = registeredEffects
+        field = ArrayList<ParticleEffect>()
 
     public val renderStyles: List<ParticleRenderStyle>
-        get() = registeredRenderStyles
+        field = ArrayList(ParticleRenderStyle.BUILT_IN)
 
     public val count: Int
-        get() = registeredEffects.size
+        get() = effects.size
 
     public val isSealed: Boolean
         get() = sealed
@@ -52,15 +48,15 @@ public class ParticleEffectRegistry(initialEffects: List<ParticleEffect> = empty
         val existingIndex = indexByEffect[effect]
         if (existingIndex != null) return existingIndex
         requireNotSealed("register particle effect ${effect.id}")
-        if (registeredEffects.any { registeredEffect -> registeredEffect.id == effect.id }) {
+        if (effects.any { registeredEffect -> registeredEffect.id == effect.id }) {
             throw EngineException("A particle effect with id ${effect.id} is already registered")
         }
-        if (registeredEffects.size >= MAXIMUM_REGISTERED_EFFECTS) {
+        if (effects.size >= MAXIMUM_REGISTERED_EFFECTS) {
             throw EngineException("Cannot register more than $MAXIMUM_REGISTERED_EFFECTS particle effects")
         }
         registerRenderStyle(effect.renderStyle)
-        val newIndex = registeredEffects.size
-        registeredEffects.add(effect)
+        val newIndex = effects.size
+        effects.add(effect)
         indexByEffect[effect] = newIndex
         return newIndex
     }
@@ -115,29 +111,29 @@ public class ParticleEffectRegistry(initialEffects: List<ParticleEffect> = empty
 
     public fun createCustomRenderStyle(id: String): ParticleRenderStyle {
         requireNotSealed("create render style $id")
-        if (registeredRenderStyles.any { renderStyle -> renderStyle.id == id }) {
+        if (renderStyles.any { renderStyle -> renderStyle.id == id }) {
             throw EngineException("A render style with id $id already exists")
         }
         var code = ParticleRenderStyle.FIRST_CUSTOM_CODE + customRenderStyleCount
-        while (registeredRenderStyles.any { renderStyle -> renderStyle.code == code }) {
+        while (renderStyles.any { renderStyle -> renderStyle.code == code }) {
             customRenderStyleCount++
             code = ParticleRenderStyle.FIRST_CUSTOM_CODE + customRenderStyleCount
         }
         customRenderStyleCount++
         val renderStyle = ParticleRenderStyle(id, code)
-        registeredRenderStyles.add(renderStyle)
+        renderStyles.add(renderStyle)
         return renderStyle
     }
 
     private fun registerRenderStyle(renderStyle: ParticleRenderStyle) {
-        if (registeredRenderStyles.any { registeredStyle -> registeredStyle === renderStyle }) return
-        if (registeredRenderStyles.any { registeredStyle -> registeredStyle.id == renderStyle.id }) {
+        if (renderStyles.any { registeredStyle -> registeredStyle === renderStyle }) return
+        if (renderStyles.any { registeredStyle -> registeredStyle.id == renderStyle.id }) {
             throw EngineException("A render style with id ${renderStyle.id} already exists")
         }
-        if (registeredRenderStyles.any { registeredStyle -> registeredStyle.code == renderStyle.code }) {
+        if (renderStyles.any { registeredStyle -> registeredStyle.code == renderStyle.code }) {
             throw EngineException("A render style with code ${renderStyle.code} already exists")
         }
-        registeredRenderStyles.add(renderStyle)
+        renderStyles.add(renderStyle)
     }
 
     private fun requireNotSealed(action: String) {

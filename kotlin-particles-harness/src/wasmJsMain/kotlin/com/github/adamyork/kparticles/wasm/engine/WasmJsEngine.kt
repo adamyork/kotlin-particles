@@ -15,13 +15,11 @@ import com.github.adamyork.particles.wasm.engine.data.WasmJsImage
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
-import com.github.adamyork.particles.engine.data.DiagnosticCounter
 import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.ParticlePhysicsEngine
 import com.github.adamyork.particles.engine.ParticleEffectRegistry
 import com.github.adamyork.particles.engine.ParticleRenderEngine
 import com.github.adamyork.kparticles.platform.harness.CommonEngine
-import com.github.adamyork.kparticles.platform.harness.Engine
 
 /**
  * Author: Adam York

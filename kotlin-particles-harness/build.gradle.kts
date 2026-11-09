@@ -1,5 +1,3 @@
-@file:Suppress("UnstableApiUsage")
-
 import java.time.Duration
 
 plugins {

@@ -2,13 +2,12 @@ package com.github.adamyork.kparticles.wasm.common
 
 import com.github.adamyork.kparticles.ParticleScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.github.adamyork.particles.wasm.common.hasWebGpuSupport
 import kotlinx.browser.window
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skiko.wasm.onWasmReady
 import org.khronos.webgl.toInt8Array
 import org.w3c.dom.events.Event
-import com.github.adamyork.particles.wasm.common.hasWebGpuSupport
 
 /**
  * Author: Adam York
@@ -17,8 +16,6 @@ import com.github.adamyork.particles.wasm.common.hasWebGpuSupport
 @ParticleScope
 @Inject
 class WasmJsInterop : PlatformInterop {
-
-    private val logger = KotlinLogging.logger {}
 
     override fun onReady(action: () -> Unit) {
         onWasmReady {

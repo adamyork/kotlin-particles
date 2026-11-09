@@ -4,7 +4,6 @@ import com.github.adamyork.kparticles.platform.effects.style.EffectStyles
 import com.github.adamyork.particles.engine.CommonGpuParticleStateWriter
 import com.github.adamyork.particles.engine.GpuParticleStateWriter
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
-import com.github.adamyork.particles.engine.shader.BuiltInStyleShaders
 import com.github.adamyork.particles.engine.shader.GpuBlendMode
 import com.github.adamyork.particles.engine.shader.GpuRenderPass
 import kotlin.test.Test

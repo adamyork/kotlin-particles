@@ -9,7 +9,6 @@ import com.github.adamyork.kparticles.platform.assets.data.ImageAsset
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
-import io.ktor.http.*
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.Image
 

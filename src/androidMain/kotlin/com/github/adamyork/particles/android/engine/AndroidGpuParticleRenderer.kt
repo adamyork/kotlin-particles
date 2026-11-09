@@ -188,9 +188,9 @@ internal class AndroidGpuParticleRenderer(
             uInstanceOffset = GLES31.glGetUniformLocation(renderProgram, "uInstanceOffset")
             rendererReady = true
             logger.info { "[GPU][Renderer] GPU particle renderer initialized with $maxParticles slots" }
-        } catch (t: Throwable) {
+        } catch (throwable: Throwable) {
             rendererReady = false
-            logger.error(t) { "[GPU][Renderer] Failed to initialize GPU renderer; disabling" }
+            logger.error(throwable) { "[GPU][Renderer] Failed to initialize GPU renderer; disabling" }
         }
     }
 

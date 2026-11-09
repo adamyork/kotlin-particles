@@ -7,7 +7,6 @@ import androidx.lifecycle.ViewModel
 import com.github.adamyork.kparticles.platform.assets.data.LoadingTask
 import com.github.adamyork.kparticles.platform.assets.data.LoadingTaskStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
-import com.github.adamyork.particles.engine.data.Particle
 
 /**
  * Author: Adam York

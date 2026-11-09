@@ -1,7 +1,14 @@
 package com.github.adamyork.kparticles.simulation
 
+import com.github.adamyork.kparticles.platform.effects.style.BlobStyleParameters
+import com.github.adamyork.kparticles.platform.effects.style.DripStyleSettings
+import com.github.adamyork.kparticles.platform.effects.style.EffectStyles
 import com.github.adamyork.kparticles.platform.gui.data.HarnessViewPort
 import com.github.adamyork.particles.engine.GpuDataPacketWriter
+import com.github.adamyork.particles.engine.GpuStyleUniformSource
+import com.github.adamyork.particles.engine.data.ParticleRenderStyle
+import com.github.adamyork.particles.engine.shader.GpuShaderComposer
+import com.github.adamyork.particles.engine.shader.GpuStyleShader
 import com.github.adamyork.particles.service.CommonPhysicsSettingsService
 import java.io.File
 import kotlin.math.max
@@ -9,15 +16,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import com.github.adamyork.kparticles.platform.effects.style.BlobStyleParameters
-import com.github.adamyork.kparticles.platform.effects.style.DripStyleSettings
-import com.github.adamyork.particles.engine.GpuStyleUniformSource
-import com.github.adamyork.particles.engine.data.ParticleRenderStyle
-import com.github.adamyork.kparticles.platform.effects.style.EffectStyleShaders
-import com.github.adamyork.kparticles.platform.effects.style.EffectStyles
-import com.github.adamyork.particles.engine.shader.BuiltInStyleShaders
-import com.github.adamyork.particles.engine.shader.GpuShaderComposer
-import com.github.adamyork.particles.engine.shader.GpuStyleShader
 
 /**
  * Author: Adam York
@@ -26,6 +24,7 @@ import com.github.adamyork.particles.engine.shader.GpuStyleShader
 class GpuLayoutContractTest {
 
     private companion object {
+        const val WGSL_FILE_NAME: String = "particles.wgsl"
         const val SHADER_DIRECTORY: String = "../src/commonMain/composeResources/files"
         const val SETTING_BASE_VALUE: Double = 100.0
         const val SETTING_VALUE_STEP: Double = 0.5
@@ -47,7 +46,6 @@ class GpuLayoutContractTest {
     @Test
     fun simulationPacketPlacesEverySettingInItsNamedSlot() {
         val settings = configuredSettings()
-        val dripSettings = configuredDripSettings()
         val viewPort = HarnessViewPort(13, 29, 1031, 517)
         val packet = FloatArray(GpuDataPacketWriter.SIMULATION_PACKET_FLOATS) { Float.NaN }
         GpuDataPacketWriter(settings, styleUniformSources(DripStyleSettings())).writeSimulationDataPacket(
@@ -96,7 +94,7 @@ class GpuLayoutContractTest {
             "subframeIndex" to SUBFRAME_INDEX.toFloat(),
             "windVelocity" to settings.windVelocity.toFloat()
         )
-        assertPacketMatchesShader(parseWgslFields("particles.wgsl", "SimulationUniforms"), expectedValues, packet)
+        assertPacketMatchesShader(parseWgslFields("SimulationUniforms"), expectedValues, packet)
     }
 
     @Test
@@ -122,7 +120,7 @@ class GpuLayoutContractTest {
             "spriteTicksPerFrame" to SPRITE_TICKS_PER_FRAME.toFloat(),
             *styleUniformExpectations(dripSettings).toList().toTypedArray()
         )
-        assertPacketMatchesShader(parseWgslFields("particles.wgsl", "RenderUniforms"), expectedValues, packet)
+        assertPacketMatchesShader(parseWgslFields("RenderUniforms"), expectedValues, packet)
     }
 
     private fun styleUniformSources(dripSettings: DripStyleSettings): List<GpuStyleUniformSource> =
@@ -144,6 +142,7 @@ class GpuLayoutContractTest {
                     TestStyleShaders.FRAME_HEIGHT.toFloat(),
                     TestStyleShaders.FRAME_COUNT.toFloat()
                 )
+
                 EffectStyles.BLOB -> floatArrayOf(
                     BlobStyleParameters.LOBE_COUNT.toFloat(),
                     BlobStyleParameters.AMPLITUDE_RATIO,
@@ -151,6 +150,7 @@ class GpuLayoutContractTest {
                     BlobStyleParameters.FREQUENCY_STEP,
                     BlobStyleParameters.PHASE_STEP
                 )
+
                 EffectStyles.DRIP -> floatArrayOf(
                     dripSettings.dripTrailRadiusRatio.toFloat(),
                     dripSettings.dripNeckLengthRatio.toFloat(),
@@ -160,6 +160,7 @@ class GpuLayoutContractTest {
                     dripSettings.dripGlossSpecularRadiusRatio.toFloat(),
                     dripSettings.dripGlossSpecularOffsetRatio.toFloat()
                 )
+
                 else -> throw AssertionError("no expectations for ${shader.renderStyle.id}")
             }
             assertEquals(source.floatCount, expectedFloats.size)
@@ -177,7 +178,11 @@ class GpuLayoutContractTest {
     ) {
         assertEquals(shaderFields.toSet(), expectedValues.keys, "test expectations and shader fields differ")
         val nonZeroValues = expectedValues.values.filter { it != 0f }
-        assertEquals(nonZeroValues.size, nonZeroValues.toSet().size, "test values must be distinct to detect slot mixups")
+        assertEquals(
+            nonZeroValues.size,
+            nonZeroValues.toSet().size,
+            "test values must be distinct to detect slot mixups"
+        )
         for ((slotIndex, fieldName) in shaderFields.withIndex()) {
             assertFalse(packet[slotIndex].isNaN(), "slot $slotIndex ($fieldName) was never written")
             assertEquals(expectedValues.getValue(fieldName), packet[slotIndex], "slot $slotIndex ($fieldName)")
@@ -213,7 +218,7 @@ class GpuLayoutContractTest {
         settings.shatterToughness = distinctValue(seed++)
         settings.positionCorrectionSlop = distinctValue(seed++)
         settings.positionCorrectionFactor = distinctValue(seed++)
-        settings.windVelocity = distinctValue(seed++)
+        settings.windVelocity = distinctValue(seed)
         return settings
     }
 
@@ -226,37 +231,26 @@ class GpuLayoutContractTest {
         dripSettings.dripGlossStripeOffsetRatio = distinctValue(seed++)
         dripSettings.dripGlossStripeWidthRatio = distinctValue(seed++)
         dripSettings.dripGlossSpecularRadiusRatio = distinctValue(seed++)
-        dripSettings.dripGlossSpecularOffsetRatio = distinctValue(seed++)
+        dripSettings.dripGlossSpecularOffsetRatio = distinctValue(seed)
         return dripSettings
     }
 
     private fun distinctValue(seed: Int): Double = SETTING_BASE_VALUE + seed * SETTING_VALUE_STEP
 
-    private fun readShader(fileName: String): String {
-        val shaderFile = File("$SHADER_DIRECTORY/$fileName")
+    private fun readWgslShader(): String {
+        val shaderFile = File("$SHADER_DIRECTORY/$WGSL_FILE_NAME")
         assertTrue(shaderFile.exists(), "shader not found at ${shaderFile.absolutePath}")
         return shaderFile.readText()
     }
 
-    private fun parseWgslFields(fileName: String, structName: String): List<String> {
+    private fun parseWgslFields(structName: String): List<String> {
         val structMatch = Regex("struct\\s+$structName\\s*\\{(.*?)\\};", RegexOption.DOT_MATCHES_ALL)
-            .find(readShader(fileName))
-        assertTrue(structMatch != null, "struct $structName not found in $fileName")
+            .find(readWgslShader())
+        assertTrue(structMatch != null, "struct $structName not found in $WGSL_FILE_NAME")
         val structBody = structMatch.groupValues[1]
         val floatFields = Regex("(\\w+)\\s*:\\s*f32").findAll(structBody).map { it.groupValues[1] }.toList()
         val declaredFieldCount = Regex("\\w+\\s*:").findAll(structBody).count()
-        assertEquals(declaredFieldCount, floatFields.size, "$structName in $fileName has a non-f32 field")
-        return floatFields
-    }
-
-    private fun parseGlslFields(fileName: String, blockName: String): List<String> {
-        val blockMatch = Regex("uniform\\s+$blockName\\s*\\{(.*?)\\}", RegexOption.DOT_MATCHES_ALL)
-            .find(readShader(fileName))
-        assertTrue(blockMatch != null, "uniform block $blockName not found in $fileName")
-        val blockBody = blockMatch.groupValues[1]
-        val floatFields = Regex("float\\s+(\\w+)\\s*;").findAll(blockBody).map { it.groupValues[1] }.toList()
-        val declaredFieldCount = Regex(";").findAll(blockBody).count()
-        assertEquals(declaredFieldCount, floatFields.size, "$blockName in $fileName has a non-float field")
+        assertEquals(declaredFieldCount, floatFields.size, "$structName in $WGSL_FILE_NAME has a non-f32 field")
         return floatFields
     }
 

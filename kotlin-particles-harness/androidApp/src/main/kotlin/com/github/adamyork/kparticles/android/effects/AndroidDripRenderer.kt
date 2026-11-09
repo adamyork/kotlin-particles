@@ -13,7 +13,6 @@ import com.github.adamyork.particles.engine.ParticleDrawFunction
 import com.github.adamyork.particles.engine.data.*
 import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
-import kotlin.math.*
 import me.tatarka.inject.annotations.Inject
 
 /**

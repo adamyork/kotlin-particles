@@ -32,7 +32,7 @@ internal class SortedCellGrid(
     private var smallParticleCount = 0
     private val largeParticles = ArrayList<Particle>()
 
-    public fun build(
+    fun build(
         particles: List<Particle>,
         cellSize: Double,
         originX: Double,
@@ -90,7 +90,7 @@ internal class SortedCellGrid(
         }
     }
 
-    public fun forEachNearbyPair(action: (Particle, Particle) -> Unit) {
+    fun forEachNearbyPair(action: (Particle, Particle) -> Unit) {
         var testedPairCount = 0
         for (row in 0 until rows) {
             for (column in 0 until columns) {
@@ -174,7 +174,7 @@ internal class SortedCellGrid(
         return deltaX * deltaX + deltaY * deltaY < combinedRadius * combinedRadius
     }
 
-    public fun forEachWithin(centerX: Double, centerY: Double, range: Double, action: (Particle) -> Unit) {
+    fun forEachWithin(centerX: Double, centerY: Double, range: Double, action: (Particle) -> Unit) {
         val firstColumn = firstCellWithin(centerX, range, originX)
         val lastColumn = lastCellWithin(centerX, range, originX, columns)
         val firstRow = firstCellWithin(centerY, range, originY)

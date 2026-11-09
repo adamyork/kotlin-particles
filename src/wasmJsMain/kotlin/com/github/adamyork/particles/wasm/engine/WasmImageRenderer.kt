@@ -7,7 +7,6 @@ import com.github.adamyork.particles.engine.data.*
 import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import com.github.adamyork.particles.wasm.engine.data.WasmJsImage
-import kotlin.math.*
 import org.jetbrains.skia.*
 
 /**

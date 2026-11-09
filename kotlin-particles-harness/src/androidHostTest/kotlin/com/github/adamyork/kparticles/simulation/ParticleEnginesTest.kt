@@ -16,7 +16,6 @@ import com.github.adamyork.particles.engine.data.ParticleLifecycle
 import com.github.adamyork.particles.engine.data.ParticleMaterial
 import com.github.adamyork.particles.engine.data.ParticleTransform
 import com.github.adamyork.particles.engine.data.ParticleVector
-import com.github.adamyork.particles.engine.shader.BuiltInStyleShaders
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame

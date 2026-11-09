@@ -1,6 +1,5 @@
 package com.github.adamyork.particles.engine
 
-import com.github.adamyork.particles.common.data.ParticleViewPort
 import com.github.adamyork.particles.engine.data.*
 
 /**

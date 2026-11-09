@@ -29,7 +29,6 @@ import androidx.compose.ui.zIndex
 import com.github.adamyork.particles.common.ParticleEngineLifeCycleState
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.particles.engine.EngineDiagnostics
-import com.github.adamyork.particles.engine.data.ParticleEffect
 import com.github.adamyork.kparticles.platform.gui.data.ScreenDimensions
 import com.github.adamyork.particles.service.RuntimeService
 import com.github.adamyork.kparticles.platform.assets.data.LoadingTask

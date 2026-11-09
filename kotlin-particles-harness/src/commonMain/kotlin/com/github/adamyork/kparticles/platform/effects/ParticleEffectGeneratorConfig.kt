@@ -4,7 +4,6 @@ import com.github.adamyork.kparticles.ParticleScope
 import com.github.adamyork.kparticles.platform.assets.AssetEngineTiming
 import com.github.adamyork.particles.engine.ParticleEffectRegistry
 import com.github.adamyork.particles.service.EngineTiming
-import com.github.adamyork.particles.engine.data.ParticleEffect
 import com.github.adamyork.particles.engine.ParticleEffectGenerator
 import com.github.adamyork.kparticles.platform.effects.style.DripStyleSettings
 import me.tatarka.inject.annotations.IntoSet

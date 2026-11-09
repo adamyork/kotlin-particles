@@ -15,12 +15,13 @@ import kotlin.test.assertTrue
 class GpuUniformLayoutTest {
 
     private companion object {
+        const val WGSL_FILE_NAME: String = "particles.wgsl"
         const val SHADER_DIRECTORY: String = "src/commonMain/composeResources/files"
     }
 
     @Test
     fun simulationUniformFieldsMatchAcrossShaders() {
-        val webGpuFields = parseWgslFields("particles.wgsl", "SimulationUniforms")
+        val webGpuFields = parseWgslFields("SimulationUniforms")
         val computeFields = parseGlslFields("particles.comp.glsl", "SimulationUniforms")
         assertEquals(webGpuFields, computeFields, "WGSL and GLSL simulation uniform fields differ")
         assertEquals(GpuDataPacketWriter.SIMULATION_PACKET_FLOATS, webGpuFields.size, "simulation packet size")
@@ -28,7 +29,7 @@ class GpuUniformLayoutTest {
 
     @Test
     fun renderUniformFieldsMatchAcrossShaders() {
-        val webGpuFields = parseWgslFields("particles.wgsl", "RenderUniforms")
+        val webGpuFields = parseWgslFields("RenderUniforms")
         val vertexFields = parseGlslFields("particles.vert.glsl", "RenderUniforms")
         val fragmentFields = parseGlslFields("particles.frag.glsl", "RenderUniforms")
         assertEquals(webGpuFields, vertexFields, "WGSL and GLSL vertex render uniform fields differ")
@@ -54,14 +55,14 @@ class GpuUniformLayoutTest {
         return shaderFile.readText()
     }
 
-    private fun parseWgslFields(fileName: String, structName: String): List<String> {
+    private fun parseWgslFields(structName: String): List<String> {
         val structMatch = Regex("struct\\s+$structName\\s*\\{(.*?)\\};", RegexOption.DOT_MATCHES_ALL)
-            .find(readShader(fileName))
-        assertTrue(structMatch != null, "struct $structName not found in $fileName")
+            .find(readShader(WGSL_FILE_NAME))
+        assertTrue(structMatch != null, "struct $structName not found in $WGSL_FILE_NAME")
         val structBody = structMatch.groupValues[1]
         val floatFields = Regex("(\\w+)\\s*:\\s*f32").findAll(structBody).map { it.groupValues[1] }.toList()
         val declaredFieldCount = Regex("\\w+\\s*:").findAll(structBody).count()
-        assertEquals(declaredFieldCount, floatFields.size, "$structName in $fileName has a non-f32 field")
+        assertEquals(declaredFieldCount, floatFields.size, "$structName in $WGSL_FILE_NAME has a non-f32 field")
         return floatFields
     }
 

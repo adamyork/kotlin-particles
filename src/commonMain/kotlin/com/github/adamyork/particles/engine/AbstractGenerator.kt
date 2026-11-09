@@ -107,6 +107,7 @@ public abstract class AbstractGenerator(
         targetBuffer[baseIndex + GPU_NON_GRAVITATING_OFFSET] = if (particle.material.exertsGravity) 0f else 1f
     }
 
+    @Suppress("FunctionOnlyReturningConstant")
     protected open fun gpuSplitFragmentsUseWallPlane(): Boolean = false
 
     protected fun createDistinctColorPair(): Pair<Color, Color> {

@@ -1,6 +1,7 @@
 package com.github.adamyork.particles.engine
 
 import com.github.adamyork.particles.engine.data.*
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 /**
  * Author: Adam York
@@ -10,6 +11,8 @@ public interface ParticleEffectGenerator {
 
     public companion object {
         public const val GPU_STATE_FLOATS_PER_PARTICLE: Int = 64
+
+        private val logger = KotlinLogging.logger {}
     }
 
     public val effect: ParticleEffect
@@ -22,7 +25,9 @@ public interface ParticleEffectGenerator {
     public val companionEffects: List<ParticleEffect>
         get() = emptyList()
 
-    public fun onAssetsReady() {}
+    public fun onAssetsReady() {
+        logger.trace { "assets ready" }
+    }
 
     public fun create(request: ParticleEffectRequest): MutableList<Particle>
 

@@ -7,6 +7,8 @@ import com.github.adamyork.particles.wasm.common.*
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.browser.window
 import kotlinx.coroutines.await
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import org.khronos.webgl.ArrayBuffer
 import org.khronos.webgl.DataView
 import org.khronos.webgl.toInt8Array
@@ -158,8 +160,9 @@ public class WasmJsGpuParticleRenderer(
                     firstCellHeight = 0
                 ).await()
                 textureViewsBySheet[spriteSheet] = textureResult.view
-            } catch (t: Throwable) {
-                logger.error(t) { "Failed to create the texture for render style ${renderPass.renderStyle.id}" }
+            } catch (throwable: Throwable) {
+                currentCoroutineContext().ensureActive()
+                logger.error(throwable) { "Failed to create the texture for render style ${renderPass.renderStyle.id}" }
                 return false
             }
         }

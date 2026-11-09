@@ -32,7 +32,13 @@ class SimulationScenario(
 
         val HITCHES = SimulationScenario(
             name = "hitches",
-            frameTicks = List(60) { 1.0 } + listOf(10.0) + List(60) { 1.0 } + listOf(30.0) + List(60) { 1.0 },
+            frameTicks = buildList {
+                addAll(List(60) { 1.0 })
+                addAll(listOf(10.0))
+                addAll(List(60) { 1.0 })
+                addAll(listOf(30.0))
+                addAll(List(60) { 1.0 })
+            },
             checkpointFrames = setOf(60, 61, 121, 122, 182)
         )
 

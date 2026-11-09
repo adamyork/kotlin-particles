@@ -63,6 +63,7 @@ class AndroidInterop : PlatformInterop {
         return bytes
     }
 
+    @Suppress("UsePropertyAccessSyntax")
     override fun copyTextToClipboard(text: String) {
         initializedClipboardManager?.setPrimaryClip(ClipData.newPlainText("metrics", text))
     }

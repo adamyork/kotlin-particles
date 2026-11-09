@@ -31,9 +31,9 @@ internal external interface GPUBindGroupLayout : JsAny
 internal external interface GPUPipelineLayout : JsAny
 
 internal external interface GpuTextureResult : JsAny {
-    public val view: GPUTextureView
-    public val width: Int
-    public val height: Int
+    val view: GPUTextureView
+    val width: Int
+    val height: Int
 }
 public fun hasWebGpuSupport(): Boolean = js("typeof navigator !== 'undefined' && !!navigator.gpu")
 

@@ -4,7 +4,6 @@ import com.github.adamyork.particles.engine.EngineException
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import java.io.File
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 

@@ -44,7 +44,7 @@ class UiController(
         get() = viewModel.loadingTasks
 
     suspend fun initializeGame() {
-        runCatching {
+        try {
             val screenDimensions = screenDimensionsService.getScreenDimensions()
             assetService.initialize(this)
             val loaders: Map<String, suspend () -> Any> = mapOf(
@@ -64,6 +64,7 @@ class UiController(
                             }
                             key to value
                         } catch (failure: Throwable) {
+                            ensureActive()
                             val mappedTaskId = LoadingViewModel.mapKeyToTaskId(key)
                             if (mappedTaskId.isNotBlank()) {
                                 withContext(Dispatchers.Main) {
@@ -88,7 +89,8 @@ class UiController(
                 stateElements.mapItemCollectibleAsset = collectibleAsset
                 runtimeService.particleEngineLifeCycleState = ParticleEngineLifeCycleState.INITIALIZED
             }
-        }.onFailure { failure ->
+        } catch (failure: Throwable) {
+            currentCoroutineContext().ensureActive()
             logger.error(failure) {
                 "initializeGame failed: ${failure::class.simpleName}: ${failure.message ?: "no message"}"
             }
