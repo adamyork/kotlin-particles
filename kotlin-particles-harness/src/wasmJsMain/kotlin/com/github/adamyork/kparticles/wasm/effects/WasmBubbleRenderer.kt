@@ -106,7 +106,7 @@ class WasmBubbleRenderer(
             center - radius,
             center + radius,
             center + radius,
-            intArrayOf(CpuRendererConstants.BUBBLE_FILL_TOP_LEFT_COLOR, CpuRendererConstants.BUBBLE_FILL_BOTTOM_RIGHT_COLOR)
+            Gradient(Gradient.Colors(arrayOf(Color4f(CpuRendererConstants.BUBBLE_FILL_TOP_LEFT_COLOR), Color4f(CpuRendererConstants.BUBBLE_FILL_BOTTOM_RIGHT_COLOR)), null, FilterTileMode.CLAMP))
         )
         try {
             bubbleFillPaint.shader = fillShader
@@ -121,7 +121,7 @@ class WasmBubbleRenderer(
             center - highlightOffset,
             center - highlightOffset,
             highlightRadius,
-            intArrayOf(CpuRendererConstants.BUBBLE_HIGHLIGHT_COLOR, CpuRendererConstants.BUBBLE_HIGHLIGHT_TRANSPARENT_COLOR)
+            Gradient(Gradient.Colors(arrayOf(Color4f(CpuRendererConstants.BUBBLE_HIGHLIGHT_COLOR), Color4f(CpuRendererConstants.BUBBLE_HIGHLIGHT_TRANSPARENT_COLOR)), null, FilterTileMode.CLAMP))
         )
         try {
             bubbleHighlightPaint.shader = highlightShader

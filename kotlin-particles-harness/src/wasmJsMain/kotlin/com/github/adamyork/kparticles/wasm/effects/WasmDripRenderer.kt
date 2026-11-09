@@ -219,7 +219,7 @@ class WasmDripRenderer(
             center,
             center,
             center,
-            intArrayOf(Color.makeARGB(alpha, 255, 255, 255), Color.makeARGB(0, 255, 255, 255))
+            Gradient(Gradient.Colors(arrayOf(Color4f(Color.makeARGB(alpha, 255, 255, 255)), Color4f(Color.makeARGB(0, 255, 255, 255))), null, FilterTileMode.CLAMP))
         )
         try {
             dripGlossSpecularPaint.shader = specularShader

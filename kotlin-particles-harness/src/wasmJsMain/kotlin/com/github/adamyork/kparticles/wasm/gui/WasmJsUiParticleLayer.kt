@@ -45,6 +45,11 @@ class WasmJsUiParticleLayer {
         return overlayCanvas
     }
 
+    fun updateBackdropColor(red: Int, green: Int, blue: Int, alpha: Float) {
+        val overlayCanvas = document.getElementById(PARTICLE_OVERLAY_ID) as? HTMLCanvasElement ?: return
+        overlayCanvas.style.backgroundColor = "rgba($red, $green, $blue, $alpha)"
+    }
+
     fun getOverlayCanvas(): HTMLCanvasElement? {
         return document.getElementById(PARTICLE_OVERLAY_ID) as? HTMLCanvasElement
     }

@@ -6,13 +6,13 @@ plugins {
 
 android {
     namespace = "com.github.adamyork.kparticles"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.github.adamyork.kparticles"
         minSdk = 24
         //noinspection OldTargetApi
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "0.0.1"
     }

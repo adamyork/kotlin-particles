@@ -1,23 +1,23 @@
 [versions]
 activityCompose = "1.13.0"
-kotlin = "2.4.10"
-compose = "1.11.1"
+kotlin = "2.4.21"
+compose = "1.12.2"
 kotlinInject = "0.9.0"
-kotlinLogging = "8.0.4"
-ktor = "3.5.1"
+kotlinLogging = "8.0.6"
+ktor = "3.6.1"
 kaml = "0.104.0"
 kotlinxDatetime = "0.8.0"
 kotlinxCoroutines = "1.11.0"
-kotlinxSerialization = "1.11.0"
-lifecycle = "2.9.6"
+kotlinxSerialization = "1.12.0"
+lifecycle = "2.11.0"
 ksp = "2.3.10"
-kotlinxBrowser = "0.3"
-agp = "9.1.1"
+kotlinxBrowser = "0.5.0"
+agp = "9.3.3"
 junit = "4.13.2"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
-androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.16.0" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.19.1" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }

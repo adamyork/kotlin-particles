@@ -25,13 +25,13 @@ val useLocalLibrary = providers.gradleProperty("useLocalLibrary").map { it == "t
 val kotlinParticlesDependency: Any = if (useLocalLibrary) {
     project(":")
 } else {
-    "com.github.adamyork:kotlin-particles:${providers.gradleProperty("kotlinParticlesVersion").getOrElse("0.0.1")}"
+    "com.github.adamyork:kotlin-particles:${providers.gradleProperty("kotlinParticlesVersion").getOrElse("0.0.2")}"
 }
 
 kotlin {
     android {
         namespace = "com.github.adamyork.kparticles.harness"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 24
         androidResources {
             enable = true

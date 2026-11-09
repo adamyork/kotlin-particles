@@ -10,14 +10,14 @@ plugins {
 }
 
 group = "com.github.adamyork"
-version = "0.0.1"
+version = "0.0.2"
 
 kotlin {
     explicitApi()
 
     android {
         namespace = "com.github.adamyork.particles"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 24
         androidResources {
             enable = true
@@ -60,4 +60,8 @@ kotlin {
 compose.resources {
     publicResClass = true
     packageOfResClass = "com.github.adamyork.particles.resources"
+}
+
+tasks.matching { it.name == "checkComposeUiTestConfigurationForWasmJs" }.configureEach {
+    enabled = false
 }

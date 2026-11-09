@@ -3,13 +3,16 @@ package com.github.adamyork.kparticles.wasm.gui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -19,6 +22,7 @@ import com.github.adamyork.particles.engine.data.CommonImage
 import com.github.adamyork.kparticles.platform.gui.ScreenDimensionsService
 import com.github.adamyork.particles.wasm.engine.data.WasmJsImage
 import com.github.adamyork.kparticles.platform.gui.UiDrawLayer
+import kotlin.math.roundToInt
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
@@ -52,11 +56,21 @@ class WasmJsUiDrawLayer(
             )
             overlayInitialized = true
         }
+        val backdropColor = MaterialTheme.colorScheme.surfaceContainer
+        SideEffect {
+            particleLayer.updateBackdropColor(
+                red = (backdropColor.red * 255f).roundToInt(),
+                green = (backdropColor.green * 255f).roundToInt(),
+                blue = (backdropColor.blue * 255f).roundToInt(),
+                alpha = backdropColor.alpha
+            )
+        }
         Canvas(
             modifier = Modifier.fillMaxSize()
                 .border(width = 1.dp, color = Color.White, shape = RectangleShape)
                 .clip(RectangleShape)
         ) {
+            drawRect(color = Color.Transparent, blendMode = BlendMode.Clear)
             image?.let { foreground ->
                 drawIntoCanvas { canvas ->
                     canvas.skiaCanvas.drawImageRect(
