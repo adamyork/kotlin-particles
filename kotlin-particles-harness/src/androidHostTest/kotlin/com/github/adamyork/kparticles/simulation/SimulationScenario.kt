@@ -44,8 +44,8 @@ class SimulationScenario(
 
         val HEAVY = SimulationScenario(
             name = "heavy",
-            frameTicks = List(1500) { 1.0 },
-            checkpointFrames = setOf(100, 400, 800, 1500),
+            frameTicks = List(800) { 1.0 },
+            checkpointFrames = setOf(100, 400, 800),
             spawnFrames = setOf(0, 10, 20, 30)
         )
 

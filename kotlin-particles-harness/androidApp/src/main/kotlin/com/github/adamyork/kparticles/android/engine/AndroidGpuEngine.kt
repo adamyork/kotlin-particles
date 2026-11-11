@@ -1,5 +1,6 @@
 package com.github.adamyork.kparticles.android.engine
 
+import com.github.adamyork.particles.engine.data.ParticleEngineType
 import android.graphics.Canvas
 import com.github.adamyork.particles.android.engine.data.AndroidPendingGpuFrame
 import com.github.adamyork.kparticles.ParticleScope
@@ -10,8 +11,7 @@ import com.github.adamyork.particles.service.RuntimeService
 import com.github.adamyork.kparticles.platform.assets.data.ImageAsset
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.tatarka.inject.annotations.Inject
-import com.github.adamyork.particles.engine.EngineDiagnostics
-import com.github.adamyork.particles.engine.data.DiagnosticCounter
+import com.github.adamyork.particles.engine.ParticleEngineDiagnostics
 import com.github.adamyork.particles.engine.ParticlePhysicsEngine
 import com.github.adamyork.particles.engine.ParticleEffectRegistry
 import com.github.adamyork.particles.engine.ParticleRenderEngine
@@ -39,7 +39,7 @@ class AndroidGpuEngine(
     private val gpuRenderers: AndroidGpuRenderers,
     private val gpuParticleStateWriter: GpuParticleStateWriter,
     private val gpuStyleShaders: List<GpuStyleShader>,
-    engineDiagnostics: EngineDiagnostics
+    particleEngineDiagnostics: ParticleEngineDiagnostics
 ) : AndroidEngine(
     particlePhysicsEngine,
     particleEffectRegistry,
@@ -48,7 +48,7 @@ class AndroidGpuEngine(
     platformInterop,
     particleRenderEngine,
     imageSource,
-    engineDiagnostics
+    particleEngineDiagnostics
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -63,6 +63,7 @@ class AndroidGpuEngine(
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         logger.info { "Initializing GPU engine" }
         super.initialize(collectibleAsset)
+        particleEngineDiagnostics.engineType = ParticleEngineType.GPU
         assetService.loadParticleGlShaders()
         particleEffectRegistry.seal()
         val styleSlotRanges = gpuParticleStateWriter.getStyleSlotRanges(gpuParticleBufferCapacity)
@@ -88,9 +89,9 @@ class AndroidGpuEngine(
 
     override fun manageParticles(viewPort: ParticleViewPort) {
         val subframeSchedule = runtimeService.getSubframeSchedule()
-        engineDiagnostics.count(DiagnosticCounter.SUBFRAMES, subframeSchedule.subframeCount)
         val frameStartWorldTime = worldTime
         worldTime += subframeSchedule.subframeCount * subframeSchedule.subframeDeltaTime
+        particleEffectRegistry.advanceGenerators(subframeSchedule.subframeCount * subframeSchedule.subframeDeltaTime)
         val spawnWriteResult = gpuParticleStateWriter.writeGpuParticleStateSpawnBuffer(
             gpuParticleSpawnBuffer,
             gpuParticleBufferCapacity,

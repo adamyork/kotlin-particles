@@ -12,7 +12,7 @@ import com.github.adamyork.kparticles.platform.assets.AssetService
 import com.github.adamyork.kparticles.platform.assets.CollectibleImageStore
 import com.github.adamyork.particles.service.RuntimeService
 import me.tatarka.inject.annotations.Inject
-import com.github.adamyork.particles.engine.EngineDiagnostics
+import com.github.adamyork.particles.engine.ParticleEngineDiagnostics
 
 /**
  * Author: Adam York
@@ -27,7 +27,7 @@ class AndroidTestBed(
     private val runtimeService: RuntimeService,
     private val screenDimensionsService: ScreenDimensionsService,
     private val platformInterop: PlatformInterop,
-    private val engineDiagnostics: EngineDiagnostics,
+    private val particleEngineDiagnostics: ParticleEngineDiagnostics,
     private val collectibleImageStore: CollectibleImageStore
 ) : TestBed {
 
@@ -45,7 +45,7 @@ class AndroidTestBed(
         runtimeService = runtimeService,
         screenDimensionsService = screenDimensionsService,
         platformInterop = platformInterop,
-        engineDiagnostics = engineDiagnostics
+        particleEngineDiagnostics = particleEngineDiagnostics
     )
 
     @Composable

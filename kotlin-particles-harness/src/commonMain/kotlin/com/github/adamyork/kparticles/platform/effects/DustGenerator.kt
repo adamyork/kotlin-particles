@@ -6,7 +6,7 @@ import com.github.adamyork.particles.engine.data.*
 import com.github.adamyork.kparticles.platform.assets.AssetService
 import kotlin.math.*
 import me.tatarka.inject.annotations.Inject
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import com.github.adamyork.particles.engine.AbstractGenerator
 
 /**
@@ -16,7 +16,7 @@ import com.github.adamyork.particles.engine.AbstractGenerator
 @ParticleScope
 @Inject
 class DustGenerator(
-    private val physicsSettingsService: PhysicsSettingsService,
+    private val physicsSettingsService: ParticlePhysicsSettingsService,
     private val assetService: AssetService
 ) : AbstractGenerator(ParticleEffects.DUST) {
 

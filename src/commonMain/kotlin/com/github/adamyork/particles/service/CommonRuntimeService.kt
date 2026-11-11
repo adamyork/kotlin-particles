@@ -13,7 +13,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
  */
 public class CommonRuntimeService(
     private val engineTiming: EngineTiming,
-    override val physicsSettingsService: PhysicsSettingsService
+    override val physicsSettingsService: ParticlePhysicsSettingsService
 ) : RuntimeService {
 
     private val logger = KotlinLogging.logger {}

@@ -2,7 +2,7 @@ package com.github.adamyork.kparticles.platform.effects
 
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 
 /**
  * Author: Adam York
@@ -11,7 +11,7 @@ import com.github.adamyork.particles.service.PhysicsSettingsService
 abstract class AbstractItemReturnGenerator(
     effect: ParticleEffect,
     itemReturnMaxFrames: Int,
-    physicsSettingsService: PhysicsSettingsService
+    physicsSettingsService: ParticlePhysicsSettingsService
 ) : AbstractGuidedLaunchGenerator(
     effect, ITEM_RETURN_GPU_SLOT_GROUP, itemReturnMaxFrames, physicsSettingsService
 ) {

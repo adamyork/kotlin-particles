@@ -2,7 +2,7 @@ package com.github.adamyork.kparticles.platform.effects
 
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import kotlin.math.*
 import com.github.adamyork.particles.engine.AbstractGenerator
 
@@ -14,7 +14,7 @@ abstract class AbstractGuidedLaunchGenerator(
     effect: ParticleEffect,
     private val guidedLaunchGpuSlotGroup: GpuSlotGroup,
     private val guidedLaunchMaxFrames: Int,
-    private val physicsSettingsService: PhysicsSettingsService
+    private val physicsSettingsService: ParticlePhysicsSettingsService
 ) : AbstractGenerator(effect) {
 
     companion object {

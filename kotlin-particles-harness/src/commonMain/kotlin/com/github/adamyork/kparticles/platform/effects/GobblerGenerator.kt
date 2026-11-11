@@ -2,7 +2,7 @@ package com.github.adamyork.kparticles.platform.effects
 
 import com.github.adamyork.kparticles.ParticleScope
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
 import kotlin.math.PI
 import kotlin.math.cos
@@ -16,7 +16,7 @@ import com.github.adamyork.particles.engine.AbstractGenerator
 @ParticleScope
 @Inject
 class GobblerGenerator(
-    private val physicsSettingsService: PhysicsSettingsService
+    private val physicsSettingsService: ParticlePhysicsSettingsService
 ) : AbstractGenerator(ParticleEffects.GOBBLER) {
 
     private companion object {

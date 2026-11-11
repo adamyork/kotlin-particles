@@ -3,7 +3,7 @@ package com.github.adamyork.kparticles.platform.effects
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.ParticleScope
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import kotlin.math.*
 import me.tatarka.inject.annotations.Inject
 import com.github.adamyork.particles.engine.AbstractGenerator
@@ -15,7 +15,7 @@ import com.github.adamyork.particles.engine.AbstractGenerator
 @ParticleScope
 @Inject
 class BlackHoleGenerator(
-    private val physicsSettingsService: PhysicsSettingsService
+    private val physicsSettingsService: ParticlePhysicsSettingsService
 ) : AbstractGenerator(ParticleEffects.BLACK_HOLE) {
 
     private companion object {

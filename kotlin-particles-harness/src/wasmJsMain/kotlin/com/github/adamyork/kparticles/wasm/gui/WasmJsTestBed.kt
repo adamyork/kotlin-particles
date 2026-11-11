@@ -3,7 +3,7 @@ package com.github.adamyork.kparticles.wasm.gui
 import androidx.compose.runtime.Composable
 import com.github.adamyork.kparticles.ParticleScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
-import com.github.adamyork.particles.engine.EngineDiagnostics
+import com.github.adamyork.particles.engine.ParticleEngineDiagnostics
 import com.github.adamyork.kparticles.platform.harness.Engine
 import com.github.adamyork.particles.engine.ParticleEffectRegistry
 import com.github.adamyork.kparticles.platform.gui.ScreenDimensionsService
@@ -28,7 +28,7 @@ class WasmJsTestBed(
     private val screenDimensionsService: ScreenDimensionsService,
     private val particleLayer: WasmJsUiParticleLayer,
     private val platformInterop: PlatformInterop,
-    private val engineDiagnostics: EngineDiagnostics,
+    private val particleEngineDiagnostics: ParticleEngineDiagnostics,
     private val collectibleImageStore: CollectibleImageStore
 ) : TestBed {
 
@@ -47,7 +47,7 @@ class WasmJsTestBed(
         screenDimensionsService = screenDimensionsService,
         platformInterop = platformInterop,
         particleLayer = particleLayer,
-        engineDiagnostics = engineDiagnostics
+        particleEngineDiagnostics = particleEngineDiagnostics
     )
 
     @Composable

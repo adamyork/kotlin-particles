@@ -26,6 +26,9 @@ public class ParticleEffectRegistry(initialEffects: List<ParticleEffect> = empty
 
     private var sealed = false
 
+    public var totalSpawnedParticles: Long = 0L
+        private set
+
     public val effects: List<ParticleEffect>
         field = ArrayList<ParticleEffect>()
 
@@ -93,14 +96,28 @@ public class ParticleEffectRegistry(initialEffects: List<ParticleEffect> = empty
         val request = ParticleEffectRequest(x, y, viewPort, destinationX ?: rightEdge, destinationY ?: 0.0, direction)
         val generator = generatorsByEffect[effect]
             ?: throw EngineException("No particle effect generator registered for $effect")
+        val particleCountBeforeSpawn = generator.particles.size
         generator.spawn(request)
+        totalSpawnedParticles += (generator.particles.size - particleCountBeforeSpawn).toLong()
         for (companionEffect in generator.companionEffects) {
-            generatorsByEffect[companionEffect]?.spawn(request)
+            val companionGenerator = generatorsByEffect[companionEffect] ?: continue
+            val companionCountBeforeSpawn = companionGenerator.particles.size
+            companionGenerator.spawn(request)
+            totalSpawnedParticles += (companionGenerator.particles.size - companionCountBeforeSpawn).toLong()
+        }
+    }
+
+    public fun advanceGenerators(deltaTime: Double) {
+        for (generator in registeredGenerators) {
+            val particleCountBeforeAdvance = generator.particles.size
+            generator.advance(deltaTime)
+            totalSpawnedParticles += (generator.particles.size - particleCountBeforeAdvance).toLong()
         }
     }
 
     public fun clear() {
         for (generator in registeredGenerators) {
+            generator.reset()
             generator.particles.clear()
         }
     }

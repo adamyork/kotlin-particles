@@ -1,6 +1,5 @@
 package com.github.adamyork.particles.engine
 
-import com.github.adamyork.particles.engine.data.DiagnosticCounter
 import com.github.adamyork.particles.engine.data.Particle
 import kotlin.math.max
 
@@ -8,9 +7,7 @@ import kotlin.math.max
  * Author: Adam York
  * Copyright (c) Adam York
  */
-internal class SortedCellGrid(
-    private val engineDiagnostics: EngineDiagnostics
-) {
+internal class SortedCellGrid {
 
     private companion object {
         private val FORWARD_COLUMN_OFFSETS = intArrayOf(1, -1, 0, 1)
@@ -91,7 +88,6 @@ internal class SortedCellGrid(
     }
 
     fun forEachNearbyPair(action: (Particle, Particle) -> Unit) {
-        var testedPairCount = 0
         for (row in 0 until rows) {
             for (column in 0 until columns) {
                 val cellIndex = row * columns + column
@@ -99,7 +95,6 @@ internal class SortedCellGrid(
                 val cellEnd = cellStarts[cellIndex + 1]
                 for (firstIndex in cellStart until cellEnd) {
                     for (secondIndex in firstIndex + 1 until cellEnd) {
-                        testedPairCount++
                         if (smallBoundsOverlap(firstIndex, secondIndex)) {
                             action(sortedParticles[firstIndex]!!, sortedParticles[secondIndex]!!)
                         }
@@ -112,7 +107,6 @@ internal class SortedCellGrid(
                     val neighborCellIndex = neighborRow * columns + neighborColumn
                     for (firstIndex in cellStart until cellEnd) {
                         for (secondIndex in cellStarts[neighborCellIndex] until cellStarts[neighborCellIndex + 1]) {
-                            testedPairCount++
                             if (smallBoundsOverlap(firstIndex, secondIndex)) {
                                 action(sortedParticles[firstIndex]!!, sortedParticles[secondIndex]!!)
                             }
@@ -135,7 +129,6 @@ internal class SortedCellGrid(
                 for (column in firstColumn..lastColumn) {
                     val cellIndex = row * columns + column
                     for (smallIndex in cellStarts[cellIndex] until cellStarts[cellIndex + 1]) {
-                        testedPairCount++
                         val deltaX = sortedPositionX[smallIndex] - largePositionX
                         val deltaY = sortedPositionY[smallIndex] - largePositionY
                         val combinedRadius = sortedBoundingRadius[smallIndex] + largeRadius
@@ -146,7 +139,6 @@ internal class SortedCellGrid(
                 }
             }
             for (otherLargeIndex in largeIndex + 1 until largeParticles.size) {
-                testedPairCount++
                 val otherLargeParticle = largeParticles[otherLargeIndex]
                 val deltaX = otherLargeParticle.transform.position.x - largePositionX
                 val deltaY = otherLargeParticle.transform.position.y - largePositionY
@@ -156,9 +148,6 @@ internal class SortedCellGrid(
                 }
             }
         }
-        engineDiagnostics.count(DiagnosticCounter.LARGE_PARTICLES, largeParticles.size)
-        engineDiagnostics.count(DiagnosticCounter.SMALL_PARTICLES, smallParticleCount)
-        engineDiagnostics.count(DiagnosticCounter.GRID_TESTED_PAIRS, testedPairCount)
     }
 
     private fun firstCellWithin(center: Double, reach: Double, origin: Double): Int =

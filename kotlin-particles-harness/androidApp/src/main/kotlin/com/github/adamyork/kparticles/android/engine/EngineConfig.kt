@@ -7,9 +7,9 @@ import android.graphics.Canvas
 import com.github.adamyork.kparticles.ParticleScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.particles.engine.CommonParticleRenderEngine
-import com.github.adamyork.particles.engine.EngineDiagnostics
 import com.github.adamyork.particles.engine.GpuParticleRenderEngine
 import com.github.adamyork.particles.engine.ParticleEffectRegistry
+import com.github.adamyork.particles.engine.ParticleEngineDiagnostics
 import com.github.adamyork.particles.engine.ParticleRenderEngine
 import com.github.adamyork.kparticles.platform.harness.Engine
 import me.tatarka.inject.annotations.IntoSet
@@ -65,11 +65,11 @@ interface EngineConfig {
         particleEffectRegistry: ParticleEffectRegistry,
         styleRenderers: CpuStyleRenderers<Canvas>,
         gpuRenderers: AndroidGpuRenderers,
-        engineDiagnostics: EngineDiagnostics
+        particleEngineDiagnostics: ParticleEngineDiagnostics
     ): ParticleRenderEngine<Canvas> = if (platformInterop.isGpuEngineSupported()) {
         GpuParticleRenderEngine(particleEffectRegistry, gpuRenderers.drawFunction)
     } else {
-        CommonParticleRenderEngine(particleEffectRegistry, styleRenderers, engineDiagnostics)
+        CommonParticleRenderEngine(particleEffectRegistry, styleRenderers, particleEngineDiagnostics)
     }
 
 }

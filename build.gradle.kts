@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.github.adamyork"
-version = "0.0.2"
+version = "0.0.4"
 
 kotlin {
     explicitApi()

@@ -1,5 +1,6 @@
 package com.github.adamyork.kparticles.wasm.engine
 
+import com.github.adamyork.particles.engine.data.ParticleEngineType
 import com.github.adamyork.kparticles.ParticleScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.particles.common.data.ParticleViewPort
@@ -15,8 +16,7 @@ import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.Canvas
 import org.w3c.dom.HTMLCanvasElement
 import kotlin.time.Duration.Companion.milliseconds
-import com.github.adamyork.particles.engine.EngineDiagnostics
-import com.github.adamyork.particles.engine.data.DiagnosticCounter
+import com.github.adamyork.particles.engine.ParticleEngineDiagnostics
 import com.github.adamyork.particles.engine.ParticlePhysicsEngine
 import com.github.adamyork.particles.engine.ParticleEffectRegistry
 import com.github.adamyork.particles.engine.ParticleRenderEngine
@@ -45,7 +45,7 @@ class WasmJsGpuEngine(
     gpuRenderers: WasmGpuRenderers,
     private val gpuParticleStateWriter: GpuParticleStateWriter,
     private val gpuStyleShaders: List<GpuStyleShader>,
-    engineDiagnostics: EngineDiagnostics
+    particleEngineDiagnostics: ParticleEngineDiagnostics
 ) : WasmJsEngine(
     particlePhysicsEngine,
     particleEffectRegistry,
@@ -54,7 +54,7 @@ class WasmJsGpuEngine(
     platformInterop,
     particleRenderEngine,
     imageSource,
-    engineDiagnostics
+    particleEngineDiagnostics
 ) {
 
     private companion object {
@@ -74,8 +74,8 @@ class WasmJsGpuEngine(
 
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         logger.info { "Initializing GPU engine" }
-        engineDiagnostics.engineLabel = "Wasm GPU"
         super.initialize(collectibleAsset)
+        particleEngineDiagnostics.engineType = ParticleEngineType.GPU
         val overlayCanvas = waitForOverlayCanvasReady()
             ?: throw IllegalStateException("WebGPU particle overlay canvas could not be created")
         particleEffectRegistry.seal()
@@ -102,14 +102,15 @@ class WasmJsGpuEngine(
                         "dpr=$dpr, userAgent=$userAgent"
             )
         }
+        particleEngineDiagnostics.liveParticleSampler = { gpuParticleRenderer.sampleLiveParticleCount() }
         logger.info { "GPU particle renderer initialized" }
     }
 
     override fun manageParticles(viewPort: ParticleViewPort) {
         val subframeSchedule = runtimeService.getSubframeSchedule()
-        engineDiagnostics.count(DiagnosticCounter.SUBFRAMES, subframeSchedule.subframeCount)
         val frameStartWorldTime = worldTime
         worldTime += subframeSchedule.subframeCount * subframeSchedule.subframeDeltaTime
+        particleEffectRegistry.advanceGenerators(subframeSchedule.subframeCount * subframeSchedule.subframeDeltaTime)
         val spawnWriteResult = gpuParticleStateWriter.writeGpuParticleStateSpawnBuffer(
             gpuParticleSpawnBuffer,
             gpuParticleBufferCapacity,

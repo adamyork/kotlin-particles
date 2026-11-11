@@ -2,10 +2,8 @@ package com.github.adamyork.particles.wasm.engine
 
 import com.github.adamyork.particles.engine.CpuDrawOrder
 import com.github.adamyork.particles.engine.CpuStyleRenderer
-import com.github.adamyork.particles.engine.EngineDiagnostics
 import com.github.adamyork.particles.engine.ParticleDrawFunction
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import kotlin.math.*
 import org.jetbrains.skia.*
@@ -14,13 +12,10 @@ import org.jetbrains.skia.*
  * Author: Adam York
  * Copyright (c) Adam York
  */
-public class WasmShapeRenderer(
-    private val engineDiagnostics: EngineDiagnostics
-) : CpuStyleRenderer<Canvas> {
+public class WasmShapeRenderer : CpuStyleRenderer<Canvas> {
 
     override val renderStyle: ParticleRenderStyle = ParticleRenderStyle.SHAPE
     override val drawOrder: Int = CpuDrawOrder.SHAPES
-    override val diagnosticPhase: DiagnosticPhase = DiagnosticPhase.DRAW_SIMPLE_SHAPE
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawSimpleShapes
     private val particlePaint = Paint().apply { isAntiAlias = false; mode = PaintMode.FILL }
 
@@ -42,9 +37,6 @@ public class WasmShapeRenderer(
         }
         simpleShapeGroups.clear()
         val groups = simpleShapeGroups
-        val groupingMark = engineDiagnostics.startTimer()
-        var culledCount = 0
-        var drawnCount = 0
         for (generator in generators) {
             val particles = generator.particles
             var particleIndex = 0
@@ -52,10 +44,8 @@ public class WasmShapeRenderer(
                 val particle = particles[particleIndex]
                 particleIndex++
                 if (!particle.cullingCheck(viewPort)) {
-                    culledCount++
                     continue
                 }
-                drawnCount++
                 val color = particle.appearance.packedArgb()
                 val bucket = groups[color]
                 if (bucket == null) {
@@ -71,11 +61,6 @@ public class WasmShapeRenderer(
                 }
             }
         }
-        engineDiagnostics.stopTimer(DiagnosticPhase.SIMPLE_GROUPING, groupingMark)
-        engineDiagnostics.count(DiagnosticCounter.SIMPLE_CULLED, culledCount)
-        engineDiagnostics.count(DiagnosticCounter.SIMPLE_DRAWN, drawnCount)
-        engineDiagnostics.count(DiagnosticCounter.SIMPLE_COLOR_GROUPS, groups.size)
-        val fillMark = engineDiagnostics.startTimer()
         val groupIterator = groups.entries.iterator()
         while (groupIterator.hasNext()) {
             val entry = groupIterator.next()
@@ -116,7 +101,6 @@ public class WasmShapeRenderer(
             canvas.drawPath(batchPath, particlePaint)
             batchPath.close()
         }
-        engineDiagnostics.stopTimer(DiagnosticPhase.SIMPLE_FILL, fillMark)
     }
 
 }

@@ -2,7 +2,7 @@ package com.github.adamyork.particles.engine
 
 import com.github.adamyork.particles.common.data.ParticleViewPort
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import kotlin.math.*
 
 /**
@@ -12,8 +12,7 @@ import kotlin.math.*
 public class CommonParticleCollision(
     private val particlePhysics: ParticlePhysics,
     private val spatialGrid: SpatialGrid,
-    private val physicsSettingsService: PhysicsSettingsService,
-    private val engineDiagnostics: EngineDiagnostics
+    private val physicsSettingsService: ParticlePhysicsSettingsService
 ) : ParticleCollision {
 
     private companion object {
@@ -30,10 +29,6 @@ public class CommonParticleCollision(
     private val touchingFirstParticles = ArrayList<Particle>()
 
     private val touchingSecondParticles = ArrayList<Particle>()
-
-    private var candidatePairCount = 0
-
-    private var contactPairCount = 0
 
     private val contact = CollisionContact()
 
@@ -68,24 +63,15 @@ public class CommonParticleCollision(
             physicsSettingsService.minActiveVelocity * physicsSettingsService.minActiveVelocity
         val fragments = ArrayList<Pair<Particle, Particle>>()
         val planeThickness = physicsSettingsService.collisionPlaneThickness
-        val placeMark = engineDiagnostics.startTimer()
         placeParticles(generators, viewPort)
-        engineDiagnostics.stopTimer(DiagnosticPhase.COLLISION_PLACE, placeMark)
-        val gravitationMark = engineDiagnostics.startTimer()
         particlePhysics.applyGravitation(this, deltaTime)
-        engineDiagnostics.stopTimer(DiagnosticPhase.GRAVITATION, gravitationMark)
-        val pairsMark = engineDiagnostics.startTimer()
-        candidatePairCount = 0
-        contactPairCount = 0
         touchingFirstParticles.clear()
         touchingSecondParticles.clear()
         spatialGrid.forEachCollisionPair { firstParticle, secondParticle ->
-            candidatePairCount++
             if (abs(firstParticle.transform.position.z - secondParticle.transform.position.z) >= planeThickness) {
                 return@forEachCollisionPair
             }
             if (!detectContact(firstParticle, secondParticle, contact)) return@forEachCollisionPair
-            contactPairCount++
             touchingFirstParticles.add(firstParticle)
             touchingSecondParticles.add(secondParticle)
             if (particlePhysics.applyParticleAccretion(firstParticle, secondParticle)) return@forEachCollisionPair
@@ -114,28 +100,18 @@ public class CommonParticleCollision(
                 )
             }
         }
-        engineDiagnostics.stopTimer(DiagnosticPhase.PAIR_SOLVE, pairsMark)
-        engineDiagnostics.count(DiagnosticCounter.CANDIDATE_PAIRS, candidatePairCount)
-        engineDiagnostics.count(DiagnosticCounter.CONTACT_PAIRS, contactPairCount)
-        engineDiagnostics.count(DiagnosticCounter.GRID_PARTICLES, spatialGrid.getAllPlacedParticles().size)
-        val correctionMark = engineDiagnostics.startTimer()
         repeat(POSITION_CORRECTION_ITERATIONS) {
             for (touchingIndex in touchingFirstParticles.indices) {
                 correctPositions(touchingFirstParticles[touchingIndex], touchingSecondParticles[touchingIndex], planeThickness)
             }
         }
-        engineDiagnostics.stopTimer(DiagnosticPhase.POSITION_CORRECTION, correctionMark)
-        val fragmentMark = engineDiagnostics.startTimer()
         for ((parentParticle, fragmentParticle) in fragments) {
             generators.firstOrNull { generator -> generator.particles.any { it === parentParticle } }
                 ?.adopt(fragmentParticle)
         }
-        engineDiagnostics.stopTimer(DiagnosticPhase.FRAGMENT_ADOPT, fragmentMark)
-        val boundaryMark = engineDiagnostics.startTimer()
         for (generator in generators) {
             applyBoundaryCollision(generator.particles, viewPort)
         }
-        engineDiagnostics.stopTimer(DiagnosticPhase.BOUNDARY, boundaryMark)
     }
 
     private fun correctPositions(firstParticle: Particle, secondParticle: Particle, planeThickness: Double) {

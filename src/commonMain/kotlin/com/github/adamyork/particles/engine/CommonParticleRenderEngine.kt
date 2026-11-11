@@ -11,7 +11,7 @@ import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 public class CommonParticleRenderEngine<CanvasType>(
     private val particleEffectRegistry: ParticleEffectRegistry,
     private val styleRenderers: CpuStyleRenderers<CanvasType>,
-    private val engineDiagnostics: EngineDiagnostics
+    private val particleEngineDiagnostics: ParticleEngineDiagnostics
 ) : ParticleRenderEngine<CanvasType> {
 
     private class Batch<CanvasType>(
@@ -35,9 +35,9 @@ public class CommonParticleRenderEngine<CanvasType>(
         for (batch in batches) {
             if (batch.generators.none { generator -> generator.particles.isNotEmpty() }) continue
             val drawFunctionData = DrawFunctionData(batch.generators, viewPort, canvas)
-            val batchMark = engineDiagnostics.startTimer()
+            val drawStartMicroseconds = particleEngineDiagnostics.timestampMicroseconds()
             batch.renderer.drawFunction(drawFunctionData)
-            engineDiagnostics.stopTimer(batch.renderer.diagnosticPhase, batchMark)
+            particleEngineDiagnostics.recordBatchDrawCostSince(batch.generators, drawStartMicroseconds)
         }
     }
 

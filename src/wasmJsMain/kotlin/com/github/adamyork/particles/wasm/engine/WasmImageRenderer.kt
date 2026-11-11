@@ -4,7 +4,6 @@ import com.github.adamyork.particles.engine.CpuDrawOrder
 import com.github.adamyork.particles.engine.CpuStyleRenderer
 import com.github.adamyork.particles.engine.ParticleDrawFunction
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import com.github.adamyork.particles.wasm.engine.data.WasmJsImage
 import org.jetbrains.skia.*
@@ -19,7 +18,6 @@ public class WasmImageRenderer(
 ) : CpuStyleRenderer<Canvas> {
 
     override val drawOrder: Int = CpuDrawOrder.IMAGES
-    override val diagnosticPhase: DiagnosticPhase = DiagnosticPhase.DRAW_SPRITE
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawSpriteFrames
 
     private fun frameOf(particle: Particle): Int {

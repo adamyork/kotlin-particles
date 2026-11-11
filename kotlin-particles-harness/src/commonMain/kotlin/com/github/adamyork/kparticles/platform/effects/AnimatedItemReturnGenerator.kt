@@ -2,7 +2,7 @@ package com.github.adamyork.kparticles.platform.effects
 
 import com.github.adamyork.kparticles.ParticleScope
 import me.tatarka.inject.annotations.Inject
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 
 /**
  * Author: Adam York
@@ -11,7 +11,7 @@ import com.github.adamyork.particles.service.PhysicsSettingsService
 @ParticleScope
 @Inject
 class AnimatedItemReturnGenerator(
-    physicsSettingsService: PhysicsSettingsService
+    physicsSettingsService: ParticlePhysicsSettingsService
 ) : AbstractItemReturnGenerator(ParticleEffects.ANIMATED_ITEM_RETURN, ANIMATED_ITEM_RETURN_MAX_FRAMES, physicsSettingsService) {
 
     private companion object {

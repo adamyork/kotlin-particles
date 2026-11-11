@@ -3,7 +3,7 @@ package com.github.adamyork.kparticles.platform.effects
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.kparticles.ParticleScope
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import me.tatarka.inject.annotations.Inject
 import kotlin.math.exp
 import kotlin.math.max
@@ -18,7 +18,7 @@ import com.github.adamyork.particles.engine.AbstractGenerator
 @ParticleScope
 @Inject
 class ShatterGenerator(
-    private val physicsSettingsService: PhysicsSettingsService
+    private val physicsSettingsService: ParticlePhysicsSettingsService
 ) : AbstractGenerator(ParticleEffects.SHATTER) {
 
     private companion object {

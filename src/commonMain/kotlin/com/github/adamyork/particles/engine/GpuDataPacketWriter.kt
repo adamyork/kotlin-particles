@@ -1,7 +1,7 @@
 package com.github.adamyork.particles.engine
 
 import com.github.adamyork.particles.common.data.ParticleViewPort
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import kotlin.math.max
 
 /**
@@ -9,7 +9,7 @@ import kotlin.math.max
  * Copyright (c) Adam York
  */
 public class GpuDataPacketWriter(
-    private val physicsSettingsService: PhysicsSettingsService,
+    private val physicsSettingsService: ParticlePhysicsSettingsService,
     private val styleUniformSources: List<GpuStyleUniformSource>
 ) {
 

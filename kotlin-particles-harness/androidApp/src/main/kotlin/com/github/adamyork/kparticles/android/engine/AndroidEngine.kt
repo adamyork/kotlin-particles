@@ -1,5 +1,6 @@
 package com.github.adamyork.kparticles.android.engine
 
+import com.github.adamyork.particles.engine.data.ParticleEngineType
 import android.graphics.*
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.core.graphics.createBitmap
@@ -12,12 +13,11 @@ import com.github.adamyork.kparticles.platform.harness.CommonEngine
 import com.github.adamyork.kparticles.platform.harness.DrawResult
 import com.github.adamyork.particles.android.engine.data.AndroidImage
 import com.github.adamyork.particles.common.data.ParticleViewPort
-import com.github.adamyork.particles.engine.EngineDiagnostics
+import com.github.adamyork.particles.engine.ParticleEngineDiagnostics
 import com.github.adamyork.particles.engine.ParticleEffectRegistry
 import com.github.adamyork.particles.engine.ParticlePhysicsEngine
 import com.github.adamyork.particles.engine.ParticleRenderEngine
 import com.github.adamyork.particles.engine.data.CommonImage
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleImageSource
 import com.github.adamyork.particles.engine.data.ParticleSpriteSheet
 import com.github.adamyork.particles.service.RuntimeService
@@ -40,7 +40,7 @@ open class AndroidEngine(
     platformInterop: PlatformInterop,
     particleRenderEngine: ParticleRenderEngine<Canvas>,
     imageSource: ParticleImageSource,
-    engineDiagnostics: EngineDiagnostics,
+    particleEngineDiagnostics: ParticleEngineDiagnostics,
 ) : CommonEngine<Canvas>(
     particlePhysicsEngine,
     particleEffectRegistry,
@@ -49,7 +49,7 @@ open class AndroidEngine(
     platformInterop,
     particleRenderEngine,
     imageSource,
-    engineDiagnostics
+    particleEngineDiagnostics
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -74,7 +74,7 @@ open class AndroidEngine(
 
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         logger.info { "Initializing CPU engine" }
-        engineDiagnostics.engineLabel = "Android CPU"
+        particleEngineDiagnostics.engineType = ParticleEngineType.CPU
         withContext(Dispatchers.Default) {
             mapItemImage = AndroidImage(collectibleAsset.imageAndBytes.imageBitmap.asAndroidBitmap())
             val sheetFrameCount =
@@ -102,13 +102,8 @@ open class AndroidEngine(
         val foregroundBitmap = getOrCreateForegroundSurface(viewPort) as Bitmap
         val foregroundCanvas = Canvas(foregroundBitmap)
         foregroundCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-        val drawMark = engineDiagnostics.startTimer()
         particleRenderEngine.draw(viewPort, foregroundCanvas)
-        engineDiagnostics.stopTimer(DiagnosticPhase.DRAW_PARTICLES, drawMark)
-        for (generator in particleEffectRegistry.generators()) {
-            engineDiagnostics.countEffectParticles(generator.effect, generator.particles.size)
-        }
-        engineDiagnostics.endFrame(timestamp)
+        particleEngineDiagnostics.endFrame(timestamp)
         runtimeService.lastPaintTime = timestamp
         return DrawResult(
             foregroundImage = AndroidImage(foregroundBitmap),

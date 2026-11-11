@@ -44,6 +44,8 @@ class WasmJsInterop : PlatformInterop {
     }
 
 
+    override fun getPlatformName(): String = "WASM"
+
     override fun isTouchDevice(): Boolean {
         return window.navigator.maxTouchPoints > 0
     }

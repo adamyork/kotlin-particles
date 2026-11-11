@@ -68,6 +68,8 @@ class AndroidInterop : PlatformInterop {
         initializedClipboardManager?.setPrimaryClip(ClipData.newPlainText("metrics", text))
     }
 
+    override fun getPlatformName(): String = "Android"
+
     override fun isTouchDevice(): Boolean {
         return Resources.getSystem().configuration.touchscreen != Configuration.TOUCHSCREEN_NOTOUCH
     }

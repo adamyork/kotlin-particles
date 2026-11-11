@@ -9,7 +9,7 @@ import com.github.adamyork.particles.engine.GpuStyleUniformSource
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import com.github.adamyork.particles.engine.shader.GpuShaderComposer
 import com.github.adamyork.particles.engine.shader.GpuStyleShader
-import com.github.adamyork.particles.service.CommonPhysicsSettingsService
+import com.github.adamyork.particles.service.CommonParticlePhysicsSettingsService
 import java.io.File
 import kotlin.math.max
 import kotlin.test.Test
@@ -189,8 +189,8 @@ class GpuLayoutContractTest {
         }
     }
 
-    private fun configuredSettings(): CommonPhysicsSettingsService {
-        val settings = CommonPhysicsSettingsService()
+    private fun configuredSettings(): CommonParticlePhysicsSettingsService {
+        val settings = CommonParticlePhysicsSettingsService()
         var seed = 0
         settings.gravity = distinctValue(seed++)
         settings.mediumDensity = distinctValue(seed++)

@@ -8,10 +8,8 @@ import com.github.adamyork.kparticles.platform.effects.style.DripStyleSettings
 import com.github.adamyork.kparticles.platform.effects.style.EffectStyles
 import com.github.adamyork.particles.engine.CpuDrawOrder
 import com.github.adamyork.particles.engine.CpuStyleRenderer
-import com.github.adamyork.particles.engine.EngineDiagnostics
 import com.github.adamyork.particles.engine.ParticleDrawFunction
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import kotlin.math.*
 import me.tatarka.inject.annotations.Inject
@@ -24,13 +22,11 @@ import org.jetbrains.skia.*
 @ParticleScope
 @Inject
 class WasmDripRenderer(
-    private val dripStyleSettings: DripStyleSettings,
-    private val engineDiagnostics: EngineDiagnostics
+    private val dripStyleSettings: DripStyleSettings
 ) : CpuStyleRenderer<Canvas> {
 
     override val renderStyle: ParticleRenderStyle = EffectStyles.DRIP
     override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
-    override val diagnosticPhase: DiagnosticPhase = DiagnosticPhase.DRAW_COMPLEX_SHAPE
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawAllDrips
     private fun drawAllDrips(drawFunctionData: DrawFunctionData<Canvas>) {
         val viewPort = drawFunctionData.viewPort
@@ -38,9 +34,7 @@ class WasmDripRenderer(
         val viewPortOffsetX = viewPort.x.toFloat()
         val viewPortOffsetY = viewPort.y.toFloat()
         for (generator in drawFunctionData.generators) {
-            val generatorMark = engineDiagnostics.startTimer()
             drawDrips(generator.particles, viewPort, viewPortOffsetX, viewPortOffsetY, canvas)
-            engineDiagnostics.stopEffectTimer(generator.effect, generatorMark)
         }
     }
 

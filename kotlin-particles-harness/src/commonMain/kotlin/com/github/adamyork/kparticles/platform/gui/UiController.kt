@@ -15,7 +15,7 @@ import com.github.adamyork.kparticles.platform.assets.AssetService
 import com.github.adamyork.kparticles.platform.assets.CollectibleImageStore
 import com.github.adamyork.kparticles.platform.assets.LoadingProgressListener
 import com.github.adamyork.kparticles.platform.assets.LoadingViewModel
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import com.github.adamyork.particles.service.RuntimeService
 import com.github.adamyork.kparticles.platform.assets.data.ImageAsset
 import com.github.adamyork.kparticles.platform.assets.data.LoadingTask
@@ -140,7 +140,7 @@ class UiController(
     }
 
 
-    val physicsSettingsService: PhysicsSettingsService
+    val physicsSettingsService: ParticlePhysicsSettingsService
         get() = runtimeService.physicsSettingsService
 
     fun applyGravity(metersPerSecondSquared: Double) {

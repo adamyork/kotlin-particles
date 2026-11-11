@@ -21,6 +21,8 @@ interface PlatformInterop {
 
     fun isTouchDevice(): Boolean
 
+    fun getPlatformName(): String
+
     fun isGpuEngineSupported(platformData: Any? = null): Boolean
 
     fun <T> addEventListener(type: String, callback: (T) -> Unit)

@@ -7,14 +7,18 @@ plugins {
 android {
     namespace = "com.github.adamyork.kparticles"
     compileSdk = 37
-
     defaultConfig {
         applicationId = "com.github.adamyork.kparticles"
         minSdk = 24
-        //noinspection OldTargetApi
         targetSdk = 37
         versionCode = 1
         versionName = "0.0.1"
+    }
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 }
 

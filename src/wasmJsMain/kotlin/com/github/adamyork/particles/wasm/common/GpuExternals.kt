@@ -5,6 +5,7 @@ package com.github.adamyork.particles.wasm.common
 import org.khronos.webgl.ArrayBuffer
 import org.khronos.webgl.Int8Array
 import org.w3c.dom.HTMLCanvasElement
+import kotlin.js.JsNumber
 import kotlin.js.Promise
 
 /**
@@ -62,6 +63,24 @@ internal fun createStorageBuffer(
     @Suppress("UNUSED_PARAMETER") sizeBytes: Int
 ): GPUBuffer = js(
     "device.createBuffer({ size: sizeBytes, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC })"
+)
+
+internal fun createReadbackBuffer(
+    @Suppress("UNUSED_PARAMETER") device: GPUDevice,
+    @Suppress("UNUSED_PARAMETER") sizeBytes: Int
+): GPUBuffer = js(
+    "device.createBuffer({ size: sizeBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST })"
+)
+
+internal fun readLiveParticleCount(
+    @Suppress("UNUSED_PARAMETER") device: GPUDevice,
+    @Suppress("UNUSED_PARAMETER") queue: GPUQueue,
+    @Suppress("UNUSED_PARAMETER") sourceBuffer: GPUBuffer,
+    @Suppress("UNUSED_PARAMETER") readbackBuffer: GPUBuffer,
+    @Suppress("UNUSED_PARAMETER") sizeBytes: Int,
+    @Suppress("UNUSED_PARAMETER") floatsPerParticle: Int
+): Promise<JsNumber> = js(
+    "(async () => { const encoder = device.createCommandEncoder(); encoder.copyBufferToBuffer(sourceBuffer, 0, readbackBuffer, 0, sizeBytes); queue.submit([encoder.finish()]); await readbackBuffer.mapAsync(GPUMapMode.READ); const data = new Float32Array(readbackBuffer.getMappedRange()); let liveCount = 0; for (let index = 15; index < data.length; index += floatsPerParticle) { if (data[index] > 0.5) { liveCount++; } } readbackBuffer.unmap(); return liveCount; })()"
 )
 
 internal fun createDataPacketBuffer(

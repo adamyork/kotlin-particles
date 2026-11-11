@@ -1,10 +1,11 @@
 package com.github.adamyork.kparticles.wasm.engine
 
+import com.github.adamyork.particles.engine.data.ParticleEngineType
 import androidx.compose.ui.graphics.asSkiaBitmap
 import com.github.adamyork.kparticles.ParticleScope
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.particles.common.data.ParticleViewPort
-import com.github.adamyork.particles.engine.EngineDiagnostics
+import com.github.adamyork.particles.engine.ParticleEngineDiagnostics
 import com.github.adamyork.particles.engine.data.*
 import com.github.adamyork.kparticles.platform.harness.DrawResult
 import com.github.adamyork.kparticles.platform.assets.AbstractPlatformAssetService
@@ -15,7 +16,6 @@ import com.github.adamyork.particles.wasm.engine.data.WasmJsImage
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.ParticlePhysicsEngine
 import com.github.adamyork.particles.engine.ParticleEffectRegistry
 import com.github.adamyork.particles.engine.ParticleRenderEngine
@@ -35,7 +35,7 @@ open class WasmJsEngine(
     platformInterop: PlatformInterop,
     particleRenderEngine: ParticleRenderEngine<Canvas>,
     imageSource: ParticleImageSource,
-    engineDiagnostics: EngineDiagnostics,
+    particleEngineDiagnostics: ParticleEngineDiagnostics,
 ) : CommonEngine<Canvas>(
     particlePhysicsEngine,
     particleEffectRegistry,
@@ -44,7 +44,7 @@ open class WasmJsEngine(
     platformInterop,
     particleRenderEngine,
     imageSource,
-    engineDiagnostics
+    particleEngineDiagnostics
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -63,7 +63,7 @@ open class WasmJsEngine(
 
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         logger.info { "Initializing CPU engine" }
-        engineDiagnostics.engineLabel = "Wasm CPU"
+        particleEngineDiagnostics.engineType = ParticleEngineType.CPU
         mapItemImage = WasmJsImage(
             Image.makeFromBitmap(collectibleAsset.imageAndBytes.imageBitmap.asSkiaBitmap())
         )
@@ -88,16 +88,9 @@ open class WasmJsEngine(
         val foregroundSurface = getOrCreateForegroundSurface(viewPort)
         val foregroundCanvas = foregroundSurface.canvas
         foregroundCanvas.clear(0x00000000)
-        val drawMark = engineDiagnostics.startTimer()
         particleRenderEngine.draw(viewPort, foregroundCanvas)
-        engineDiagnostics.stopTimer(DiagnosticPhase.DRAW_PARTICLES, drawMark)
-        val snapshotMark = engineDiagnostics.startTimer()
         val foregroundImage = foregroundSurface.makeImageSnapshot()
-        engineDiagnostics.stopTimer(DiagnosticPhase.SNAPSHOT, snapshotMark)
-        for (generator in particleEffectRegistry.generators()) {
-            engineDiagnostics.countEffectParticles(generator.effect, generator.particles.size)
-        }
-        engineDiagnostics.endFrame(timestamp)
+        particleEngineDiagnostics.endFrame(timestamp)
         runtimeService.lastPaintTime = timestamp
         return DrawResult(
             foregroundImage = WasmJsImage(foregroundImage),

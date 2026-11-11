@@ -37,6 +37,12 @@ public interface ParticleEffectGenerator {
         particles.addAll(create(request))
     }
 
+    public fun advance(deltaTime: Double) {
+    }
+
+    public fun reset() {
+    }
+
     public fun gpuSlotGroup(particle: Particle): GpuSlotGroup? = null
 
     public fun writeGpuState(particle: Particle, targetBuffer: FloatArray, baseIndex: Int)

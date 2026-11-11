@@ -1,6 +1,5 @@
 package com.github.adamyork.particles.engine
 
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 
 /**
@@ -15,8 +14,6 @@ public interface CpuStyleRenderer<CanvasType> {
         get() = renderStyle
 
     public val drawOrder: Int
-
-    public val diagnosticPhase: DiagnosticPhase
 
     public val drawFunction: ParticleDrawFunction<CanvasType>
 

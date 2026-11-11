@@ -7,7 +7,6 @@ import com.github.adamyork.kparticles.platform.effects.style.EffectStyles
 import com.github.adamyork.particles.engine.CpuDrawOrder
 import com.github.adamyork.particles.engine.CpuStyleRenderer
 import com.github.adamyork.particles.engine.ParticleDrawFunction
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import me.tatarka.inject.annotations.Inject
 
@@ -24,7 +23,6 @@ class AndroidDustRenderer(
     override val renderStyle: ParticleRenderStyle = EffectStyles.DUST
     override val batchStyle: ParticleRenderStyle = ParticleRenderStyle.SHAPE
     override val drawOrder: Int = CpuDrawOrder.SHAPES
-    override val diagnosticPhase: DiagnosticPhase = DiagnosticPhase.DRAW_SIMPLE_SHAPE
     override val drawFunction: ParticleDrawFunction<Canvas> = shapeRenderer.drawFunction
 
 }

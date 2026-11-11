@@ -31,7 +31,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.roundToLong
@@ -54,7 +54,7 @@ class UiPhysicsDialog {
 
     @Composable
     fun Build(
-        physicsSettingsService: PhysicsSettingsService,
+        physicsSettingsService: ParticlePhysicsSettingsService,
         onGravityChanged: (Double) -> Unit,
         onDismiss: () -> Unit
     ) {

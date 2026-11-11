@@ -2,7 +2,7 @@ package com.github.adamyork.kparticles.platform.effects
 
 import com.github.adamyork.kparticles.ParticleScope
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import kotlin.math.*
 import me.tatarka.inject.annotations.Inject
 import com.github.adamyork.particles.engine.AbstractGenerator
@@ -14,7 +14,7 @@ import com.github.adamyork.particles.engine.AbstractGenerator
 @ParticleScope
 @Inject
 class DripsGenerator(
-    private val physicsSettingsService: PhysicsSettingsService
+    private val physicsSettingsService: ParticlePhysicsSettingsService
 ) : AbstractGenerator(ParticleEffects.DRIPS) {
 
     private companion object {

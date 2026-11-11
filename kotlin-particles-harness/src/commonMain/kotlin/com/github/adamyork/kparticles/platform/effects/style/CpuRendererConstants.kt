@@ -19,4 +19,6 @@ object CpuRendererConstants {
     const val DRIP_SPECULAR_IMAGE_SIZE: Int = 64
     const val BUBBLE_IMAGE_PADDING: Int = 4
     const val BUBBLE_IMAGE_CACHE_LIMIT: Int = 128
+    const val BUBBLE_WARMUP_MAXIMUM_RADIUS: Int = 48
+    const val BUBBLE_WARMUP_IMAGES_PER_FRAME: Int = 1
 }

@@ -25,7 +25,7 @@ val useLocalLibrary = providers.gradleProperty("useLocalLibrary").map { it == "t
 val kotlinParticlesDependency: Any = if (useLocalLibrary) {
     project(":")
 } else {
-    "com.github.adamyork:kotlin-particles:${providers.gradleProperty("kotlinParticlesVersion").getOrElse("0.0.2")}"
+    "com.github.adamyork:kotlin-particles:${providers.gradleProperty("kotlinParticlesVersion").getOrElse("0.0.4")}"
 }
 
 kotlin {

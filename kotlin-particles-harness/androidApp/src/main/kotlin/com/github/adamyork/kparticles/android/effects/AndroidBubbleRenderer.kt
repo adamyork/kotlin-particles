@@ -9,7 +9,6 @@ import com.github.adamyork.particles.engine.CpuDrawOrder
 import com.github.adamyork.particles.engine.CpuStyleRenderer
 import com.github.adamyork.particles.engine.ParticleDrawFunction
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import kotlin.math.*
 import me.tatarka.inject.annotations.Inject
@@ -24,9 +23,9 @@ class AndroidBubbleRenderer : CpuStyleRenderer<Canvas> {
 
     override val renderStyle: ParticleRenderStyle = EffectStyles.BUBBLE
     override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
-    override val diagnosticPhase: DiagnosticPhase = DiagnosticPhase.DRAW_COMPLEX_SHAPE
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawBubbles
     private fun drawBubbles(drawFunctionData: DrawFunctionData<Canvas>) {
+        warmUpBubbleBitmaps()
         val viewPort = drawFunctionData.viewPort
         val canvas = drawFunctionData.canvas
         val viewPortOffsetX = viewPort.x.toFloat()
@@ -43,8 +42,8 @@ class AndroidBubbleRenderer : CpuStyleRenderer<Canvas> {
         }
     }
 
-    private val spritePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        isFilterBitmap = true
+    private val spritePaint: Paint = Paint().apply {
+        isFilterBitmap = false
     }
 
     private val bubbleFillPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -59,6 +58,21 @@ class AndroidBubbleRenderer : CpuStyleRenderer<Canvas> {
 
     private val bubbleBitmaps = HashMap<Int, Bitmap>()
 
+    private var nextWarmupRadius = 1
+
+    private fun warmUpBubbleBitmaps() {
+        var createdBitmapCount = 0
+        while (createdBitmapCount < CpuRendererConstants.BUBBLE_WARMUP_IMAGES_PER_FRAME &&
+            nextWarmupRadius <= CpuRendererConstants.BUBBLE_WARMUP_MAXIMUM_RADIUS
+        ) {
+            if (!bubbleBitmaps.containsKey(nextWarmupRadius)) {
+                bubbleBitmaps[nextWarmupRadius] = createBubbleBitmap(nextWarmupRadius.toFloat())
+                createdBitmapCount++
+            }
+            nextWarmupRadius++
+        }
+    }
+
     private fun drawBubble(
         particle: Particle,
         viewPortOffsetX: Float,
@@ -67,8 +81,8 @@ class AndroidBubbleRenderer : CpuStyleRenderer<Canvas> {
     ) {
         val centerX = particle.transform.position.x.toFloat() - viewPortOffsetX
         val centerY = particle.transform.position.y.toFloat() - viewPortOffsetY
-        val radiusKey = (particle.collisionRadius().toFloat() * 2f).roundToInt()
-        val bubbleBitmap = bubbleBitmaps[radiusKey] ?: createBubbleBitmap(radiusKey / 2f).also { createdBitmap ->
+        val radiusKey = particle.collisionRadius().roundToInt().coerceAtLeast(1)
+        val bubbleBitmap = bubbleBitmaps[radiusKey] ?: createBubbleBitmap(radiusKey.toFloat()).also { createdBitmap ->
             if (bubbleBitmaps.size >= CpuRendererConstants.BUBBLE_IMAGE_CACHE_LIMIT) {
                 bubbleBitmaps.values.forEach { cachedBitmap -> cachedBitmap.recycle() }
                 bubbleBitmaps.clear()
@@ -77,8 +91,8 @@ class AndroidBubbleRenderer : CpuStyleRenderer<Canvas> {
         }
         canvas.drawBitmap(
             bubbleBitmap,
-            centerX - bubbleBitmap.width / 2f,
-            centerY - bubbleBitmap.height / 2f,
+            round(centerX - bubbleBitmap.width / 2f),
+            round(centerY - bubbleBitmap.height / 2f),
             spritePaint
         )
     }

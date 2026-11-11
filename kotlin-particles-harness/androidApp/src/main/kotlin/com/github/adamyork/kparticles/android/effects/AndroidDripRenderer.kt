@@ -11,7 +11,6 @@ import com.github.adamyork.particles.engine.CpuDrawOrder
 import com.github.adamyork.particles.engine.CpuStyleRenderer
 import com.github.adamyork.particles.engine.ParticleDrawFunction
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import me.tatarka.inject.annotations.Inject
 
@@ -27,7 +26,6 @@ class AndroidDripRenderer(
 
     override val renderStyle: ParticleRenderStyle = EffectStyles.DRIP
     override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
-    override val diagnosticPhase: DiagnosticPhase = DiagnosticPhase.DRAW_COMPLEX_SHAPE
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawAllDrips
     private fun drawAllDrips(drawFunctionData: DrawFunctionData<Canvas>) {
         val viewPort = drawFunctionData.viewPort

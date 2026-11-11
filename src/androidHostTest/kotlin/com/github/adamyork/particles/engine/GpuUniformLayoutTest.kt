@@ -1,7 +1,7 @@
 package com.github.adamyork.particles.engine
 
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
-import com.github.adamyork.particles.service.CommonPhysicsSettingsService
+import com.github.adamyork.particles.service.CommonParticlePhysicsSettingsService
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -45,7 +45,7 @@ class GpuUniformLayoutTest {
             override fun writeUniforms(targetBuffer: FloatArray, startIndex: Int) = Unit
         }
         assertFailsWith<EngineException> {
-            GpuDataPacketWriter(CommonPhysicsSettingsService(), listOf(oversizedSource))
+            GpuDataPacketWriter(CommonParticlePhysicsSettingsService(), listOf(oversizedSource))
         }
     }
 

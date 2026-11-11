@@ -16,12 +16,12 @@ import com.github.adamyork.particles.engine.data.ParticleMaterial
 import com.github.adamyork.particles.engine.data.ParticleTransform
 import com.github.adamyork.particles.engine.data.ParticleVector
 import com.github.adamyork.particles.engine.data.ParticleRectDimensions
-import com.github.adamyork.particles.service.CommonPhysicsSettingsService
+import com.github.adamyork.particles.service.CommonParticlePhysicsSettingsService
 import com.github.adamyork.particles.service.CommonRuntimeService
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import com.github.adamyork.particles.engine.EngineDiagnostics
+import com.github.adamyork.particles.engine.CommonParticleEngineDiagnostics
 import com.github.adamyork.kparticles.platform.effects.ParticleEffects
 
 /**
@@ -45,7 +45,7 @@ class ContactPhysicsTest {
         restitution: Double,
         separation: Double
     ): Outcome {
-        val settings = CommonPhysicsSettingsService()
+        val settings = CommonParticlePhysicsSettingsService()
         settings.gravity = 0.0
         settings.drag = 0.0
         settings.dragCoefficient = 0.0
@@ -53,13 +53,12 @@ class ContactPhysicsTest {
         settings.gravitationalConstant = 0.0
         val runtimeService = CommonRuntimeService(FixedEngineTiming(), settings)
         val particleEffectRegistry = ParticleEffectRegistry(ParticleEffects.ALL)
-        val engineDiagnostics = EngineDiagnostics(particleEffectRegistry)
-        val physics = CommonParticlePhysics({ runtimeService }, settings, engineDiagnostics, particleEffectRegistry)
+        val particleEngineDiagnostics = CommonParticleEngineDiagnostics(particleEffectRegistry)
+        val physics = CommonParticlePhysics({ runtimeService }, settings, particleEngineDiagnostics, particleEffectRegistry)
         val collision = CommonParticleCollision(
             physics,
-            CommonSpatialGrid(settings, engineDiagnostics),
-            settings,
-            engineDiagnostics
+            CommonSpatialGrid(settings),
+            settings
         )
         val generator = ManualGenerator()
         val first = particle(0L, firstDimensions, FIRST_DENSITY, restitution, 500.0, CLOSING_SPEED / 2.0)

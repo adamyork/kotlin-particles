@@ -6,10 +6,8 @@ import com.github.adamyork.kparticles.platform.effects.style.BlobStyleParameters
 import com.github.adamyork.kparticles.platform.effects.style.EffectStyles
 import com.github.adamyork.particles.engine.CpuDrawOrder
 import com.github.adamyork.particles.engine.CpuStyleRenderer
-import com.github.adamyork.particles.engine.EngineDiagnostics
 import com.github.adamyork.particles.engine.ParticleDrawFunction
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
@@ -20,13 +18,10 @@ import org.jetbrains.skia.*
  */
 @ParticleScope
 @Inject
-class WasmBlobRenderer(
-    private val engineDiagnostics: EngineDiagnostics
-) : CpuStyleRenderer<Canvas> {
+class WasmBlobRenderer : CpuStyleRenderer<Canvas> {
 
     override val renderStyle: ParticleRenderStyle = EffectStyles.BLOB
     override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
-    override val diagnosticPhase: DiagnosticPhase = DiagnosticPhase.DRAW_COMPLEX_SHAPE
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawBlobs
     private fun drawBlobs(drawFunctionData: DrawFunctionData<Canvas>) {
         val viewPort = drawFunctionData.viewPort
@@ -34,7 +29,6 @@ class WasmBlobRenderer(
         val viewPortOffsetX = viewPort.x.toFloat()
         val viewPortOffsetY = viewPort.y.toFloat()
         for (generator in drawFunctionData.generators) {
-            val generatorMark = engineDiagnostics.startTimer()
             val particles = generator.particles
             var particleIndex = 0
             while (particleIndex < particles.size) {
@@ -43,7 +37,6 @@ class WasmBlobRenderer(
                 if (!particle.cullingCheck(viewPort)) continue
                 drawProjectileBlob(particle, viewPortOffsetX, viewPortOffsetY, canvas)
             }
-            engineDiagnostics.stopEffectTimer(generator.effect, generatorMark)
         }
     }
 

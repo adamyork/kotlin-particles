@@ -5,7 +5,7 @@ import com.github.adamyork.kparticles.platform.assets.AssetService
 import com.github.adamyork.kparticles.platform.assets.data.ImageAsset
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
 import com.github.adamyork.particles.common.data.ParticleViewPort
-import com.github.adamyork.particles.engine.EngineDiagnostics
+import com.github.adamyork.particles.engine.ParticleEngineDiagnostics
 import com.github.adamyork.particles.engine.EngineException
 import com.github.adamyork.particles.engine.ParticleEffectRegistry
 import com.github.adamyork.particles.engine.ParticlePhysicsEngine
@@ -28,7 +28,7 @@ abstract class CommonEngine<CanvasType> @ParticleScope @Inject constructor(
     val platformInterop: PlatformInterop,
     protected val particleRenderEngine: ParticleRenderEngine<CanvasType>,
     protected val imageSource: ParticleImageSource,
-    protected val engineDiagnostics: EngineDiagnostics,
+    protected val particleEngineDiagnostics: ParticleEngineDiagnostics,
 ) : Engine {
 
     override var selectedParticleEffect: ParticleEffect? = null

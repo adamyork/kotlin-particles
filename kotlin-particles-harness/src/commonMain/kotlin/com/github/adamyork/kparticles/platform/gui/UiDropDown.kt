@@ -10,7 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalFocusManager
 import com.github.adamyork.kparticles.platform.common.PlatformInterop
-import com.github.adamyork.particles.engine.EngineDiagnostics
+import com.github.adamyork.particles.engine.ParticleEngineDiagnostics
 import com.github.adamyork.particles.engine.data.ParticleEffect
 
 /**
@@ -27,7 +27,7 @@ class UiDropDown {
         selectedParticleMode: ParticleEffect,
         onParticleModeSelected: (ParticleEffect) -> Unit,
         controlsShape: RoundedCornerShape,
-        engineDiagnostics: EngineDiagnostics
+        particleEngineDiagnostics: ParticleEngineDiagnostics
     ) {
         var isParticleModeMenuExpanded by remember { mutableStateOf(false) }
         var isMetricsVisible by remember { mutableStateOf(false) }
@@ -75,7 +75,7 @@ class UiDropDown {
         }
         if (isMetricsVisible) {
             UiMetricsDialog().Build(
-                engineDiagnostics = engineDiagnostics,
+                particleEngineDiagnostics = particleEngineDiagnostics,
                 platformInterop = platformInterop,
                 onDismiss = {
                     isMetricsVisible = false

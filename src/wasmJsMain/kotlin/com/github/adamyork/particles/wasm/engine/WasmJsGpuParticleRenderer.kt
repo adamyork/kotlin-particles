@@ -13,6 +13,8 @@ import org.khronos.webgl.ArrayBuffer
 import org.khronos.webgl.DataView
 import org.khronos.webgl.toInt8Array
 import org.w3c.dom.HTMLCanvasElement
+import kotlin.js.JsNumber
+import kotlin.js.toInt
 import kotlin.math.ceil
 import kotlin.math.max
 import com.github.adamyork.particles.engine.shader.GpuBlendMode
@@ -81,6 +83,9 @@ public class WasmJsGpuParticleRenderer(
 
     private var stateBuffer: GPUBuffer? = null
     private var spawnBuffer: GPUBuffer? = null
+    private var readbackBuffer: GPUBuffer? = null
+    private var readbackInFlight: Boolean = false
+    private var lastSampledLiveParticleCount: Int = 0
     private var simulationDataPacketBuffer: GPUBuffer? = null
     private var renderDataPacketBuffer: GPUBuffer? = null
     private var mapItemSampler: GPUSampler? = null
@@ -239,6 +244,29 @@ public class WasmJsGpuParticleRenderer(
         initialized = true
         logger.info { "WebGPU particle renderer initialized with $maxParticles slots" }
         return true
+    }
+
+    public suspend fun sampleLiveParticleCount(): Int {
+        val gpuDevice = device ?: return lastSampledLiveParticleCount
+        val gpuQueue = queue ?: return lastSampledLiveParticleCount
+        val state = stateBuffer ?: return lastSampledLiveParticleCount
+        if (readbackInFlight) return lastSampledLiveParticleCount
+        readbackInFlight = true
+        try {
+            val particleBufferSize = maxParticles * FLOATS_PER_PARTICLE * BYTES_PER_FLOAT
+            val stagingBuffer = readbackBuffer ?: createReadbackBuffer(gpuDevice, particleBufferSize).also { createdBuffer -> readbackBuffer = createdBuffer }
+            lastSampledLiveParticleCount = readLiveParticleCount(
+                gpuDevice,
+                gpuQueue,
+                state,
+                stagingBuffer,
+                particleBufferSize,
+                FLOATS_PER_PARTICLE
+            ).await<JsNumber>().toInt()
+        } finally {
+            readbackInFlight = false
+        }
+        return lastSampledLiveParticleCount
     }
 
     public fun updateGpuParticleBuffer(

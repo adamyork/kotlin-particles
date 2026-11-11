@@ -3,7 +3,7 @@ package com.github.adamyork.kparticles.platform.effects
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.particles.engine.data.*
 import com.github.adamyork.kparticles.platform.assets.AssetService
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 
 /**
  * Author: Adam York
@@ -11,7 +11,7 @@ import com.github.adamyork.particles.service.PhysicsSettingsService
  */
 abstract class AbstractProjectileGenerator(
     effect: ParticleEffect,
-    physicsSettingsService: PhysicsSettingsService,
+    physicsSettingsService: ParticlePhysicsSettingsService,
     private val assetService: AssetService
 ) : AbstractGuidedLaunchGenerator(
     effect, PROJECTILE_GPU_SLOT_GROUP, PROJECTILE_MAX_FRAMES, physicsSettingsService

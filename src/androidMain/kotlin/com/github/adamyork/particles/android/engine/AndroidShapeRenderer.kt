@@ -6,7 +6,6 @@ import com.github.adamyork.particles.engine.CpuDrawOrder
 import com.github.adamyork.particles.engine.CpuStyleRenderer
 import com.github.adamyork.particles.engine.ParticleDrawFunction
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import kotlin.math.*
 
@@ -18,7 +17,6 @@ public class AndroidShapeRenderer : CpuStyleRenderer<Canvas> {
 
     override val renderStyle: ParticleRenderStyle = ParticleRenderStyle.SHAPE
     override val drawOrder: Int = CpuDrawOrder.SHAPES
-    override val diagnosticPhase: DiagnosticPhase = DiagnosticPhase.DRAW_SIMPLE_SHAPE
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawSimpleShapes
     private companion object {
         const val RADIANS_TO_DEGREES: Float = (180.0 / PI).toFloat()

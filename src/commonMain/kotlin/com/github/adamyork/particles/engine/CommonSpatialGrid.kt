@@ -2,7 +2,7 @@ package com.github.adamyork.particles.engine
 
 import com.github.adamyork.particles.common.data.ParticleViewPort
 import com.github.adamyork.particles.engine.data.Particle
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import kotlin.math.max
 
 /**
@@ -10,11 +10,10 @@ import kotlin.math.max
  * Copyright (c) Adam York
  */
 public class CommonSpatialGrid(
-    private val physicsSettingsService: PhysicsSettingsService,
-    engineDiagnostics: EngineDiagnostics
+    private val physicsSettingsService: ParticlePhysicsSettingsService
 ) : SpatialGrid {
 
-    private val grid = SortedCellGrid(engineDiagnostics)
+    private val grid = SortedCellGrid()
     private val particles = ArrayList<Particle>()
     private var viewPortX = 0.0
     private var viewPortY = 0.0

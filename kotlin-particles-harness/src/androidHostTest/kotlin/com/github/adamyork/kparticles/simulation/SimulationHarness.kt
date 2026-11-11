@@ -30,20 +30,22 @@ import com.github.adamyork.kparticles.platform.effects.StressTestGenerator
 import com.github.adamyork.kparticles.platform.assets.CollectibleImageStore
 import com.github.adamyork.kparticles.platform.assets.data.ImageAndBytes
 import com.github.adamyork.kparticles.platform.assets.data.ImageAsset
-import com.github.adamyork.particles.service.CommonPhysicsSettingsService
+import com.github.adamyork.particles.service.CommonParticlePhysicsSettingsService
 import com.github.adamyork.particles.service.CommonRuntimeService
 import kotlin.math.sqrt
 import kotlin.random.Random
-import com.github.adamyork.particles.engine.EngineDiagnostics
+import com.github.adamyork.particles.engine.CommonParticleEngineDiagnostics
+import com.github.adamyork.particles.engine.NoOpParticleEngineDiagnostics
+import com.github.adamyork.particles.engine.ParticleEngineDiagnostics
 import com.github.adamyork.kparticles.platform.effects.ParticleEffects
 
 /**
  * Author: Adam York
  * Copyright (c) Adam York
  */
-class SimulationHarness(seed: Long, gravityScale: Double = 1.0) {
+class SimulationHarness(seed: Long, gravityScale: Double = 1.0, metricsEnabled: Boolean = true) {
 
-    val physicsSettingsService = CommonPhysicsSettingsService()
+    val physicsSettingsService = CommonParticlePhysicsSettingsService()
 
     private val assetService = FakeAssetService()
 
@@ -55,12 +57,13 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0) {
 
     val particleEffectRegistry = ParticleEffectRegistry(ParticleEffects.ALL)
 
-    private val engineDiagnostics = EngineDiagnostics(particleEffectRegistry)
+    private val particleEngineDiagnostics: ParticleEngineDiagnostics =
+        if (metricsEnabled) CommonParticleEngineDiagnostics(particleEffectRegistry) else NoOpParticleEngineDiagnostics()
 
     private val particlePhysics = CommonParticlePhysics(
         { runtimeService },
         physicsSettingsService,
-        engineDiagnostics,
+        particleEngineDiagnostics,
         particleEffectRegistry
     )
 
@@ -86,9 +89,8 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0) {
 
     private val collision = CommonParticleCollision(
         particlePhysics,
-        CommonSpatialGrid(physicsSettingsService, engineDiagnostics),
-        physicsSettingsService,
-        engineDiagnostics
+        CommonSpatialGrid(physicsSettingsService),
+        physicsSettingsService
     )
 
     private val particlePhysicsEngine = CommonParticlePhysicsEngine(
@@ -96,7 +98,7 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0) {
         collision,
         particleEffectRegistry,
         runtimeService,
-        engineDiagnostics
+        particleEngineDiagnostics
     )
 
     private var frameTimeMilliseconds = INITIAL_FRAME_TIME_MILLISECONDS

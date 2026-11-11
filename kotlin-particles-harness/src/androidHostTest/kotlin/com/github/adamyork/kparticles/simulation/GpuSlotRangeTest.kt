@@ -41,6 +41,7 @@ class GpuSlotRangeTest {
         for (effect in harness.particleEffectRegistry.effects) {
             harness.spawn(effect)
         }
+        harness.advance(1.0)
         for (generator in harness.particleEffectRegistry.generators()) {
             if (generator.gpuSlotGroups.isEmpty()) continue
             assertTrue(generator.particles.isNotEmpty(), "${generator.effect.id} spawned no particles")

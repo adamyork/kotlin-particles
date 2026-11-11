@@ -5,10 +5,8 @@ import com.github.adamyork.kparticles.platform.effects.style.CpuRendererConstant
 import com.github.adamyork.kparticles.platform.effects.style.EffectStyles
 import com.github.adamyork.particles.engine.CpuDrawOrder
 import com.github.adamyork.particles.engine.CpuStyleRenderer
-import com.github.adamyork.particles.engine.EngineDiagnostics
 import com.github.adamyork.particles.engine.ParticleDrawFunction
 import com.github.adamyork.particles.engine.data.*
-import com.github.adamyork.particles.engine.data.DiagnosticPhase
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import kotlin.math.*
 import me.tatarka.inject.annotations.Inject
@@ -20,21 +18,18 @@ import org.jetbrains.skia.*
  */
 @ParticleScope
 @Inject
-class WasmBubbleRenderer(
-    private val engineDiagnostics: EngineDiagnostics
-) : CpuStyleRenderer<Canvas> {
+class WasmBubbleRenderer : CpuStyleRenderer<Canvas> {
 
     override val renderStyle: ParticleRenderStyle = EffectStyles.BUBBLE
     override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
-    override val diagnosticPhase: DiagnosticPhase = DiagnosticPhase.DRAW_COMPLEX_SHAPE
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawBubbles
     private fun drawBubbles(drawFunctionData: DrawFunctionData<Canvas>) {
+        warmUpBubbleImages()
         val viewPort = drawFunctionData.viewPort
         val canvas = drawFunctionData.canvas
         val viewPortOffsetX = viewPort.x.toFloat()
         val viewPortOffsetY = viewPort.y.toFloat()
         for (generator in drawFunctionData.generators) {
-            val generatorMark = engineDiagnostics.startTimer()
             val particles = generator.particles
             var particleIndex = 0
             while (particleIndex < particles.size) {
@@ -45,7 +40,6 @@ class WasmBubbleRenderer(
                     drawBubble(particle, viewPortOffsetX, viewPortOffsetY, canvas)
                 }
             }
-            engineDiagnostics.stopEffectTimer(generator.effect, generatorMark)
         }
     }
 
@@ -64,6 +58,21 @@ class WasmBubbleRenderer(
 
     private val bubbleImages = HashMap<Int, Image>()
 
+    private var nextWarmupRadius = 1
+
+    private fun warmUpBubbleImages() {
+        var createdImageCount = 0
+        while (createdImageCount < CpuRendererConstants.BUBBLE_WARMUP_IMAGES_PER_FRAME &&
+            nextWarmupRadius <= CpuRendererConstants.BUBBLE_WARMUP_MAXIMUM_RADIUS
+        ) {
+            if (!bubbleImages.containsKey(nextWarmupRadius)) {
+                bubbleImages[nextWarmupRadius] = createBubbleImage(nextWarmupRadius.toFloat())
+                createdImageCount++
+            }
+            nextWarmupRadius++
+        }
+    }
+
     private fun drawBubble(
         particle: Particle,
         viewPortOffsetX: Float,
@@ -72,27 +81,19 @@ class WasmBubbleRenderer(
     ) {
         val centerX = particle.transform.position.x.toFloat() - viewPortOffsetX
         val centerY = particle.transform.position.y.toFloat() - viewPortOffsetY
-        val radiusKey = (particle.collisionRadius().toFloat() * 2f).roundToInt()
-        val bubbleImage = bubbleImages[radiusKey] ?: createBubbleImage(radiusKey / 2f).also { createdImage ->
+        val radiusKey = particle.collisionRadius().roundToInt().coerceAtLeast(1)
+        val bubbleImage = bubbleImages[radiusKey] ?: createBubbleImage(radiusKey.toFloat()).also { createdImage ->
             if (bubbleImages.size >= CpuRendererConstants.BUBBLE_IMAGE_CACHE_LIMIT) {
                 bubbleImages.values.forEach { cachedImage -> cachedImage.close() }
                 bubbleImages.clear()
             }
             bubbleImages[radiusKey] = createdImage
         }
-        canvas.drawImageRect(
-            image = bubbleImage,
-            srcLeft = 0f,
-            srcTop = 0f,
-            srcRight = bubbleImage.width.toFloat(),
-            srcBottom = bubbleImage.height.toFloat(),
-            dstLeft = centerX - bubbleImage.width / 2f,
-            dstTop = centerY - bubbleImage.height / 2f,
-            dstRight = centerX + bubbleImage.width / 2f,
-            dstBottom = centerY + bubbleImage.height / 2f,
-            samplingMode = SamplingMode.LINEAR,
-            paint = bubbleBlitPaint,
-            strict = true
+        canvas.drawImage(
+            bubbleImage,
+            round(centerX - bubbleImage.width / 2f),
+            round(centerY - bubbleImage.height / 2f),
+            bubbleBlitPaint
         )
     }
 

@@ -14,12 +14,12 @@ import com.github.adamyork.particles.engine.data.ParticleLifecycle
 import com.github.adamyork.particles.engine.data.ParticleMaterial
 import com.github.adamyork.particles.engine.data.ParticleTransform
 import com.github.adamyork.particles.engine.data.ParticleVector
-import com.github.adamyork.particles.service.CommonPhysicsSettingsService
+import com.github.adamyork.particles.service.CommonParticlePhysicsSettingsService
 import com.github.adamyork.particles.service.CommonRuntimeService
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import com.github.adamyork.particles.engine.EngineDiagnostics
+import com.github.adamyork.particles.engine.CommonParticleEngineDiagnostics
 import com.github.adamyork.kparticles.platform.effects.ParticleEffects
 
 /**
@@ -28,7 +28,7 @@ import com.github.adamyork.kparticles.platform.effects.ParticleEffects
  */
 class FragmentationTest {
 
-    private val settings = CommonPhysicsSettingsService().also { configuredSettings ->
+    private val settings = CommonParticlePhysicsSettingsService().also { configuredSettings ->
         configuredSettings.gravity = 0.0
         configuredSettings.drag = 0.0
         configuredSettings.dragCoefficient = 0.0
@@ -40,18 +40,17 @@ class FragmentationTest {
 
     private val particleEffectRegistry = ParticleEffectRegistry(ParticleEffects.ALL)
 
-    private val engineDiagnostics = EngineDiagnostics(particleEffectRegistry)
+    private val particleEngineDiagnostics = CommonParticleEngineDiagnostics(particleEffectRegistry)
 
     private val collision = CommonParticleCollision(
         CommonParticlePhysics(
             { CommonRuntimeService(FixedEngineTiming(), settings) },
             settings,
-            engineDiagnostics,
+            particleEngineDiagnostics,
             particleEffectRegistry
         ),
-        CommonSpatialGrid(settings, engineDiagnostics),
-        settings,
-        engineDiagnostics
+        CommonSpatialGrid(settings),
+        settings
     )
 
     private val viewPort = HarnessViewPort(0, 768, 1024, 768)

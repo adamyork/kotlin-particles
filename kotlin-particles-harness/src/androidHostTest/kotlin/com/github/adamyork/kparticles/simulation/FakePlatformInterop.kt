@@ -23,6 +23,8 @@ class FakePlatformInterop : PlatformInterop {
     override fun copyTextToClipboard(text: String) {
     }
 
+    override fun getPlatformName(): String = "Test"
+
     override fun isTouchDevice(): Boolean = false
 
     override fun isGpuEngineSupported(platformData: Any?): Boolean = false

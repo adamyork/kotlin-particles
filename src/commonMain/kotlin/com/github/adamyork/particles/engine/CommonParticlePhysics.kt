@@ -2,9 +2,8 @@ package com.github.adamyork.particles.engine
 
 import androidx.compose.ui.graphics.Color
 import com.github.adamyork.particles.common.data.ParticleViewPort
-import com.github.adamyork.particles.engine.data.DiagnosticCounter
 import com.github.adamyork.particles.engine.data.Particle
-import com.github.adamyork.particles.service.PhysicsSettingsService
+import com.github.adamyork.particles.service.ParticlePhysicsSettingsService
 import com.github.adamyork.particles.service.RuntimeService
 import kotlin.math.*
 
@@ -14,8 +13,8 @@ import kotlin.math.*
  */
 public class CommonParticlePhysics(
     private val statusProviderFactory: () -> RuntimeService,
-    public val physicsSettingsService: PhysicsSettingsService,
-    private val engineDiagnostics: EngineDiagnostics,
+    public val physicsSettingsService: ParticlePhysicsSettingsService,
+    private val particleEngineDiagnostics: ParticleEngineDiagnostics,
     private val particleEffectRegistry: ParticleEffectRegistry
 ) : ParticlePhysics {
 
@@ -41,20 +40,6 @@ public class CommonParticlePhysics(
     private val lastEnvironment = DoubleArray(ENVIRONMENT_VALUE_COUNT)
 
     private var asleepParticleCount = 0
-
-    private var awakeParticleCount = 0
-
-    private var isSamplingMotion = false
-
-    private var motionSpeedSum = 0.0
-
-    private var motionSpeedMaximum = 0.0
-
-    private var motionParticleCount = 0
-
-    private var oldestActiveAge = 0.0
-
-    private var oldestEffectIndex = -1
 
     private val statusProvider: RuntimeService
         get() = statusProviderFactory()
@@ -85,14 +70,9 @@ public class CommonParticlePhysics(
             environment.copyInto(lastEnvironment)
         }
         asleepParticleCount = 0
-        awakeParticleCount = 0
-        isSamplingMotion = engineDiagnostics.isSamplingFrame()
-        motionSpeedSum = 0.0
-        motionSpeedMaximum = 0.0
-        motionParticleCount = 0
-        oldestActiveAge = 0.0
-        oldestEffectIndex = -1
         for (generator in generators) {
+            if (generator.particles.isEmpty()) continue
+            val integrateStartMicroseconds = particleEngineDiagnostics.timestampMicroseconds()
             integrateParticles(
                 generator.particles,
                 deltaTime,
@@ -101,12 +81,9 @@ public class CommonParticlePhysics(
                 spriteTicksPerFrame,
                 particleEffectRegistry.indexOf(generator.effect)
             )
+            particleEngineDiagnostics.recordEffectCostSince(generator.effect, integrateStartMicroseconds)
         }
-        if (isSamplingMotion) {
-            engineDiagnostics.recordMotion(motionSpeedSum, motionSpeedMaximum, motionParticleCount, oldestActiveAge, oldestEffectIndex)
-        }
-        engineDiagnostics.count(DiagnosticCounter.AWAKE_PARTICLES, awakeParticleCount)
-        engineDiagnostics.count(DiagnosticCounter.ASLEEP_PARTICLES, asleepParticleCount)
+        particleEngineDiagnostics.recordSleepingParticles(asleepParticleCount)
     }
 
     private fun integrateParticles(
@@ -121,7 +98,6 @@ public class CommonParticlePhysics(
             val particle = particles[particleIndex]
             val restKey = (effectIndex.toLong() shl REST_KEY_EFFECT_SHIFT) or particle.id
             if (particle.lifecycle.age >= particle.lifecycle.lifetime + particle.lifecycle.delay) {
-                engineDiagnostics.recordExpired(effectIndex, particle.lifecycle.age - particle.lifecycle.delay)
                 restFrameCounts.remove(restKey)
                 particles.removeAt(particleIndex)
                 continue
@@ -132,18 +108,7 @@ public class CommonParticlePhysics(
             val isAsleep = updateRestCount(particle, restKey)
             val activeAge = particle.lifecycle.age - particle.lifecycle.delay
             val progress = (activeAge / particle.lifecycle.lifetime).coerceIn(0.0, 1.0)
-            if (isSamplingMotion) {
-                val currentVelocity = particle.dynamics.velocity
-                val currentSpeed = sqrt(currentVelocity.x * currentVelocity.x + currentVelocity.y * currentVelocity.y)
-                motionSpeedSum += currentSpeed
-                if (currentSpeed > motionSpeedMaximum) motionSpeedMaximum = currentSpeed
-                motionParticleCount++
-                if (activeAge > oldestActiveAge) {
-                    oldestActiveAge = activeAge
-                    oldestEffectIndex = effectIndex
-                }
-            }
-            if (isAsleep) asleepParticleCount++ else awakeParticleCount++
+            if (isAsleep) asleepParticleCount++
             if (!isAsleep) {
                 if (particle.material.adhesion > 0.0) {
                     integrateAdhesiveParticle(particle, gravity, mediumDensity, deltaTime)

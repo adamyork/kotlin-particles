@@ -11,7 +11,7 @@ public interface RuntimeService {
 
     public var particleEngineLifeCycleState: ParticleEngineLifeCycleState
     public var lastPaintTime: Double
-    public val physicsSettingsService: PhysicsSettingsService
+    public val physicsSettingsService: ParticlePhysicsSettingsService
 
     public fun deriveGravityFromViewportHeight(viewportHeight: Int)
 
