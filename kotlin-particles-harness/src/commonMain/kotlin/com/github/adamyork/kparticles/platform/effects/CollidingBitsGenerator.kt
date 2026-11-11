@@ -36,9 +36,7 @@ class CollidingBitsGenerator(
         private const val COLLIDING_BITS_MAX_ACTIVE_PARTICLES: Int = 512
     }
 
-    private val collidingBitsGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(COLLIDING_BITS_MAX_ACTIVE_PARTICLES)
-
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(collidingBitsGpuSlotGroup)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(COLLIDING_BITS_MAX_ACTIVE_PARTICLES))
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val viewPort = request.viewPort
@@ -89,5 +87,5 @@ class CollidingBitsGenerator(
         return particles
     }
 
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = collidingBitsGpuSlotGroup
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
 }

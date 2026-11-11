@@ -27,20 +27,6 @@ public class CommonParticleEngineDiagnostics(
         var peakFrameMilliseconds: Double = 0.0
     }
 
-    private val clockOrigin = TimeSource.Monotonic.markNow()
-
-    private val effectCosts = LinkedHashMap<String, EffectCost>()
-
-    private var costFrameCount = 0L
-
-    private var frameCount = 0L
-
-    private var lastTimestampMilliseconds = -1.0
-
-    private var engineStepStartMicroseconds = -1L
-
-    private var sleepingParticleCount = 0
-
     override val isEnabled: Boolean = true
 
     override var engineType: ParticleEngineType = ParticleEngineType.CPU
@@ -83,6 +69,20 @@ public class CommonParticleEngineDiagnostics(
     override val sleepingParticles: Int
         get() = sleepingParticleCount
 
+    private val clockOrigin = TimeSource.Monotonic.markNow()
+
+    private val effectCosts = LinkedHashMap<String, EffectCost>()
+
+    private var costFrameCount = 0L
+
+    private var frameCount = 0L
+
+    private var lastTimestampMilliseconds = -1.0
+
+    private var engineStepStartMicroseconds = -1L
+
+    private var sleepingParticleCount = 0
+
     override fun reset() {
         frameCount = 0L
         lastTimestampMilliseconds = -1.0
@@ -99,10 +99,6 @@ public class CommonParticleEngineDiagnostics(
 
     override fun timestampMicroseconds(): Long = nowMicroseconds()
 
-    private fun recordEffectCost(effect: ParticleEffect, milliseconds: Double) {
-        effectCosts.getOrPut(effect.id) { EffectCost(effect.displayName) }.frameMilliseconds += milliseconds
-    }
-
     override fun recordEffectCostSince(effect: ParticleEffect, startMicroseconds: Long) {
         recordEffectCost(effect, (nowMicroseconds() - startMicroseconds) / MICROSECONDS_PER_MILLISECOND)
     }
@@ -118,34 +114,6 @@ public class CommonParticleEngineDiagnostics(
             if (generator.particles.isEmpty()) continue
             recordEffectCost(generator.effect, drawMilliseconds * generator.particles.size / batchParticleCount)
         }
-    }
-
-    private fun foldEffectCosts() {
-        val shouldRecord = frameCount >= WARMUP_FRAMES
-        for (effectCost in effectCosts.values) {
-            if (shouldRecord) {
-                effectCost.totalMilliseconds += effectCost.frameMilliseconds
-                if (effectCost.frameMilliseconds > effectCost.peakFrameMilliseconds) {
-                    effectCost.peakFrameMilliseconds = effectCost.frameMilliseconds
-                }
-            }
-            effectCost.frameMilliseconds = 0.0
-        }
-        if (shouldRecord) costFrameCount++
-    }
-
-    private fun buildCostliestEffectLine(): String {
-        var attributedTotal = 0.0
-        var costliest: EffectCost? = null
-        for (effectCost in effectCosts.values) {
-            attributedTotal += effectCost.totalMilliseconds
-            if (costliest == null || effectCost.totalMilliseconds > costliest.totalMilliseconds) costliest = effectCost
-        }
-        if (costliest == null || attributedTotal <= 0.0 || costFrameCount == 0L) return "Costliest Effect: n/a"
-        val sharePercent = costliest.totalMilliseconds / attributedTotal * 100.0
-        val averageMilliseconds = costliest.totalMilliseconds / costFrameCount
-        return "Costliest Effect: ${costliest.displayName} ${format(averageMilliseconds)} ms avg " +
-            "${format(sharePercent)}% peak ${format(costliest.peakFrameMilliseconds)} ms"
     }
 
     override fun beginEngineStep() {
@@ -233,6 +201,38 @@ public class CommonParticleEngineDiagnostics(
         report.appendLine()
         report.appendLine(buildCostliestEffectLine())
         return report.toString()
+    }
+
+    private fun recordEffectCost(effect: ParticleEffect, milliseconds: Double) {
+        effectCosts.getOrPut(effect.id) { EffectCost(effect.displayName) }.frameMilliseconds += milliseconds
+    }
+
+    private fun foldEffectCosts() {
+        val shouldRecord = frameCount >= WARMUP_FRAMES
+        for (effectCost in effectCosts.values) {
+            if (shouldRecord) {
+                effectCost.totalMilliseconds += effectCost.frameMilliseconds
+                if (effectCost.frameMilliseconds > effectCost.peakFrameMilliseconds) {
+                    effectCost.peakFrameMilliseconds = effectCost.frameMilliseconds
+                }
+            }
+            effectCost.frameMilliseconds = 0.0
+        }
+        if (shouldRecord) costFrameCount++
+    }
+
+    private fun buildCostliestEffectLine(): String {
+        var attributedTotal = 0.0
+        var costliest: EffectCost? = null
+        for (effectCost in effectCosts.values) {
+            attributedTotal += effectCost.totalMilliseconds
+            if (costliest == null || effectCost.totalMilliseconds > costliest.totalMilliseconds) costliest = effectCost
+        }
+        if (costliest == null || attributedTotal <= 0.0 || costFrameCount == 0L) return "Costliest Effect: n/a"
+        val sharePercent = costliest.totalMilliseconds / attributedTotal * 100.0
+        val averageMilliseconds = costliest.totalMilliseconds / costFrameCount
+        return "Costliest Effect: ${costliest.displayName} ${format(averageMilliseconds)} ms avg " +
+            "${format(sharePercent)}% peak ${format(costliest.peakFrameMilliseconds)} ms"
     }
 
     private fun nowMicroseconds(): Long = clockOrigin.elapsedNow().inWholeMicroseconds

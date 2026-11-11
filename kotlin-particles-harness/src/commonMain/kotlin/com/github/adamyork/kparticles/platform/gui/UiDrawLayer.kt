@@ -36,23 +36,22 @@ abstract class UiDrawLayer(
         }
     }
 
-    @Composable
-    protected open fun ForegroundLayerCanvas(image: Any?) {
-        throw RuntimeException("must implement")
-    }
-
-    @Composable
-    protected open fun OverlayLayer() {
-    }
-
-
     open fun drawForeground(image: CommonImage) {
-        throw EngineException("must implement")
+        throw EngineException("must implement $image")
     }
 
 
     open fun clearAllLayers() {
         foregroundBitmap = null
+    }
+
+    @Composable
+    protected open fun ForegroundLayerCanvas(image: Any?) {
+        throw RuntimeException("must implement $image")
+    }
+
+    @Composable
+    protected open fun OverlayLayer() {
     }
 
 }

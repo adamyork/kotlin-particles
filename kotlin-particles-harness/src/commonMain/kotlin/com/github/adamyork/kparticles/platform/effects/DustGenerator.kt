@@ -36,9 +36,7 @@ class DustGenerator(
         private const val DUST_MAX_ACTIVE_PARTICLES: Int = 1024
     }
 
-    private val dustGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(DUST_MAX_ACTIVE_PARTICLES)
-
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(dustGpuSlotGroup)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(DUST_MAX_ACTIVE_PARTICLES))
 
     private var color: Color = Color.White
 
@@ -61,6 +59,8 @@ class DustGenerator(
         particles += createDustPuff(centerX, centerY, DUST_CENTER_PUFF_RADIUS)
         return particles
     }
+
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
 
     private fun createDustPuff(x: Double, y: Double, radius: Double): Particle {
         val destinationAngle = random.nextDouble() * PI * 2
@@ -87,6 +87,4 @@ class DustGenerator(
             material = ParticleMaterial(density = physicsSettingsService.mediumDensity)
         )
     }
-
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = dustGpuSlotGroup
 }

@@ -47,13 +47,13 @@ open class WasmJsEngine(
     particleEngineDiagnostics
 ) {
 
-    private val logger = KotlinLogging.logger {}
-
     override var mapItemImage: CommonImage = WasmJsImage(
         Image.makeFromBitmap(AbstractPlatformAssetService.getTmpImageBitmap().asSkiaBitmap())
     )
     override var foregroundSurface: Any? = null
     override val mapElementPaint = Paint().apply { isAntiAlias = true }
+
+    private val logger = KotlinLogging.logger {}
 
     override fun getOrCreateForegroundSurface(viewPort: ParticleViewPort): Surface =
         (foregroundSurface as Surface?) ?: Surface.makeRaster(ImageInfo.makeN32Premul(viewPort.width, viewPort.height))
@@ -77,10 +77,6 @@ open class WasmJsEngine(
         )
     }
 
-    override fun manageParticles(viewPort: ParticleViewPort) {
-        particlePhysicsEngine.applyPhysics(viewPort)
-    }
-
     override fun draw(
         viewPort: ParticleViewPort,
         timestamp: Double
@@ -95,6 +91,10 @@ open class WasmJsEngine(
         return DrawResult(
             foregroundImage = WasmJsImage(foregroundImage),
         )
+    }
+
+    override fun manageParticles(viewPort: ParticleViewPort) {
+        particlePhysicsEngine.applyPhysics(viewPort)
     }
 
 }

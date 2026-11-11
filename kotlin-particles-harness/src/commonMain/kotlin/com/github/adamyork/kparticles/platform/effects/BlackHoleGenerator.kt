@@ -38,11 +38,7 @@ class BlackHoleGenerator(
         private const val BLACK_HOLE_EXPLOSION_MAX_ACTIVE_PARTICLES: Int = 1024
     }
 
-    private val blackHoleCoreGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(BLACK_HOLE_CORE_MAX_ACTIVE_PARTICLES)
-
-    private val blackHoleExplosionGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(BLACK_HOLE_EXPLOSION_MAX_ACTIVE_PARTICLES)
-
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(blackHoleCoreGpuSlotGroup, blackHoleExplosionGpuSlotGroup)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(BLACK_HOLE_CORE_MAX_ACTIVE_PARTICLES), GpuSlotGroup(BLACK_HOLE_EXPLOSION_MAX_ACTIVE_PARTICLES))
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val viewPort = request.viewPort
@@ -112,7 +108,7 @@ class BlackHoleGenerator(
     }
 
     override fun gpuSlotGroup(particle: Particle): GpuSlotGroup =
-        if (isCore(particle)) blackHoleCoreGpuSlotGroup else blackHoleExplosionGpuSlotGroup
+        if (isCore(particle)) gpuSlotGroups.first() else gpuSlotGroups.last()
 
     private fun isCore(particle: Particle): Boolean = particle.lifecycle.delay > 0.0
 }

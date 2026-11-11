@@ -50,12 +50,6 @@ abstract class UiMain(
     val particleEngineDiagnostics: ParticleEngineDiagnostics,
 ) {
 
-    abstract var uiDrawLayer: UiDrawLayer
-    protected open val centerHudWithinViewport: Boolean = false
-    protected open val hudTopInset: Dp = 72.dp
-    protected open val hudOverlayTopPadding: Dp = 8.dp
-    protected open val controlsPlacement: ControlsPlacement = ControlsPlacement.INLINE
-
     private companion object {
         val PARTICLE_MODES = listOf(
             ParticleEffects.DUST,
@@ -78,6 +72,12 @@ abstract class UiMain(
         val OVERLAY_BACKGROUND_COLOR = Color(0xB3000000)
         val OVERLAY_TEXT_COLOR = Color.White
     }
+
+    abstract var uiDrawLayer: UiDrawLayer
+    protected open val centerHudWithinViewport: Boolean = false
+    protected open val hudTopInset: Dp = 72.dp
+    protected open val hudOverlayTopPadding: Dp = 8.dp
+    protected open val controlsPlacement: ControlsPlacement = ControlsPlacement.INLINE
 
     @Composable
     fun Build() {

@@ -25,23 +25,14 @@ class WasmDripRenderer(
     private val dripStyleSettings: DripStyleSettings
 ) : CpuStyleRenderer<Canvas> {
 
-    override val renderStyle: ParticleRenderStyle = EffectStyles.DRIP
-    override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
-    override val drawFunction: ParticleDrawFunction<Canvas> = ::drawAllDrips
-    private fun drawAllDrips(drawFunctionData: DrawFunctionData<Canvas>) {
-        val viewPort = drawFunctionData.viewPort
-        val canvas = drawFunctionData.canvas
-        val viewPortOffsetX = viewPort.x.toFloat()
-        val viewPortOffsetY = viewPort.y.toFloat()
-        for (generator in drawFunctionData.generators) {
-            drawDrips(generator.particles, viewPort, viewPortOffsetX, viewPortOffsetY, canvas)
-        }
-    }
-
     private companion object {
         const val DRIP_SPECULAR_FLOATS: Int = 3
         const val DRIP_VERTICAL_TOLERANCE: Float = 0.001f
     }
+
+    override val renderStyle: ParticleRenderStyle = EffectStyles.DRIP
+    override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
+    override val drawFunction: ParticleDrawFunction<Canvas> = ::drawAllDrips
 
     private val dripGeometry = DripGeometry(dripStyleSettings)
 
@@ -60,6 +51,16 @@ class WasmDripRenderer(
     private var dripSpecularImage: Image? = null
 
     private var dripSpecularAlpha = -1
+
+    private fun drawAllDrips(drawFunctionData: DrawFunctionData<Canvas>) {
+        val viewPort = drawFunctionData.viewPort
+        val canvas = drawFunctionData.canvas
+        val viewPortOffsetX = viewPort.x.toFloat()
+        val viewPortOffsetY = viewPort.y.toFloat()
+        for (generator in drawFunctionData.generators) {
+            drawDrips(generator.particles, viewPort, viewPortOffsetX, viewPortOffsetY, canvas)
+        }
+    }
 
     private fun drawDrips(
         particles: List<Particle>,

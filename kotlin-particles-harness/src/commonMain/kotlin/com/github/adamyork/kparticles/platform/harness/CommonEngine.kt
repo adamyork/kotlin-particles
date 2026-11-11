@@ -39,8 +39,6 @@ abstract class CommonEngine<CanvasType> @ParticleScope @Inject constructor(
 
     abstract val mapElementPaint: Any
 
-    abstract fun getOrCreateForegroundSurface(viewPort: ParticleViewPort): Any
-
     override suspend fun initialize(collectibleAsset: ImageAsset) {
         throw EngineException("must implemented")
     }
@@ -49,12 +47,14 @@ abstract class CommonEngine<CanvasType> @ParticleScope @Inject constructor(
         manageParticles(viewPort)
     }
 
-    protected open fun manageParticles(viewPort: ParticleViewPort) {
+    override fun draw(viewPort: ParticleViewPort, timestamp: Double): DrawResult {
         throw Exception("must be implemented")
     }
 
-    override fun draw(viewPort: ParticleViewPort, timestamp: Double): DrawResult {
-        throw Exception("must be implemented")
+    abstract fun getOrCreateForegroundSurface(viewPort: ParticleViewPort): Any
+
+    protected open fun manageParticles(viewPort: ParticleViewPort) {
+        throw Exception("must be implemented $viewPort")
     }
 
 }

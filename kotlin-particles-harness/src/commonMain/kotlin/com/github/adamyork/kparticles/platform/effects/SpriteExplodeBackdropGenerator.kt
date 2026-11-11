@@ -23,9 +23,7 @@ class SpriteExplodeBackdropGenerator(
         private const val BACKDROP_MAX_ACTIVE_PARTICLES: Int = 8
     }
 
-    private val backdropGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(BACKDROP_MAX_ACTIVE_PARTICLES)
-
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(backdropGpuSlotGroup)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(BACKDROP_MAX_ACTIVE_PARTICLES))
 
     private var imageWidth: Int = 0
 
@@ -55,5 +53,5 @@ class SpriteExplodeBackdropGenerator(
         )
     }
 
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = backdropGpuSlotGroup
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
 }

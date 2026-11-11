@@ -22,12 +22,6 @@ public class ParticleEngines private constructor(
     public val gpuParticleStateWriter: GpuParticleStateWriter
 ) {
 
-    public fun <CanvasType> cpuRenderEngine(styleRenderers: CpuStyleRenderers<CanvasType>): ParticleRenderEngine<CanvasType> =
-        CommonParticleRenderEngine(registry, styleRenderers, particleEngineDiagnostics)
-
-    public fun <CanvasType> gpuRenderEngine(drawFunction: ParticleDrawFunction<CanvasType>): ParticleRenderEngine<CanvasType> =
-        GpuParticleRenderEngine(registry, drawFunction)
-
     public companion object {
 
         public fun create(
@@ -72,5 +66,11 @@ public class ParticleEngines private constructor(
         }
 
     }
+
+    public fun <CanvasType> cpuRenderEngine(styleRenderers: CpuStyleRenderers<CanvasType>): ParticleRenderEngine<CanvasType> =
+        CommonParticleRenderEngine(registry, styleRenderers, particleEngineDiagnostics)
+
+    public fun <CanvasType> gpuRenderEngine(drawFunction: ParticleDrawFunction<CanvasType>): ParticleRenderEngine<CanvasType> =
+        GpuParticleRenderEngine(registry, drawFunction)
 
 }

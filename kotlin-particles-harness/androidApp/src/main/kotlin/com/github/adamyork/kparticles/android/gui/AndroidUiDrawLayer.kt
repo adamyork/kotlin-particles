@@ -30,6 +30,10 @@ class AndroidUiDrawLayer(screenDimensionsService: ScreenDimensionsService) : UiD
 
     override var foregroundBitmap: Any? by mutableStateOf(null)
 
+    override fun drawForeground(image: CommonImage) {
+        foregroundBitmap = image
+    }
+
     @Composable
     override fun ForegroundLayerCanvas(image: Any?) {
         Canvas(
@@ -65,10 +69,6 @@ class AndroidUiDrawLayer(screenDimensionsService: ScreenDimensionsService) : UiD
                 }
             }
         }
-    }
-
-    override fun drawForeground(image: CommonImage) {
-        foregroundBitmap = image
     }
 
     @Composable

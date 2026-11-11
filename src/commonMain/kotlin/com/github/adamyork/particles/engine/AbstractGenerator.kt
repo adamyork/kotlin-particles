@@ -12,12 +12,12 @@ public abstract class AbstractGenerator(
     override val effect: ParticleEffect
 ) : ParticleEffectGenerator {
 
-    override val particles: ArrayList<Particle> = ArrayList()
-
     private companion object {
         private const val GPU_PINNED_UNTIL_OFFSET: Int = 60
         private const val GPU_NON_GRAVITATING_OFFSET: Int = 61
     }
+
+    override val particles: ArrayList<Particle> = ArrayList()
 
     public var random: Random = Random.Default
 
@@ -26,8 +26,6 @@ public abstract class AbstractGenerator(
     override fun adopt(particle: Particle) {
         particles.add(particle.copy(id = nextParticleId()))
     }
-
-    protected fun nextParticleId(): Long = nextParticleIdValue++
 
     override fun writeGpuState(particle: Particle, targetBuffer: FloatArray, baseIndex: Int) {
         targetBuffer.fill(0f, baseIndex, baseIndex + ParticleEffectGenerator.GPU_STATE_FLOATS_PER_PARTICLE)
@@ -107,7 +105,9 @@ public abstract class AbstractGenerator(
         targetBuffer[baseIndex + GPU_NON_GRAVITATING_OFFSET] = if (particle.material.exertsGravity) 0f else 1f
     }
 
-    @Suppress("FunctionOnlyReturningConstant")
+    protected fun nextParticleId(): Long = nextParticleIdValue++
+
+    @Suppress("FunctionOnlyReturningConstant", "SameReturnValue")
     protected open fun gpuSplitFragmentsUseWallPlane(): Boolean = false
 
     protected fun createDistinctColorPair(): Pair<Color, Color> {

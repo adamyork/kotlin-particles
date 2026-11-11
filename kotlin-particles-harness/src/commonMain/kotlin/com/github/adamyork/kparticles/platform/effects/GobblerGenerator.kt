@@ -30,9 +30,7 @@ class GobblerGenerator(
         private const val GOBBLER_MAX_ACTIVE_PARTICLES: Int = 64
     }
 
-    private val gobblerGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(GOBBLER_MAX_ACTIVE_PARTICLES)
-
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(gobblerGpuSlotGroup)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(GOBBLER_MAX_ACTIVE_PARTICLES))
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val viewPort = request.viewPort
@@ -66,5 +64,5 @@ class GobblerGenerator(
         return particles
     }
 
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gobblerGpuSlotGroup
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
 }

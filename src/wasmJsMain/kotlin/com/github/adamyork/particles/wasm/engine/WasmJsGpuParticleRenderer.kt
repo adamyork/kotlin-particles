@@ -3,6 +3,11 @@ package com.github.adamyork.particles.wasm.engine
 import com.github.adamyork.particles.common.data.ParticleViewPort
 import com.github.adamyork.particles.engine.GpuDataPacketWriter
 import com.github.adamyork.particles.engine.ParticleEffectGenerator
+import com.github.adamyork.particles.engine.data.ParticleSpriteSheet
+import com.github.adamyork.particles.engine.shader.GpuBlendMode
+import com.github.adamyork.particles.engine.shader.GpuRenderPass
+import com.github.adamyork.particles.engine.shader.GpuShaderComposer
+import com.github.adamyork.particles.engine.shader.GpuStyleShader
 import com.github.adamyork.particles.wasm.common.*
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.browser.window
@@ -13,15 +18,8 @@ import org.khronos.webgl.ArrayBuffer
 import org.khronos.webgl.DataView
 import org.khronos.webgl.toInt8Array
 import org.w3c.dom.HTMLCanvasElement
-import kotlin.js.JsNumber
-import kotlin.js.toInt
 import kotlin.math.ceil
 import kotlin.math.max
-import com.github.adamyork.particles.engine.shader.GpuBlendMode
-import com.github.adamyork.particles.engine.shader.GpuRenderPass
-import com.github.adamyork.particles.engine.shader.GpuShaderComposer
-import com.github.adamyork.particles.engine.shader.GpuStyleShader
-import com.github.adamyork.particles.engine.data.ParticleSpriteSheet
 
 /**
  * Author: Adam York
@@ -67,6 +65,13 @@ public class WasmJsGpuParticleRenderer(
         private val SINGLE_WORKGROUP_ENTRY_POINTS = setOf("gridScanMain", "selectGravitySourcesMain")
     }
 
+    private class RenderPassPipeline(
+        val pipeline: GPURenderPipeline,
+        val bindGroup: GPUBindGroup,
+        val firstInstance: Int,
+        val instanceCount: Int
+    )
+
     private val logger = KotlinLogging.logger {}
 
     private var canvas: HTMLCanvasElement? = null
@@ -96,13 +101,6 @@ public class WasmJsGpuParticleRenderer(
     private val renderPassPipelines = ArrayList<RenderPassPipeline>()
 
     private var simulationBindGroup: GPUBindGroup? = null
-
-    private class RenderPassPipeline(
-        val pipeline: GPURenderPipeline,
-        val bindGroup: GPUBindGroup,
-        val firstInstance: Int,
-        val instanceCount: Int
-    )
 
     private val simulationDataPacket = FloatArray(GpuDataPacketWriter.SIMULATION_PACKET_FLOATS)
     private val renderDataPacket = FloatArray(GpuDataPacketWriter.RENDER_PACKET_FLOATS)
@@ -144,10 +142,12 @@ public class WasmJsGpuParticleRenderer(
         computeWorkgroupCount = ceil(maxParticles.toDouble() / WORKGROUP_SIZE.toDouble()).toInt().coerceAtLeast(1)
         val createdState = createStorageBuffer(gpuDevice, particleBufferSize)
         val createdSpawn = createStorageBuffer(gpuDevice, particleBufferSize)
-        val createdSimulationDataPacketBuffer = createDataPacketBuffer(gpuDevice, simulationDataPacket.size * BYTES_PER_FLOAT)
+        val createdSimulationDataPacketBuffer =
+            createDataPacketBuffer(gpuDevice, simulationDataPacket.size * BYTES_PER_FLOAT)
         val createdKinematics = createStorageBuffer(gpuDevice, maxParticles * KINEMATICS_BYTES_PER_PARTICLE)
         val createdGrid = createStorageBuffer(gpuDevice, GRID_BUFFER_BYTES)
-        val createdScratch = createStorageBuffer(gpuDevice, (maxParticles * 4 + SCRATCH_EXTRA_UNSIGNED_INTEGERS) * BYTES_PER_FLOAT)
+        val createdScratch =
+            createStorageBuffer(gpuDevice, (maxParticles * 4 + SCRATCH_EXTRA_UNSIGNED_INTEGERS) * BYTES_PER_FLOAT)
         val createdRenderDataPacketBuffer = createDataPacketBuffer(gpuDevice, renderDataPacket.size * BYTES_PER_FLOAT)
         val createdMapItemSampler = createLinearSampler(gpuDevice)
         val deviceQueue = getGpuQueue(gpuDevice)
@@ -176,7 +176,11 @@ public class WasmJsGpuParticleRenderer(
         if (compilationReport.isNotBlank()) {
             logger.error {
                 "particles.wgsl compilation report:\n" +
-                        GpuShaderComposer.annotateCompilationReport(particlesShaderSource, styleShaders, compilationReport)
+                        GpuShaderComposer.annotateCompilationReport(
+                            particlesShaderSource,
+                            styleShaders,
+                            compilationReport
+                        )
             }
         }
         if (compilationReport.contains(SHADER_ERROR_MARKER)) {
@@ -254,7 +258,10 @@ public class WasmJsGpuParticleRenderer(
         readbackInFlight = true
         try {
             val particleBufferSize = maxParticles * FLOATS_PER_PARTICLE * BYTES_PER_FLOAT
-            val stagingBuffer = readbackBuffer ?: createReadbackBuffer(gpuDevice, particleBufferSize).also { createdBuffer -> readbackBuffer = createdBuffer }
+            val stagingBuffer = readbackBuffer ?: createReadbackBuffer(
+                gpuDevice,
+                particleBufferSize
+            ).also { createdBuffer -> readbackBuffer = createdBuffer }
             lastSampledLiveParticleCount = readLiveParticleCount(
                 gpuDevice,
                 gpuQueue,
@@ -262,7 +269,7 @@ public class WasmJsGpuParticleRenderer(
                 stagingBuffer,
                 particleBufferSize,
                 FLOATS_PER_PARTICLE
-            ).await<JsNumber>().toInt()
+            ).await().toInt()
         } finally {
             readbackInFlight = false
         }

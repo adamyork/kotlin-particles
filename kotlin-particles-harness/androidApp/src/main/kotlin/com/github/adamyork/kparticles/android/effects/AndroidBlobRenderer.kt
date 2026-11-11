@@ -23,6 +23,19 @@ class AndroidBlobRenderer : CpuStyleRenderer<Canvas> {
     override val renderStyle: ParticleRenderStyle = EffectStyles.BLOB
     override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawBlobs
+
+    private val projectileBlobPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+
+    private val projectileBlobPath = Path()
+
+    private val blobLobePointXs = FloatArray(BlobStyleParameters.LOBE_COUNT)
+
+    private val blobLobePointYs = FloatArray(BlobStyleParameters.LOBE_COUNT)
+
+    private val blobSegmentPoints = FloatArray(BlobGeometry.SEGMENT_POINT_FLOATS)
+
     private fun drawBlobs(drawFunctionData: DrawFunctionData<Canvas>) {
         val viewPort = drawFunctionData.viewPort
         val canvas = drawFunctionData.canvas
@@ -37,18 +50,6 @@ class AndroidBlobRenderer : CpuStyleRenderer<Canvas> {
             }
         }
     }
-
-    private val projectileBlobPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-    }
-
-    private val projectileBlobPath = Path()
-
-    private val blobLobePointXs = FloatArray(BlobStyleParameters.LOBE_COUNT)
-
-    private val blobLobePointYs = FloatArray(BlobStyleParameters.LOBE_COUNT)
-
-    private val blobSegmentPoints = FloatArray(BlobGeometry.SEGMENT_POINT_FLOATS)
 
     private fun drawProjectileBlob(
         particle: Particle,

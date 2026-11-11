@@ -37,9 +37,7 @@ class CollisionGenerator(
         private const val COLLISION_MAX_ACTIVE_PARTICLES: Int = 2048
     }
 
-    private val collisionGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(COLLISION_MAX_ACTIVE_PARTICLES)
-
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(collisionGpuSlotGroup)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(COLLISION_MAX_ACTIVE_PARTICLES))
 
     private var color: Color = Color.White
 
@@ -95,5 +93,5 @@ class CollisionGenerator(
         return particles
     }
 
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = collisionGpuSlotGroup
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
 }

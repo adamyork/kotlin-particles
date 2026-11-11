@@ -16,16 +16,6 @@ public class ParticleEffectRegistry(initialEffects: List<ParticleEffect> = empty
         public const val MAXIMUM_REGISTERED_EFFECTS: Int = 64
     }
 
-    private val indexByEffect = HashMap<ParticleEffect, Int>()
-
-    private val registeredGenerators = ArrayList<ParticleEffectGenerator>()
-
-    private val generatorsByEffect = HashMap<ParticleEffect, ParticleEffectGenerator>()
-
-    private var customRenderStyleCount = 0
-
-    private var sealed = false
-
     public var totalSpawnedParticles: Long = 0L
         private set
 
@@ -40,6 +30,16 @@ public class ParticleEffectRegistry(initialEffects: List<ParticleEffect> = empty
 
     public val isSealed: Boolean
         get() = sealed
+
+    private val indexByEffect = HashMap<ParticleEffect, Int>()
+
+    private val registeredGenerators = ArrayList<ParticleEffectGenerator>()
+
+    private val generatorsByEffect = HashMap<ParticleEffect, ParticleEffectGenerator>()
+
+    private var customRenderStyleCount = 0
+
+    private var sealed = false
 
     init {
         for (effect in initialEffects) {
@@ -142,6 +142,9 @@ public class ParticleEffectRegistry(initialEffects: List<ParticleEffect> = empty
         return renderStyle
     }
 
+    public fun indexOf(effect: ParticleEffect): Int =
+        indexByEffect[effect] ?: throw EngineException("Particle effect ${effect.id} is not registered")
+
     private fun registerRenderStyle(renderStyle: ParticleRenderStyle) {
         if (renderStyles.any { registeredStyle -> registeredStyle === renderStyle }) return
         if (renderStyles.any { registeredStyle -> registeredStyle.id == renderStyle.id }) {
@@ -158,8 +161,5 @@ public class ParticleEffectRegistry(initialEffects: List<ParticleEffect> = empty
             throw EngineException("Cannot $action: the registry is sealed once rendering has started, register everything first")
         }
     }
-
-    public fun indexOf(effect: ParticleEffect): Int =
-        indexByEffect[effect] ?: throw EngineException("Particle effect ${effect.id} is not registered")
 
 }

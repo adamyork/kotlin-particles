@@ -45,6 +45,17 @@ class WasmJsUiDrawLayer(
 
     override var foregroundBitmap: Any? by mutableStateOf(null)
 
+    override fun drawForeground(image: CommonImage) {
+        (foregroundBitmap as SkiaImage?)?.close()
+        foregroundBitmap = (image as WasmJsImage).image
+    }
+
+    override fun clearAllLayers() {
+        val existingForeground = foregroundBitmap as SkiaImage?
+        super.clearAllLayers()
+        existingForeground?.close()
+    }
+
     @Composable
     override fun ForegroundLayerCanvas(image: Any?) {
         val screenDimensions = screenDimensionsService.getScreenDimensions()
@@ -89,17 +100,6 @@ class WasmJsUiDrawLayer(
                 }
             }
         }
-    }
-
-    override fun drawForeground(image: CommonImage) {
-        (foregroundBitmap as SkiaImage?)?.close()
-        foregroundBitmap = (image as WasmJsImage).image
-    }
-
-    override fun clearAllLayers() {
-        val existingForeground = foregroundBitmap as SkiaImage?
-        super.clearAllLayers()
-        existingForeground?.close()
     }
 
 }

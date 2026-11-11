@@ -27,22 +27,6 @@ class AndroidDripRenderer(
     override val renderStyle: ParticleRenderStyle = EffectStyles.DRIP
     override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawAllDrips
-    private fun drawAllDrips(drawFunctionData: DrawFunctionData<Canvas>) {
-        val viewPort = drawFunctionData.viewPort
-        val canvas = drawFunctionData.canvas
-        val viewPortOffsetX = viewPort.x.toFloat()
-        val viewPortOffsetY = viewPort.y.toFloat()
-        for (generator in drawFunctionData.generators) {
-            val particles = generator.particles
-            for (particleIndex in particles.indices) {
-                val particle = particles[particleIndex]
-                if (!particle.cullingCheck(viewPort)) continue
-                if (particle.lifecycle.isVisible()) {
-                    drawDrip(particle, viewPortOffsetX, viewPortOffsetY, canvas)
-                }
-            }
-        }
-    }
 
     private val spritePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         isFilterBitmap = true
@@ -75,6 +59,23 @@ class AndroidDripRenderer(
     private var dripSpecularBitmap: Bitmap? = null
 
     private var dripSpecularAlpha = -1
+
+    private fun drawAllDrips(drawFunctionData: DrawFunctionData<Canvas>) {
+        val viewPort = drawFunctionData.viewPort
+        val canvas = drawFunctionData.canvas
+        val viewPortOffsetX = viewPort.x.toFloat()
+        val viewPortOffsetY = viewPort.y.toFloat()
+        for (generator in drawFunctionData.generators) {
+            val particles = generator.particles
+            for (particleIndex in particles.indices) {
+                val particle = particles[particleIndex]
+                if (!particle.cullingCheck(viewPort)) continue
+                if (particle.lifecycle.isVisible()) {
+                    drawDrip(particle, viewPortOffsetX, viewPortOffsetY, canvas)
+                }
+            }
+        }
+    }
 
     private fun drawDrip(
         particle: Particle,

@@ -11,6 +11,13 @@ import com.github.adamyork.kparticles.platform.effects.ParticleEffects
  */
 class PhysicsInvariantTest {
 
+    private companion object {
+        const val OVERCROWDING_FRAMES: Int = 400
+        const val OVERCROWDING_SPAWN_COUNT: Int = 8
+        const val OVERCROWDING_SPAWN_INTERVAL: Int = 10
+        const val OVERCROWDING_COUNT_ALLOWANCE: Double = 1.5
+    }
+
     @Test
     fun noEffectProducesNonFiniteState() {
         for (effect in ParticleEffects.ALL) {
@@ -68,13 +75,6 @@ class PhysicsInvariantTest {
                 )
             }
         }
-    }
-
-    private companion object {
-        const val OVERCROWDING_FRAMES: Int = 400
-        const val OVERCROWDING_SPAWN_COUNT: Int = 8
-        const val OVERCROWDING_SPAWN_INTERVAL: Int = 10
-        const val OVERCROWDING_COUNT_ALLOWANCE: Double = 1.5
     }
 
 }

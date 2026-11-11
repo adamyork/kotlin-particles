@@ -6,8 +6,6 @@ package com.github.adamyork.particles.engine.data
  */
 public class ParticleRenderStyle(public val id: String, public val code: Float) {
 
-    override fun toString(): String = id
-
     public companion object {
         public const val FIRST_CUSTOM_CODE: Float = 16f
 
@@ -16,5 +14,7 @@ public class ParticleRenderStyle(public val id: String, public val code: Float) 
 
         public val BUILT_IN: List<ParticleRenderStyle> = listOf(SHAPE, IMAGE)
     }
+
+    override fun toString(): String = id
 
 }

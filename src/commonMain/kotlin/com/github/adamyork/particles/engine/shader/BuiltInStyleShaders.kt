@@ -9,6 +9,17 @@ import com.github.adamyork.particles.engine.data.ParticleRenderStyle
  */
 public object BuiltInStyleShaders {
 
+    public val SHAPE: GpuStyleShader by lazy {
+        GpuStyleShader(
+            renderStyle = ParticleRenderStyle.SHAPE,
+            wgslSource = shapeWgsl,
+            glslVertexSource = "",
+            glslFragmentSource = shapeGlslFragment
+        )
+    }
+
+    public val DEFAULTS: List<GpuStyleShader> by lazy { listOf(SHAPE) }
+
     private val shapeWgsl = """
 fn STYLE_fragment(fragmentInput: StyleFragmentInput) -> vec4<f32> {
   if (fragmentInput.shapeKind < 0.5 && dot(fragmentInput.quadCoordinate, fragmentInput.quadCoordinate) > 1.0) {
@@ -64,15 +75,6 @@ vec4 STYLE_fragment(StyleFragmentInput fragmentInput) {
     return textureLod(renderTexture, fragmentInput.uv, 0.0);
 }
 """.trimIndent()
-
-    public val SHAPE: GpuStyleShader = GpuStyleShader(
-        renderStyle = ParticleRenderStyle.SHAPE,
-        wgslSource = shapeWgsl,
-        glslVertexSource = "",
-        glslFragmentSource = shapeGlslFragment
-    )
-
-    public val DEFAULTS: List<GpuStyleShader> = listOf(SHAPE)
 
     public fun image(imageSource: ParticleImageSource, renderStyle: ParticleRenderStyle = ParticleRenderStyle.IMAGE): GpuStyleShader =
         GpuStyleShader(

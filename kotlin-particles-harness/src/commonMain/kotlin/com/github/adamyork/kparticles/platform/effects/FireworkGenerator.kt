@@ -47,9 +47,9 @@ class FireworkGenerator(
         private const val FIREWORK_MAX_ACTIVE_PARTICLES: Int = 8192
     }
 
-    private val fireworkGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(FIREWORK_MAX_ACTIVE_PARTICLES)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(FIREWORK_MAX_ACTIVE_PARTICLES))
 
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(fireworkGpuSlotGroup)
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
 
     override fun createStreamState(request: ParticleEffectRequest): List<Int> {
         val tailOrder = MutableList(FIREWORK_TAIL_PARTICLE_COUNT) { it }
@@ -157,6 +157,4 @@ class FireworkGenerator(
         }
         return particles
     }
-
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = fireworkGpuSlotGroup
 }

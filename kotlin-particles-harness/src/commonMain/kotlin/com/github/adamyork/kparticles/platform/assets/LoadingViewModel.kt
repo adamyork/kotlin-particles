@@ -14,8 +14,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
  */
 class LoadingViewModel : ViewModel(), LoadingProgressListener {
 
-    private val logger = KotlinLogging.logger {}
-
     companion object {
         fun mapKeyToTaskId(key: String): String {
             val fileName = if (key.startsWith("http")) {
@@ -39,6 +37,8 @@ class LoadingViewModel : ViewModel(), LoadingProgressListener {
             LoadingTask("particle_shader", "Particle Shader"),
         )
     )
+
+    private val logger = KotlinLogging.logger {}
 
     override fun onTaskCompleted(taskId: String) {
         if (taskId.isBlank()) return

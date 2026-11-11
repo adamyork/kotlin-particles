@@ -28,8 +28,6 @@ abstract class AbstractGuidedLaunchGenerator(
 
     override val gpuSlotGroups: List<GpuSlotGroup> = listOf(guidedLaunchGpuSlotGroup)
 
-    protected abstract fun launchColor(): Color
-
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val centerX = request.x
         val centerY = request.y
@@ -78,4 +76,6 @@ abstract class AbstractGuidedLaunchGenerator(
     }
 
     override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = guidedLaunchGpuSlotGroup
+
+    protected abstract fun launchColor(): Color
 }

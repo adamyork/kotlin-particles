@@ -18,8 +18,6 @@ public class CommonParticlePhysics(
     private val particleEffectRegistry: ParticleEffectRegistry
 ) : ParticlePhysics {
 
-    private val gravitySources = ArrayList<Particle>()
-
     private companion object {
         private const val REST_KEY_EFFECT_SHIFT: Int = 48
         private const val GRAVITY_SOURCE_MINIMUM_MASS_RATIO: Double = 0.03
@@ -28,6 +26,8 @@ public class CommonParticlePhysics(
         private const val REST_COUNT_MASK: Long = (1L shl REST_COUNT_BITS) - 1L
         private const val ENVIRONMENT_VALUE_COUNT: Int = 10
     }
+
+    private val gravitySources = ArrayList<Particle>()
 
     private var worldTime = 0.0
 
@@ -84,6 +84,61 @@ public class CommonParticlePhysics(
             particleEngineDiagnostics.recordEffectCostSince(generator.effect, integrateStartMicroseconds)
         }
         particleEngineDiagnostics.recordSleepingParticles(asleepParticleCount)
+    }
+
+    override fun applyGravitation(collision: ParticleCollision, deltaTime: Double) {
+        val gravitationalConstant = physicsSettingsService.gravitationalConstant
+        if (gravitationalConstant <= 0.0) return
+        selectGravitySources(collision.getAllPlacedParticles(), physicsSettingsService.gravitySourceCount)
+        val softeningSquared = physicsSettingsService.gravitationalSoftening * physicsSettingsService.gravitationalSoftening
+        val minimumAcceleration = max(physicsSettingsService.gravityMinimumAcceleration, Double.MIN_VALUE)
+        val planeThickness = physicsSettingsService.gravityPlaneThickness
+        val lowestSourceMass = if (gravitySources.isEmpty()) 0.0 else gravitySources[gravitySources.size - 1].gravitationalMass()
+        for (sourceIndex in gravitySources.indices) {
+            val source = gravitySources[sourceIndex]
+            if (source.lifecycle.isExpired()) continue
+            val range = sqrt(gravitationalConstant * source.gravitationalMass() / minimumAcceleration)
+            collision.forEachParticleWithin(source.transform.position.x, source.transform.position.y, range) { other ->
+                if (other !== source && !other.lifecycle.isExpired() && (other.gravitationalMass() < lowestSourceMass || !isGravitySource(other)) &&
+                    abs(other.transform.position.z - source.transform.position.z) < planeThickness
+                ) {
+                    applyPull(source, other, gravitationalConstant, softeningSquared, deltaTime)
+                }
+            }
+            for (otherIndex in sourceIndex + 1 until gravitySources.size) {
+                val otherSource = gravitySources[otherIndex]
+                if (otherSource.lifecycle.isExpired() || abs(otherSource.transform.position.z - source.transform.position.z) >= planeThickness) continue
+                applyPull(source, otherSource, gravitationalConstant, softeningSquared, deltaTime)
+            }
+        }
+    }
+
+    override fun applyParticleAccretion(firstParticle: Particle, secondParticle: Particle): Boolean {
+        if (firstParticle.lifecycle.isExpired() || secondParticle.lifecycle.isExpired()) return false
+        if (abs(firstParticle.transform.position.z - secondParticle.transform.position.z) >= physicsSettingsService.gravityPlaneThickness) return false
+        val consumingParticle = if (firstParticle.mass() >= secondParticle.mass()) firstParticle else secondParticle
+        val consumedParticle = if (consumingParticle === firstParticle) secondParticle else firstParticle
+        val consumingMass = consumingParticle.mass()
+        val consumedMass = consumedParticle.mass()
+        if (consumingMass < consumedParticle.inertialMass() * physicsSettingsService.accretionMassRatio) return false
+        val gravity = physicsSettingsService.gravity
+        val mediumDensity = physicsSettingsService.mediumDensity
+        val previousNetWeight = consumingMass * Particle.netGravityOf(consumingParticle.material.density, gravity, mediumDensity)
+        val holdFraction = if (previousNetWeight != 0.0) -consumingParticle.dynamics.thrust.y / previousNetWeight else 0.0
+        val combinedMass = consumingMass + consumedMass
+        consumingParticle.dynamics.velocity.x =
+            (consumingParticle.dynamics.velocity.x * consumingMass + consumedParticle.dynamics.velocity.x * consumedMass) / combinedMass
+        consumingParticle.dynamics.velocity.y =
+            (consumingParticle.dynamics.velocity.y * consumingMass + consumedParticle.dynamics.velocity.y * consumedMass) / combinedMass
+        consumingParticle.dimensions.fitArea(consumingParticle.dimensions.area() + consumedParticle.dimensions.area())
+        consumingParticle.material.density = Particle.densityFor(combinedMass, consumingParticle.dimensions)
+        val thrustScale = combinedMass / consumingMass
+        consumingParticle.dynamics.thrust.x *= thrustScale
+        consumingParticle.dynamics.thrust.z *= thrustScale
+        consumingParticle.dynamics.thrust.y =
+            -holdFraction * combinedMass * Particle.netGravityOf(consumingParticle.material.density, gravity, mediumDensity)
+        consumedParticle.lifecycle.age = consumedParticle.lifecycle.lifetime + consumedParticle.lifecycle.delay
+        return true
     }
 
     private fun integrateParticles(
@@ -176,61 +231,6 @@ public class CommonParticlePhysics(
         val restCount = previousCount + 1
         restFrameCounts[restKey] = (stepCounter shl REST_COUNT_BITS) or restCount.toLong().coerceAtMost(REST_COUNT_MASK)
         return restCount > physicsSettingsService.restStepsBeforeSleep
-    }
-
-    override fun applyGravitation(collision: ParticleCollision, deltaTime: Double) {
-        val gravitationalConstant = physicsSettingsService.gravitationalConstant
-        if (gravitationalConstant <= 0.0) return
-        selectGravitySources(collision.getAllPlacedParticles(), physicsSettingsService.gravitySourceCount)
-        val softeningSquared = physicsSettingsService.gravitationalSoftening * physicsSettingsService.gravitationalSoftening
-        val minimumAcceleration = max(physicsSettingsService.gravityMinimumAcceleration, Double.MIN_VALUE)
-        val planeThickness = physicsSettingsService.gravityPlaneThickness
-        val lowestSourceMass = if (gravitySources.isEmpty()) 0.0 else gravitySources[gravitySources.size - 1].gravitationalMass()
-        for (sourceIndex in gravitySources.indices) {
-            val source = gravitySources[sourceIndex]
-            if (source.lifecycle.isExpired()) continue
-            val range = sqrt(gravitationalConstant * source.gravitationalMass() / minimumAcceleration)
-            collision.forEachParticleWithin(source.transform.position.x, source.transform.position.y, range) { other ->
-                if (other !== source && !other.lifecycle.isExpired() && (other.gravitationalMass() < lowestSourceMass || !isGravitySource(other)) &&
-                    abs(other.transform.position.z - source.transform.position.z) < planeThickness
-                ) {
-                    applyPull(source, other, gravitationalConstant, softeningSquared, deltaTime)
-                }
-            }
-            for (otherIndex in sourceIndex + 1 until gravitySources.size) {
-                val otherSource = gravitySources[otherIndex]
-                if (otherSource.lifecycle.isExpired() || abs(otherSource.transform.position.z - source.transform.position.z) >= planeThickness) continue
-                applyPull(source, otherSource, gravitationalConstant, softeningSquared, deltaTime)
-            }
-        }
-    }
-
-    override fun applyParticleAccretion(firstParticle: Particle, secondParticle: Particle): Boolean {
-        if (firstParticle.lifecycle.isExpired() || secondParticle.lifecycle.isExpired()) return false
-        if (abs(firstParticle.transform.position.z - secondParticle.transform.position.z) >= physicsSettingsService.gravityPlaneThickness) return false
-        val consumingParticle = if (firstParticle.mass() >= secondParticle.mass()) firstParticle else secondParticle
-        val consumedParticle = if (consumingParticle === firstParticle) secondParticle else firstParticle
-        val consumingMass = consumingParticle.mass()
-        val consumedMass = consumedParticle.mass()
-        if (consumingMass < consumedParticle.inertialMass() * physicsSettingsService.accretionMassRatio) return false
-        val gravity = physicsSettingsService.gravity
-        val mediumDensity = physicsSettingsService.mediumDensity
-        val previousNetWeight = consumingMass * Particle.netGravityOf(consumingParticle.material.density, gravity, mediumDensity)
-        val holdFraction = if (previousNetWeight != 0.0) -consumingParticle.dynamics.thrust.y / previousNetWeight else 0.0
-        val combinedMass = consumingMass + consumedMass
-        consumingParticle.dynamics.velocity.x =
-            (consumingParticle.dynamics.velocity.x * consumingMass + consumedParticle.dynamics.velocity.x * consumedMass) / combinedMass
-        consumingParticle.dynamics.velocity.y =
-            (consumingParticle.dynamics.velocity.y * consumingMass + consumedParticle.dynamics.velocity.y * consumedMass) / combinedMass
-        consumingParticle.dimensions.fitArea(consumingParticle.dimensions.area() + consumedParticle.dimensions.area())
-        consumingParticle.material.density = Particle.densityFor(combinedMass, consumingParticle.dimensions)
-        val thrustScale = combinedMass / consumingMass
-        consumingParticle.dynamics.thrust.x *= thrustScale
-        consumingParticle.dynamics.thrust.z *= thrustScale
-        consumingParticle.dynamics.thrust.y =
-            -holdFraction * combinedMass * Particle.netGravityOf(consumingParticle.material.density, gravity, mediumDensity)
-        consumedParticle.lifecycle.age = consumedParticle.lifecycle.lifetime + consumedParticle.lifecycle.delay
-        return true
     }
 
     private fun selectGravitySources(candidates: List<Particle>, sourceCount: Int) {

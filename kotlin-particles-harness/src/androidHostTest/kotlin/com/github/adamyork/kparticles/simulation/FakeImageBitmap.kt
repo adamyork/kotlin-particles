@@ -14,6 +14,16 @@ class FakeImageBitmap(
     override val height: Int
 ) : ImageBitmap {
 
+    private companion object {
+        const val CORNER_SIZE: Int = 4
+        const val CHANNEL_MAXIMUM: Int = 255
+        const val CHANNEL_MASK: Int = 0xFF
+        const val OPAQUE_ALPHA: Int = 0xFF
+        const val ALPHA_SHIFT: Int = 24
+        const val RED_SHIFT: Int = 16
+        const val GREEN_SHIFT: Int = 8
+    }
+
     override val config: ImageBitmapConfig = ImageBitmapConfig.Argb8888
 
     override val colorSpace: ColorSpace = ColorSpaces.Srgb
@@ -46,15 +56,5 @@ class FakeImageBitmap(
         val green = (row * CHANNEL_MAXIMUM / height) and CHANNEL_MASK
         val blue = ((column + row) * CHANNEL_MAXIMUM / (width + height)) and CHANNEL_MASK
         return (OPAQUE_ALPHA shl ALPHA_SHIFT) or (red shl RED_SHIFT) or (green shl GREEN_SHIFT) or blue
-    }
-
-    private companion object {
-        const val CORNER_SIZE: Int = 4
-        const val CHANNEL_MAXIMUM: Int = 255
-        const val CHANNEL_MASK: Int = 0xFF
-        const val OPAQUE_ALPHA: Int = 0xFF
-        const val ALPHA_SHIFT: Int = 24
-        const val RED_SHIFT: Int = 16
-        const val GREEN_SHIFT: Int = 8
     }
 }

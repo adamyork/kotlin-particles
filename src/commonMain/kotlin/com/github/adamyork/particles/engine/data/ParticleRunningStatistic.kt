@@ -6,10 +6,6 @@ package com.github.adamyork.particles.engine.data
  */
 public class ParticleRunningStatistic {
 
-    private var sampleCount = 0L
-
-    private var sampleSum = 0.0
-
     public var current: Double = 0.0
         private set
 
@@ -21,6 +17,10 @@ public class ParticleRunningStatistic {
 
     public val average: Double
         get() = if (sampleCount == 0L) 0.0 else sampleSum / sampleCount
+
+    private var sampleCount = 0L
+
+    private var sampleSum = 0.0
 
     public fun updateCurrent(value: Double) {
         current = value

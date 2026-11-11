@@ -18,12 +18,6 @@ import kotlin.test.assertTrue
  */
 class ScheduledGeneratorTest {
 
-    private val testEffect = ParticleEffect("SCHEDULED_TEST", "Scheduled Test")
-
-    private val viewPort = HarnessViewPort(0, 0, 1024, 768)
-
-    private val request = ParticleEffectRequest(10.0, 20.0, viewPort, 0.0, 0.0, ParticleDirection.RIGHT)
-
     private inner class TestScheduledGenerator(
         intervalTicks: Double,
         particlesPerInterval: Int,
@@ -55,6 +49,12 @@ class ScheduledGeneratorTest {
             material = ParticleMaterial(density = 1.0)
         )
     }
+
+    private val testEffect = ParticleEffect("SCHEDULED_TEST", "Scheduled Test")
+
+    private val viewPort = HarnessViewPort(0, 0, 1024, 768)
+
+    private val request = ParticleEffectRequest(10.0, 20.0, viewPort, 0.0, 0.0, ParticleDirection.RIGHT)
 
     @Test
     fun emitsTheConfiguredCountAtEachIntervalWithExactDelayOffsets() {

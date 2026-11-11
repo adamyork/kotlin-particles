@@ -45,7 +45,18 @@ import com.github.adamyork.kparticles.platform.effects.ParticleEffects
  */
 class SimulationHarness(seed: Long, gravityScale: Double = 1.0, metricsEnabled: Boolean = true) {
 
+    private companion object {
+        const val SEED_STRIDE: Long = 1000L
+        const val COLLECTIBLE_IMAGE_SIZE: Int = 32
+        const val INITIAL_FRAME_TIME_MILLISECONDS: Double = 1000.0
+        const val MILLISECONDS_PER_TICK: Double = 1000.0 / FakeAssetService.TICKS_PER_SECOND
+    }
+
     val physicsSettingsService = CommonParticlePhysicsSettingsService()
+
+    val particleEffectRegistry = ParticleEffectRegistry(ParticleEffects.ALL)
+
+    val viewPort = HarnessViewPort(0, 768, 1024, 768)
 
     private val assetService = FakeAssetService()
 
@@ -54,8 +65,6 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0, metricsEnabled: 
     private val runtimeService = CommonRuntimeService(FixedEngineTiming(), physicsSettingsService)
 
     private val collectibleImageStore = CollectibleImageStore()
-
-    val particleEffectRegistry = ParticleEffectRegistry(ParticleEffects.ALL)
 
     private val particleEngineDiagnostics: ParticleEngineDiagnostics =
         if (metricsEnabled) CommonParticleEngineDiagnostics(particleEffectRegistry) else NoOpParticleEngineDiagnostics()
@@ -108,8 +117,6 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0, metricsEnabled: 
     private var simulatedTime = 0.0
 
     private var peakCount = 0
-
-    val viewPort = HarnessViewPort(0, 768, 1024, 768)
 
     init {
         for (generator in generators) {
@@ -198,13 +205,6 @@ class SimulationHarness(seed: Long, gravityScale: Double = 1.0, metricsEnabled: 
             "substeps" to totalSubframes.toDouble(),
             "simulatedTime" to simulatedTime
         )
-    }
-
-    private companion object {
-        const val SEED_STRIDE: Long = 1000L
-        const val COLLECTIBLE_IMAGE_SIZE: Int = 32
-        const val INITIAL_FRAME_TIME_MILLISECONDS: Double = 1000.0
-        const val MILLISECONDS_PER_TICK: Double = 1000.0 / FakeAssetService.TICKS_PER_SECOND
     }
 
 }

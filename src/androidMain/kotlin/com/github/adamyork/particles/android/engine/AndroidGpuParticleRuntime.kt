@@ -22,14 +22,14 @@ public class AndroidGpuParticleRuntime(
     private val gpuDataPacketWriter: GpuDataPacketWriter
 ) {
 
-    private val logger = KotlinLogging.logger {}
-
     public companion object {
         @Volatile
         private var activeRuntime: AndroidGpuParticleRuntime? = null
         private val activeRuntimeFlow = MutableStateFlow<AndroidGpuParticleRuntime?>(null)
         public fun observeActiveRuntime(): StateFlow<AndroidGpuParticleRuntime?> = activeRuntimeFlow
     }
+
+    private val logger = KotlinLogging.logger {}
 
     @Volatile
     private var enabled = false
@@ -101,27 +101,6 @@ public class AndroidGpuParticleRuntime(
         )
     }
 
-    private fun createRenderer(): AndroidGpuParticleRenderer = AndroidGpuParticleRenderer(
-        maxParticles = maxParticles.coerceAtLeast(1),
-        gpuDataPacketWriter = gpuDataPacketWriter,
-        computeShaderSource = computeShaderSource,
-        vertexShaderSource = vertexShaderSource,
-        fragmentShaderSource = fragmentShaderSource,
-        renderPasses = renderPasses,
-        styleShaders = styleShaders
-    )
-
-    private fun renderFrame(frame: AndroidGpuParticleFrame) {
-        val glRenderer = renderer ?: return
-        if (eglDisplay == EGL14.EGL_NO_DISPLAY || eglSurface == EGL14.EGL_NO_SURFACE) return
-        if (!EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
-            logger.warn { "[GPU][Runtime] eglMakeCurrent failed during frame render" }
-            return
-        }
-        glRenderer.renderFrame(frame)
-        EGL14.eglSwapBuffers(eglDisplay, eglSurface)
-    }
-
     @Synchronized
     public fun createTextureView(context: Context): TextureView {
         logger.info { "[GPU][Runtime] Creating TextureView (enabled=$enabled, maxParticles=$maxParticles)" }
@@ -152,6 +131,27 @@ public class AndroidGpuParticleRuntime(
             }
             textureViewRef = WeakReference(this)
         }
+    }
+
+    private fun createRenderer(): AndroidGpuParticleRenderer = AndroidGpuParticleRenderer(
+        maxParticles = maxParticles.coerceAtLeast(1),
+        gpuDataPacketWriter = gpuDataPacketWriter,
+        computeShaderSource = computeShaderSource,
+        vertexShaderSource = vertexShaderSource,
+        fragmentShaderSource = fragmentShaderSource,
+        renderPasses = renderPasses,
+        styleShaders = styleShaders
+    )
+
+    private fun renderFrame(frame: AndroidGpuParticleFrame) {
+        val glRenderer = renderer ?: return
+        if (eglDisplay == EGL14.EGL_NO_DISPLAY || eglSurface == EGL14.EGL_NO_SURFACE) return
+        if (!EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
+            logger.warn { "[GPU][Runtime] eglMakeCurrent failed during frame render" }
+            return
+        }
+        glRenderer.renderFrame(frame)
+        EGL14.eglSwapBuffers(eglDisplay, eglSurface)
     }
 
     private fun initEgl(surface: SurfaceTexture) {

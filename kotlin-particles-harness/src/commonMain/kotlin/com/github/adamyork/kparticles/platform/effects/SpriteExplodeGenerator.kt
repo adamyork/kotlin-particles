@@ -43,9 +43,7 @@ class SpriteExplodeGenerator(
         private const val PIXEL_MAX_ACTIVE_PARTICLES: Int = 8192
     }
 
-    private val pixelGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(PIXEL_MAX_ACTIVE_PARTICLES)
-
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(pixelGpuSlotGroup)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(PIXEL_MAX_ACTIVE_PARTICLES))
 
     override val companionEffects: List<ParticleEffect> = listOf(ParticleEffects.SPRITE_EXPLODE_BACKDROP)
 
@@ -155,5 +153,5 @@ class SpriteExplodeGenerator(
         return particles
     }
 
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = pixelGpuSlotGroup
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
 }

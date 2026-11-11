@@ -36,9 +36,7 @@ class DripsGenerator(
         private const val DRIPS_MAX_ACTIVE_PARTICLES: Int = 256
     }
 
-    private val dripsGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(DRIPS_MAX_ACTIVE_PARTICLES)
-
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(dripsGpuSlotGroup)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(DRIPS_MAX_ACTIVE_PARTICLES))
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val viewPort = request.viewPort
@@ -91,5 +89,5 @@ class DripsGenerator(
         return particles
     }
 
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = dripsGpuSlotGroup
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
 }

@@ -35,9 +35,9 @@ class BubbleGenerator(
         private const val BUBBLE_MAX_ACTIVE_PARTICLES: Int = 32
     }
 
-    private val bubbleGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(BUBBLE_MAX_ACTIVE_PARTICLES)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(BUBBLE_MAX_ACTIVE_PARTICLES))
 
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(bubbleGpuSlotGroup)
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
 
     override fun createStreamState(request: ParticleEffectRequest) = Unit
 
@@ -80,6 +80,4 @@ class BubbleGenerator(
             id = particleId
         )
     }
-
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = bubbleGpuSlotGroup
 }

@@ -9,7 +9,7 @@ import android.graphics.Canvas
  * Author: Adam York
  * Copyright (c) Adam York
  */
-interface AndroidEffectsConfig {
+interface AndroidParticleRendererConfig {
 
     @Provides
     @IntoSet

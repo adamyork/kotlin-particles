@@ -24,23 +24,6 @@ class AndroidBubbleRenderer : CpuStyleRenderer<Canvas> {
     override val renderStyle: ParticleRenderStyle = EffectStyles.BUBBLE
     override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawBubbles
-    private fun drawBubbles(drawFunctionData: DrawFunctionData<Canvas>) {
-        warmUpBubbleBitmaps()
-        val viewPort = drawFunctionData.viewPort
-        val canvas = drawFunctionData.canvas
-        val viewPortOffsetX = viewPort.x.toFloat()
-        val viewPortOffsetY = viewPort.y.toFloat()
-        for (generator in drawFunctionData.generators) {
-            val particles = generator.particles
-            for (particleIndex in particles.indices) {
-                val particle = particles[particleIndex]
-                if (!particle.cullingCheck(viewPort)) continue
-                if (particle.lifecycle.isVisible()) {
-                    drawBubble(particle, viewPortOffsetX, viewPortOffsetY, canvas)
-                }
-            }
-        }
-    }
 
     private val spritePaint: Paint = Paint().apply {
         isFilterBitmap = false
@@ -59,6 +42,24 @@ class AndroidBubbleRenderer : CpuStyleRenderer<Canvas> {
     private val bubbleBitmaps = HashMap<Int, Bitmap>()
 
     private var nextWarmupRadius = 1
+
+    private fun drawBubbles(drawFunctionData: DrawFunctionData<Canvas>) {
+        warmUpBubbleBitmaps()
+        val viewPort = drawFunctionData.viewPort
+        val canvas = drawFunctionData.canvas
+        val viewPortOffsetX = viewPort.x.toFloat()
+        val viewPortOffsetY = viewPort.y.toFloat()
+        for (generator in drawFunctionData.generators) {
+            val particles = generator.particles
+            for (particleIndex in particles.indices) {
+                val particle = particles[particleIndex]
+                if (!particle.cullingCheck(viewPort)) continue
+                if (particle.lifecycle.isVisible()) {
+                    drawBubble(particle, viewPortOffsetX, viewPortOffsetY, canvas)
+                }
+            }
+        }
+    }
 
     private fun warmUpBubbleBitmaps() {
         var createdBitmapCount = 0

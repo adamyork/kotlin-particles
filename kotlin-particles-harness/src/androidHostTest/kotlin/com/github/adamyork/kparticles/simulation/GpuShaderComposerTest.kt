@@ -21,8 +21,6 @@ class GpuShaderComposerTest {
 
     private val styleShaders = TestStyleShaders.create()
 
-    private fun readShader(fileName: String): String = File("$SHADER_DIRECTORY/$fileName").readText()
-
     @Test
     fun composedWgslHasNoMarkersOrStyleTokensLeft() {
         val composed = GpuShaderComposer.composeWgsl(readShader("particles.wgsl"), styleShaders)
@@ -89,5 +87,7 @@ class GpuShaderComposerTest {
         val glslReport = "ERROR: 0:${blobLine + 2}: 'x' : undeclared identifier"
         assertTrue(GpuShaderComposer.annotateCompilationReport(glslComposed, styleShaders, glslReport).endsWith("[render style BLOB]"))
     }
+
+    private fun readShader(fileName: String): String = File("$SHADER_DIRECTORY/$fileName").readText()
 
 }

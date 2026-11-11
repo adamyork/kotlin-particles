@@ -7,13 +7,6 @@ package com.github.adamyork.particles.service
  */
 public class CommonParticlePhysicsSettingsService : ParticlePhysicsSettingsService {
 
-    override fun deriveGravityFromViewportHeight(viewportHeight: Int, ticksPerSecond: Int) {
-        val pixelsPerMeter = viewportHeight / viewportHeightMeters
-        val secondsPerTick = 1.0 / ticksPerSecond
-        gravity = gravityMetersPerSecondSquared * pixelsPerMeter * secondsPerTick * secondsPerTick
-        minActiveVelocity = gravity * minActiveVelocityPerGravity
-    }
-
     override var gravity: Double = 0.7
     override var gravityMetersPerSecondSquared: Double = 9.81
     override var viewportHeightMeters: Double = 3.0
@@ -49,5 +42,12 @@ public class CommonParticlePhysicsSettingsService : ParticlePhysicsSettingsServi
     override var shatterMaximumFragmentCount: Int = 16
     override var shatterToughness: Double = 25.0
     override var spriteExplodePixelStride: Int = 1
+
+    override fun deriveGravityFromViewportHeight(viewportHeight: Int, ticksPerSecond: Int) {
+        val pixelsPerMeter = viewportHeight / viewportHeightMeters
+        val secondsPerTick = 1.0 / ticksPerSecond
+        gravity = gravityMetersPerSecondSquared * pixelsPerMeter * secondsPerTick * secondsPerTick
+        minActiveVelocity = gravity * minActiveVelocityPerGravity
+    }
 
 }

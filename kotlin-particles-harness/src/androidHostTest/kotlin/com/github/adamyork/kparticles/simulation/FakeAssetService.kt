@@ -20,6 +20,10 @@ import com.github.adamyork.kparticles.platform.assets.data.ImageAsset
  */
 class FakeAssetService : AssetService {
 
+    companion object {
+        const val TICKS_PER_SECOND: Int = 50
+    }
+
     override var applicationYamlFile: String = ""
 
     override var appProperties: AppProperties = AppProperties(
@@ -53,10 +57,6 @@ class FakeAssetService : AssetService {
     override suspend fun loadParticleShader(): String = ""
 
     override suspend fun loadParticleGlShaders() {
-    }
-
-    companion object {
-        const val TICKS_PER_SECOND: Int = 50
     }
 
 }

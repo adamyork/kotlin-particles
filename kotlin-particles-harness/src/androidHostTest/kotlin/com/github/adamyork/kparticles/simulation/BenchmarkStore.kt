@@ -10,6 +10,13 @@ import kotlin.math.max
  */
 class BenchmarkStore(private val file: File) {
 
+    companion object {
+        fun fromSystemProperties(): BenchmarkStore =
+            BenchmarkStore(File(checkNotNull(System.getProperty("kparticles.benchmarkFile"))))
+
+        fun isUpdateRequested(): Boolean = System.getProperty("kparticles.updateBenchmarks") == "true"
+    }
+
     fun load(): Map<String, Double> {
         if (!file.exists()) return emptyMap()
         val values = LinkedHashMap<String, Double>()
@@ -48,13 +55,6 @@ class BenchmarkStore(private val file: File) {
         val tolerance = BenchmarkTolerance.forKey(key) ?: return true
         val allowedDifference = max(tolerance.absolute, tolerance.relative * max(abs(expected), abs(actual)))
         return abs(expected - actual) <= allowedDifference
-    }
-
-    companion object {
-        fun fromSystemProperties(): BenchmarkStore =
-            BenchmarkStore(File(checkNotNull(System.getProperty("kparticles.benchmarkFile"))))
-
-        fun isUpdateRequested(): Boolean = System.getProperty("kparticles.updateBenchmarks") == "true"
     }
 
 }

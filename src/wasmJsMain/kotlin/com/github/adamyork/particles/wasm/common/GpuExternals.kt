@@ -97,14 +97,6 @@ internal fun createShaderModule(
     "device.createShaderModule({ code: shaderCode })"
 )
 
-internal fun createComputePipeline(
-    @Suppress("UNUSED_PARAMETER") device: GPUDevice,
-    @Suppress("UNUSED_PARAMETER") shaderModule: GPUShaderModule,
-    @Suppress("UNUSED_PARAMETER") entryPoint: String
-): GPUComputePipeline = js(
-    "device.createComputePipeline({ layout: 'auto', compute: { module: shaderModule, entryPoint: entryPoint } })"
-)
-
 internal fun createComputePipelineWithLayout(
     @Suppress("UNUSED_PARAMETER") device: GPUDevice,
     @Suppress("UNUSED_PARAMETER") shaderModule: GPUShaderModule,
@@ -221,15 +213,6 @@ internal fun queueWriteBuffer(
 
 internal fun createCommandEncoder(@Suppress("UNUSED_PARAMETER") device: GPUDevice): GPUCommandEncoder =
     js("device.createCommandEncoder()")
-
-internal fun copyBufferToBuffer(
-    @Suppress("UNUSED_PARAMETER") encoder: GPUCommandEncoder,
-    @Suppress("UNUSED_PARAMETER") srcBuffer: GPUBuffer,
-    @Suppress("UNUSED_PARAMETER") dstBuffer: GPUBuffer,
-    @Suppress("UNUSED_PARAMETER") sizeBytes: Int
-) {
-    js("encoder.copyBufferToBuffer(srcBuffer, 0, dstBuffer, 0, sizeBytes)")
-}
 
 internal fun beginComputePass(@Suppress("UNUSED_PARAMETER") encoder: GPUCommandEncoder): GPUComputePassEncoder =
     js("encoder.beginComputePass()")

@@ -28,6 +28,9 @@ public abstract class ScheduledGenerator<StreamState : Any>(
         var emittedParticleCount = 0
     }
 
+    public val isEmitting: Boolean
+        get() = activeStreams.isNotEmpty()
+
     private val activeStreams = ArrayList<EmissionStream>()
 
     private val deferredEmissions = ArrayList<DeferredEmission>()
@@ -44,23 +47,6 @@ public abstract class ScheduledGenerator<StreamState : Any>(
         if (maximumEmittedParticles < 1) {
             throw EngineException("Scheduled generator for ${effect.id} needs a maximum of at least one emitted particle")
         }
-    }
-
-    public val isEmitting: Boolean
-        get() = activeStreams.isNotEmpty()
-
-    protected abstract fun createStreamState(request: ParticleEffectRequest): StreamState
-
-    protected abstract fun createParticle(
-        request: ParticleEffectRequest,
-        streamState: StreamState,
-        particleId: Long,
-        emissionIndex: Int,
-        emissionOffset: Double
-    ): Particle
-
-    protected fun deferEmission(offsetFromFrameStartTicks: Double, createParticles: () -> List<Particle>) {
-        deferredEmissions.add(DeferredEmission(elapsedTicks + offsetFromFrameStartTicks, createParticles))
     }
 
     final override fun create(request: ParticleEffectRequest): MutableList<Particle> {
@@ -85,6 +71,30 @@ public abstract class ScheduledGenerator<StreamState : Any>(
         }
         releaseDeferredEmissions(deltaTime)
         elapsedTicks += deltaTime
+    }
+
+    override fun reset() {
+        activeStreams.clear()
+        deferredEmissions.clear()
+        elapsedTicks = 0.0
+    }
+
+    public fun stop() {
+        activeStreams.clear()
+    }
+
+    protected abstract fun createStreamState(request: ParticleEffectRequest): StreamState
+
+    protected abstract fun createParticle(
+        request: ParticleEffectRequest,
+        streamState: StreamState,
+        particleId: Long,
+        emissionIndex: Int,
+        emissionOffset: Double
+    ): Particle
+
+    protected fun deferEmission(offsetFromFrameStartTicks: Double, createParticles: () -> List<Particle>) {
+        deferredEmissions.add(DeferredEmission(elapsedTicks + offsetFromFrameStartTicks, createParticles))
     }
 
     private fun emitDueParticles(stream: EmissionStream, deltaTime: Double) {
@@ -120,14 +130,4 @@ public abstract class ScheduledGenerator<StreamState : Any>(
 
     private fun withDelayOffset(particle: Particle, delayOffset: Double): Particle =
         particle.copy(lifecycle = particle.lifecycle.copy(delay = particle.lifecycle.delay + delayOffset))
-
-    override fun reset() {
-        activeStreams.clear()
-        deferredEmissions.clear()
-        elapsedTicks = 0.0
-    }
-
-    public fun stop() {
-        activeStreams.clear()
-    }
 }

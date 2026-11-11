@@ -52,8 +52,6 @@ open class AndroidEngine(
     particleEngineDiagnostics
 ) {
 
-    private val logger = KotlinLogging.logger {}
-
     override var foregroundSurface: Any? = null
 
     override val mapElementPaint: Any = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -63,6 +61,8 @@ open class AndroidEngine(
     override var mapItemImage: CommonImage = AndroidImage(
         AbstractPlatformAssetService.getTmpImageBitmap().asAndroidBitmap()
     )
+
+    private val logger = KotlinLogging.logger {}
 
     override fun getOrCreateForegroundSurface(viewPort: ParticleViewPort): Any {
         val current = foregroundSurface as? Bitmap
@@ -91,10 +91,6 @@ open class AndroidEngine(
         }
     }
 
-    override fun manageParticles(viewPort: ParticleViewPort) {
-        particlePhysicsEngine.applyPhysics(viewPort)
-    }
-
     override fun draw(
         viewPort: ParticleViewPort,
         timestamp: Double
@@ -108,6 +104,10 @@ open class AndroidEngine(
         return DrawResult(
             foregroundImage = AndroidImage(foregroundBitmap),
         )
+    }
+
+    override fun manageParticles(viewPort: ParticleViewPort) {
+        particlePhysicsEngine.applyPhysics(viewPort)
     }
 
 }

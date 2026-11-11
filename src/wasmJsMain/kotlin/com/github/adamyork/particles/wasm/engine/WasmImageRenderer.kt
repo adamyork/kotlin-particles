@@ -20,12 +20,12 @@ public class WasmImageRenderer(
     override val drawOrder: Int = CpuDrawOrder.IMAGES
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawSpriteFrames
 
+    private val spritePaint = Paint().apply { isAntiAlias = true }
+
     private fun frameOf(particle: Particle): Int {
         val animation = particle.animation
         return if (animation != null && animation.maxFrames > 1) animation.frame else 0
     }
-
-    private val spritePaint = Paint().apply { isAntiAlias = true }
 
     private fun drawSpriteFrames(drawFunctionData: DrawFunctionData<Canvas>) {
         val spriteSheet = imageSource.spriteSheet ?: return

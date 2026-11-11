@@ -107,21 +107,6 @@ public object GpuShaderComposer {
         return offsets
     }
 
-    private fun prefixOf(styleShader: GpuStyleShader): String = "style_" + styleShader.renderStyle.id.lowercase() + "_"
-
-    private fun validate(styleShaders: List<GpuStyleShader>) {
-        val seenIds = HashSet<String>()
-        val seenCodes = HashSet<Float>()
-        for (styleShader in styleShaders) {
-            val renderStyle = styleShader.renderStyle
-            if (!STYLE_ID_PATTERN.matches(renderStyle.id)) {
-                throw EngineException("Render style id ${renderStyle.id} is not a valid shader identifier")
-            }
-            if (!seenIds.add(renderStyle.id)) throw EngineException("Render style ${renderStyle.id} is listed twice")
-            if (!seenCodes.add(renderStyle.code)) throw EngineException("Render style code ${renderStyle.code} is used twice")
-        }
-    }
-
     public fun locateStyle(composedSource: String, lineNumber: Int, styleShaders: List<GpuStyleShader>): String? {
         val lines = composedSource.lines()
         if (lines.isEmpty()) return null
@@ -146,6 +131,21 @@ public object GpuShaderComposer {
             if (styleId != null) "$reportLine [render style $styleId]" else reportLine
         }
         return annotatedLines.joinToString("\n")
+    }
+
+    private fun prefixOf(styleShader: GpuStyleShader): String = "style_" + styleShader.renderStyle.id.lowercase() + "_"
+
+    private fun validate(styleShaders: List<GpuStyleShader>) {
+        val seenIds = HashSet<String>()
+        val seenCodes = HashSet<Float>()
+        for (styleShader in styleShaders) {
+            val renderStyle = styleShader.renderStyle
+            if (!STYLE_ID_PATTERN.matches(renderStyle.id)) {
+                throw EngineException("Render style id ${renderStyle.id} is not a valid shader identifier")
+            }
+            if (!seenIds.add(renderStyle.id)) throw EngineException("Render style ${renderStyle.id} is listed twice")
+            if (!seenCodes.add(renderStyle.code)) throw EngineException("Render style code ${renderStyle.code} is used twice")
+        }
     }
 
     private fun requirePrefixedNames(source: String, styleShader: GpuStyleShader, isWgsl: Boolean) {

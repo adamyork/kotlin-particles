@@ -6,8 +6,6 @@ package com.github.adamyork.particles.service
  */
 public interface ParticlePhysicsSettingsService {
 
-    public fun deriveGravityFromViewportHeight(viewportHeight: Int, ticksPerSecond: Int)
-
     public var gravity: Double
     public var gravityMetersPerSecondSquared: Double
     public var viewportHeightMeters: Double
@@ -43,4 +41,6 @@ public interface ParticlePhysicsSettingsService {
     public var shatterMaximumFragmentCount: Int
     public var shatterToughness: Double
     public var spriteExplodePixelStride: Int
+
+    public fun deriveGravityFromViewportHeight(viewportHeight: Int, ticksPerSecond: Int)
 }

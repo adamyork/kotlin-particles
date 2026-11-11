@@ -26,8 +26,6 @@ abstract class AbstractPlatformAssetService(
         fun getTmpImageBitmap(): ImageBitmap = ImageBitmap(1, 1)
     }
 
-    protected val logger = KotlinLogging.logger {}
-
     override lateinit var appProperties: AppProperties
     override lateinit var applicationYamlFile: String
     override var particleShaderSource: String = ""
@@ -35,9 +33,9 @@ abstract class AbstractPlatformAssetService(
     override var particleVertexShaderSource: String = ""
     override var particleFragmentShaderSource: String = ""
 
-    protected var itemInfoMap: HashMap<Int, MapElementYamlEntry> = HashMap()
+    protected val logger = KotlinLogging.logger {}
 
-    protected abstract suspend fun fetchImageAndBytes(path: String, width: Int, height: Int): ImageAsset
+    protected var itemInfoMap: HashMap<Int, MapElementYamlEntry> = HashMap()
 
     override suspend fun loadParticleGlShaders() {
     }
@@ -50,6 +48,13 @@ abstract class AbstractPlatformAssetService(
         finishInit(bytes, listener)
     }
 
+    override suspend fun loadItem(id: Int): ImageAsset {
+        val entry = itemInfoMap[id] ?: throw AssetServiceReferenceException("Item ID $id not found")
+        return fetchImageAndBytes(entry.path, entry.width, entry.height)
+    }
+
+    protected abstract suspend fun fetchImageAndBytes(path: String, width: Int, height: Int): ImageAsset
+
     protected suspend fun finishInit(bytes: ByteArray, listener: LoadingProgressListener) {
         listener.onTaskCompleted("app_yaml")
         withContext(Dispatchers.Default) {
@@ -61,10 +66,5 @@ abstract class AbstractPlatformAssetService(
                 index to MapElementYamlEntry(dim.path, dim.width, dim.height, pos.x, pos.y, pos.type)
             }.toMap(HashMap())
         }
-    }
-
-    override suspend fun loadItem(id: Int): ImageAsset {
-        val entry = itemInfoMap[id] ?: throw AssetServiceReferenceException("Item ID $id not found")
-        return fetchImageAndBytes(entry.path, entry.width, entry.height)
     }
 }

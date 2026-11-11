@@ -20,11 +20,6 @@ public class AndroidImageRenderer(
     override val drawOrder: Int = CpuDrawOrder.IMAGES
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawSpriteFrames
 
-    private fun frameOf(particle: Particle): Int {
-        val animation = particle.animation
-        return if (animation != null && animation.maxFrames > 1) animation.frame else 0
-    }
-
     private val spritePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         isFilterBitmap = true
     }
@@ -32,6 +27,11 @@ public class AndroidImageRenderer(
     private val particleSrcRect = Rect()
 
     private val particleRectF = RectF()
+
+    private fun frameOf(particle: Particle): Int {
+        val animation = particle.animation
+        return if (animation != null && animation.maxFrames > 1) animation.frame else 0
+    }
 
     private fun drawSpriteFrames(drawFunctionData: DrawFunctionData<Canvas>) {
         val spriteSheet = imageSource.spriteSheet ?: return

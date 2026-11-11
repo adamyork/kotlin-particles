@@ -37,9 +37,7 @@ class SpinnersGenerator(
         private const val SPINNERS_MAX_ACTIVE_PARTICLES: Int = 16
     }
 
-    private val spinnersGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(SPINNERS_MAX_ACTIVE_PARTICLES)
-
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(spinnersGpuSlotGroup)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(SPINNERS_MAX_ACTIVE_PARTICLES))
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val viewPort = request.viewPort
@@ -94,5 +92,5 @@ class SpinnersGenerator(
         return particles
     }
 
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = spinnersGpuSlotGroup
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
 }

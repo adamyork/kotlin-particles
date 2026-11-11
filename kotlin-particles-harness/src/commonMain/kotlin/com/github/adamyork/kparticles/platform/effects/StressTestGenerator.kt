@@ -41,9 +41,7 @@ class StressTestGenerator(
         private const val STRESS_TEST_SOFT_HARDNESS: Int = 1
     }
 
-    private val stressTestGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(STRESS_TEST_MAX_ACTIVE_PARTICLES)
-
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(stressTestGpuSlotGroup)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(STRESS_TEST_MAX_ACTIVE_PARTICLES))
 
     override val companionEffects: List<ParticleEffect> = listOf(
         ParticleEffects.DUST,
@@ -158,5 +156,5 @@ class StressTestGenerator(
         return particles
     }
 
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = stressTestGpuSlotGroup
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
 }

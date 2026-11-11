@@ -150,19 +150,6 @@ internal class SortedCellGrid {
         }
     }
 
-    private fun firstCellWithin(center: Double, reach: Double, origin: Double): Int =
-        max(0, ((center - reach - origin) / cellSize).toInt())
-
-    private fun lastCellWithin(center: Double, reach: Double, origin: Double, cellCount: Int): Int =
-        minOf(cellCount - 1, ((center + reach - origin) / cellSize).toInt())
-
-    private fun smallBoundsOverlap(firstIndex: Int, secondIndex: Int): Boolean {
-        val deltaX = sortedPositionX[secondIndex] - sortedPositionX[firstIndex]
-        val deltaY = sortedPositionY[secondIndex] - sortedPositionY[firstIndex]
-        val combinedRadius = sortedBoundingRadius[firstIndex] + sortedBoundingRadius[secondIndex]
-        return deltaX * deltaX + deltaY * deltaY < combinedRadius * combinedRadius
-    }
-
     fun forEachWithin(centerX: Double, centerY: Double, range: Double, action: (Particle) -> Unit) {
         val firstColumn = firstCellWithin(centerX, range, originX)
         val lastColumn = lastCellWithin(centerX, range, originX, columns)
@@ -185,6 +172,19 @@ internal class SortedCellGrid {
                 }
             }
         }
+    }
+
+    private fun firstCellWithin(center: Double, reach: Double, origin: Double): Int =
+        max(0, ((center - reach - origin) / cellSize).toInt())
+
+    private fun lastCellWithin(center: Double, reach: Double, origin: Double, cellCount: Int): Int =
+        minOf(cellCount - 1, ((center + reach - origin) / cellSize).toInt())
+
+    private fun smallBoundsOverlap(firstIndex: Int, secondIndex: Int): Boolean {
+        val deltaX = sortedPositionX[secondIndex] - sortedPositionX[firstIndex]
+        val deltaY = sortedPositionY[secondIndex] - sortedPositionY[firstIndex]
+        val combinedRadius = sortedBoundingRadius[firstIndex] + sortedBoundingRadius[secondIndex]
+        return deltaX * deltaX + deltaY * deltaY < combinedRadius * combinedRadius
     }
 
     private fun cellIndexFor(x: Double, y: Double): Int {

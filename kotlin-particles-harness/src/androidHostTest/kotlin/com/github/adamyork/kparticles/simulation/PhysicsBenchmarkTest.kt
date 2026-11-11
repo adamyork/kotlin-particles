@@ -10,6 +10,11 @@ import kotlin.test.fail
  */
 class PhysicsBenchmarkTest {
 
+    private companion object {
+        const val FLOATING_POINT_NOISE_SCALE: Double = 1.0 + 4.4e-16
+        const val MAXIMUM_REPORTED_DIFFERENCES: Int = 40
+    }
+
     @Test
     fun simulationMatchesStoredBenchmarks() {
         val benchmarkStore = BenchmarkStore.fromSystemProperties()
@@ -50,11 +55,6 @@ class PhysicsBenchmarkTest {
             "benchmarks are too tight for platform floating point differences:\n" +
                 differences.take(MAXIMUM_REPORTED_DIFFERENCES).joinToString("\n")
         )
-    }
-
-    private companion object {
-        const val FLOATING_POINT_NOISE_SCALE: Double = 1.0 + 4.4e-16
-        const val MAXIMUM_REPORTED_DIFFERENCES: Int = 40
     }
 
 }

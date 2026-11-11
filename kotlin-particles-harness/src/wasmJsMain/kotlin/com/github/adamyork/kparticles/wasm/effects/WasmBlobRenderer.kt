@@ -7,7 +7,8 @@ import com.github.adamyork.kparticles.platform.effects.style.EffectStyles
 import com.github.adamyork.particles.engine.CpuDrawOrder
 import com.github.adamyork.particles.engine.CpuStyleRenderer
 import com.github.adamyork.particles.engine.ParticleDrawFunction
-import com.github.adamyork.particles.engine.data.*
+import com.github.adamyork.particles.engine.data.DrawFunctionData
+import com.github.adamyork.particles.engine.data.Particle
 import com.github.adamyork.particles.engine.data.ParticleRenderStyle
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
@@ -23,6 +24,12 @@ class WasmBlobRenderer : CpuStyleRenderer<Canvas> {
     override val renderStyle: ParticleRenderStyle = EffectStyles.BLOB
     override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawBlobs
+
+    private val projectileBlobPaint = Paint().apply { isAntiAlias = true; mode = PaintMode.FILL }
+    private val blobLobePointXs = FloatArray(BlobStyleParameters.LOBE_COUNT)
+    private val blobLobePointYs = FloatArray(BlobStyleParameters.LOBE_COUNT)
+    private val blobSegmentPoints = FloatArray(BlobGeometry.SEGMENT_POINT_FLOATS)
+
     private fun drawBlobs(drawFunctionData: DrawFunctionData<Canvas>) {
         val viewPort = drawFunctionData.viewPort
         val canvas = drawFunctionData.canvas
@@ -39,14 +46,6 @@ class WasmBlobRenderer : CpuStyleRenderer<Canvas> {
             }
         }
     }
-
-    private val projectileBlobPaint = Paint().apply { isAntiAlias = true; mode = PaintMode.FILL }
-
-    private val blobLobePointXs = FloatArray(BlobStyleParameters.LOBE_COUNT)
-
-    private val blobLobePointYs = FloatArray(BlobStyleParameters.LOBE_COUNT)
-
-    private val blobSegmentPoints = FloatArray(BlobGeometry.SEGMENT_POINT_FLOATS)
 
     private fun drawProjectileBlob(
         particle: Particle,

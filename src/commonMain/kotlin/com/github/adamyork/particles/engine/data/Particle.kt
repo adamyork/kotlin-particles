@@ -23,12 +23,14 @@ public data class Particle(
     val animation: ParticleAnimation? = null
 ) {
     public companion object {
-        private const val CULLING_EXTENT_SCALE: Double = 1.25
-        private const val CULLING_MARGIN: Double = 2.0
-        private const val MINIMUM_VISIBLE_ALPHA: Double = 1.0 / 255.0
         public const val MINIMUM_MASS: Double = 0.000000001
         public const val BOUNDED_Z: Double = 1.0
         public const val MAXIMUM_ANGULAR_VELOCITY: Double = 0.5
+
+        private const val CULLING_EXTENT_SCALE: Double = 1.25
+        private const val CULLING_MARGIN: Double = 2.0
+        private const val MINIMUM_VISIBLE_ALPHA: Double = 1.0 / 255.0
+
         private const val MAXIMUM_GRAVITY_FRACTION: Double = 0.999
 
         public fun isolatedPlaneZ(id: Long, planeThickness: Double): Double = -(id + 1).toDouble() * planeThickness * 2.0
@@ -38,12 +40,6 @@ public data class Particle(
 
         public fun wallContactPlaneZ(id: Long, contactThickness: Double, separationThickness: Double): Double =
             contactPlaneOffset(id, contactThickness, separationThickness)
-
-        private fun contactPlaneOffset(id: Long, contactThickness: Double, separationThickness: Double): Double {
-            val planeSpacing = separationThickness * 2.0
-            val planeCount = max(1, (contactThickness / planeSpacing).toInt() - 1)
-            return ((id % planeCount) + 1).toDouble() * planeSpacing
-        }
 
         public fun densityFor(mass: Double, dimensions: ParticleDimensions): Double {
             val area = dimensions.area()
@@ -71,6 +67,12 @@ public data class Particle(
             if (gravity <= 0.0) return mediumDensity
             val gravityFraction = min(netGravity / gravity, MAXIMUM_GRAVITY_FRACTION)
             return mediumDensity / (1.0 - gravityFraction)
+        }
+
+        private fun contactPlaneOffset(id: Long, contactThickness: Double, separationThickness: Double): Double {
+            val planeSpacing = separationThickness * 2.0
+            val planeCount = max(1, (contactThickness / planeSpacing).toInt() - 1)
+            return ((id % planeCount) + 1).toDouble() * planeSpacing
         }
     }
 

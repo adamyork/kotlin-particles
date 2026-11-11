@@ -16,8 +16,6 @@ public class CommonRuntimeService(
     override val physicsSettingsService: ParticlePhysicsSettingsService
 ) : RuntimeService {
 
-    private val logger = KotlinLogging.logger {}
-
     private companion object {
         const val FPS_SAMPLE_WINDOW_MS: Double = 1000.0
         const val MIN_DELTA_SECONDS: Float = 1f / 240f
@@ -28,7 +26,6 @@ public class CommonRuntimeService(
 
     override var lastPaintTime: Double = 0.0
 
-    private var mutableParticleEngineLifeCycleState by mutableStateOf(ParticleEngineLifeCycleState.INITIALIZING)
     override var particleEngineLifeCycleState: ParticleEngineLifeCycleState
         get() = mutableParticleEngineLifeCycleState
         set(value) {
@@ -37,6 +34,10 @@ public class CommonRuntimeService(
                 mutableParticleEngineLifeCycleState = value
             }
         }
+
+    private val logger = KotlinLogging.logger {}
+
+    private var mutableParticleEngineLifeCycleState by mutableStateOf(ParticleEngineLifeCycleState.INITIALIZING)
 
     private var fpsWindowStartTime: Double = 0.0
     private var fpsFrameCountInWindow: Int = 0

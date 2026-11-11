@@ -15,12 +15,13 @@ import kotlin.math.*
  */
 public class AndroidShapeRenderer : CpuStyleRenderer<Canvas> {
 
-    override val renderStyle: ParticleRenderStyle = ParticleRenderStyle.SHAPE
-    override val drawOrder: Int = CpuDrawOrder.SHAPES
-    override val drawFunction: ParticleDrawFunction<Canvas> = ::drawSimpleShapes
     private companion object {
         const val RADIANS_TO_DEGREES: Float = (180.0 / PI).toFloat()
     }
+
+    override val renderStyle: ParticleRenderStyle = ParticleRenderStyle.SHAPE
+    override val drawOrder: Int = CpuDrawOrder.SHAPES
+    override val drawFunction: ParticleDrawFunction<Canvas> = ::drawSimpleShapes
 
     private val particlePaint: Paint = Paint().apply {
         isAntiAlias = false

@@ -35,13 +35,32 @@ class UiController(
     private val collectibleImageStore: CollectibleImageStore
 ) : LoadingProgressListener {
 
+    val stateElements: StateElements = StateElements.emptyStateElements
+    val loadingTasks: List<LoadingTask>
+        get() = viewModel.loadingTasks
+
+    val physicsSettingsService: ParticlePhysicsSettingsService
+        get() = runtimeService.physicsSettingsService
+
     private val logger = KotlinLogging.logger {}
     private val viewModel = LoadingViewModel()
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    val stateElements: StateElements = StateElements.emptyStateElements
-    val loadingTasks: List<LoadingTask>
-        get() = viewModel.loadingTasks
+    override fun onTaskCompleted(taskId: String) {
+        val mappedTaskId = LoadingViewModel.mapKeyToTaskId(taskId)
+        if (mappedTaskId.isBlank()) return
+        uiScope.launch {
+            viewModel.onTaskCompleted(mappedTaskId)
+        }
+    }
+
+    override fun onTaskFailed(taskId: String, cause: Throwable?) {
+        val mappedTaskId = LoadingViewModel.mapKeyToTaskId(taskId)
+        if (mappedTaskId.isBlank()) return
+        uiScope.launch {
+            viewModel.onTaskFailed(mappedTaskId, cause)
+        }
+    }
 
     suspend fun initializeGame() {
         try {
@@ -97,22 +116,6 @@ class UiController(
         }
     }
 
-    override fun onTaskCompleted(taskId: String) {
-        val mappedTaskId = LoadingViewModel.mapKeyToTaskId(taskId)
-        if (mappedTaskId.isBlank()) return
-        uiScope.launch {
-            viewModel.onTaskCompleted(mappedTaskId)
-        }
-    }
-
-    override fun onTaskFailed(taskId: String, cause: Throwable?) {
-        val mappedTaskId = LoadingViewModel.mapKeyToTaskId(taskId)
-        if (mappedTaskId.isBlank()) return
-        uiScope.launch {
-            viewModel.onTaskFailed(mappedTaskId, cause)
-        }
-    }
-
     fun allTasksCompleted(): Boolean {
         val completed = loadingTasks.all { it.isCompleted }
         if (completed && runtimeService.particleEngineLifeCycleState == ParticleEngineLifeCycleState.INITIALIZED) {
@@ -138,10 +141,6 @@ class UiController(
         )
         return uiState
     }
-
-
-    val physicsSettingsService: ParticlePhysicsSettingsService
-        get() = runtimeService.physicsSettingsService
 
     fun applyGravity(metersPerSecondSquared: Double) {
         physicsSettingsService.gravityMetersPerSecondSquared = metersPerSecondSquared

@@ -30,6 +30,12 @@ import com.github.adamyork.kparticles.platform.effects.ParticleEffects
  */
 class ContactPhysicsTest {
 
+    private companion object {
+        val RESTITUTIONS = listOf(0.0, 0.5, 1.0)
+        const val FIRST_DENSITY: Double = 1.0
+        const val CLOSING_SPEED: Double = 20.0
+    }
+
     private class Outcome(
         val closingSpeed: Double,
         val separatingSpeed: Double,
@@ -37,6 +43,50 @@ class ContactPhysicsTest {
         val energyBefore: Double,
         val energyAfter: Double
     )
+
+    @Test
+    fun equalCirclesObeyRestitution() {
+        for (restitution in RESTITUTIONS) {
+            assertPhysical(
+                "circle e=$restitution",
+                collide(circle(10.0), circle(10.0), 1.0, restitution, 19.0),
+                restitution
+            )
+        }
+    }
+
+    @Test
+    fun unequalCirclesObeyRestitution() {
+        for (restitution in RESTITUTIONS) {
+            assertPhysical(
+                "unequal circle e=$restitution",
+                collide(circle(10.0), circle(6.0), 3.0, restitution, 15.0),
+                restitution
+            )
+        }
+    }
+
+    @Test
+    fun equalBoxesObeyRestitution() {
+        for (restitution in RESTITUTIONS) {
+            assertPhysical(
+                "box e=$restitution",
+                collide(box(20.0), box(20.0), 1.0, restitution, 19.0),
+                restitution
+            )
+        }
+    }
+
+    @Test
+    fun unequalBoxesObeyRestitution() {
+        for (restitution in RESTITUTIONS) {
+            assertPhysical(
+                "unequal box e=$restitution",
+                collide(box(20.0), box(12.0), 3.0, restitution, 15.0),
+                restitution
+            )
+        }
+    }
 
     private fun collide(
         firstDimensions: ParticleDimensions,
@@ -120,56 +170,6 @@ class ContactPhysicsTest {
             outcome.energyAfter <= outcome.energyBefore * (1.0 + 1e-9),
             "$label gained energy: ${outcome.energyBefore} -> ${outcome.energyAfter}"
         )
-    }
-
-    @Test
-    fun equalCirclesObeyRestitution() {
-        for (restitution in RESTITUTIONS) {
-            assertPhysical(
-                "circle e=$restitution",
-                collide(circle(10.0), circle(10.0), 1.0, restitution, 19.0),
-                restitution
-            )
-        }
-    }
-
-    @Test
-    fun unequalCirclesObeyRestitution() {
-        for (restitution in RESTITUTIONS) {
-            assertPhysical(
-                "unequal circle e=$restitution",
-                collide(circle(10.0), circle(6.0), 3.0, restitution, 15.0),
-                restitution
-            )
-        }
-    }
-
-    @Test
-    fun equalBoxesObeyRestitution() {
-        for (restitution in RESTITUTIONS) {
-            assertPhysical(
-                "box e=$restitution",
-                collide(box(20.0), box(20.0), 1.0, restitution, 19.0),
-                restitution
-            )
-        }
-    }
-
-    @Test
-    fun unequalBoxesObeyRestitution() {
-        for (restitution in RESTITUTIONS) {
-            assertPhysical(
-                "unequal box e=$restitution",
-                collide(box(20.0), box(12.0), 3.0, restitution, 15.0),
-                restitution
-            )
-        }
-    }
-
-    private companion object {
-        val RESTITUTIONS = listOf(0.0, 0.5, 1.0)
-        const val FIRST_DENSITY: Double = 1.0
-        const val CLOSING_SPEED: Double = 20.0
     }
 
 }

@@ -19,8 +19,6 @@ class GpuShaderComposerTest {
 
     private val fixtureStyleShaders = listOf(BuiltInStyleShaders.SHAPE)
 
-    private fun readShader(fileName: String): String = File("$SHADER_DIRECTORY/$fileName").readText()
-
     @Test
     fun invalidStyleSetsAreRejected() {
         val wgsl = readShader("particles.wgsl")
@@ -87,5 +85,7 @@ class GpuShaderComposerTest {
         val glslFragment = GpuShaderComposer.composeGlslFragment(readShader("particles.frag.glsl"), withGlow)
         assertTrue(glslFragment.contains("if (uActiveStyle == 6) { fragmentColor = style_glow_fragment(fragmentInput); return; }"))
     }
+
+    private fun readShader(fileName: String): String = File("$SHADER_DIRECTORY/$fileName").readText()
 
 }

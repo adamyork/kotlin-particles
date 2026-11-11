@@ -55,30 +55,6 @@ class FragmentationTest {
 
     private val viewPort = HarnessViewPort(0, 768, 1024, 768)
 
-    private fun circle(id: Long, hardness: Int, positionX: Double, velocityX: Double): Particle = Particle(
-        id = id,
-        lifecycle = ParticleLifecycle(lifetime = 10000.0),
-        appearance = ParticleAppearance(color = Color.White),
-        dimensions = CircleDimensions(radius = 12.0, maxRadius = 12.0),
-        transform = ParticleTransform(position = ParticleVector(positionX, 1150.0, 0.0)),
-        material = ParticleMaterial(density = 1.0, restitution = 0.5, hardness = hardness),
-        dynamics = ParticleDynamics(velocity = ParticleVector(velocityX, 0.0, 0.0))
-    )
-
-    private fun impact(closingSpeed: Double): Pair<Particle, Particle> {
-        val soft = circle(0L, 0, 500.0, closingSpeed / 2.0)
-        val hard = circle(1L, 2, 523.0, -closingSpeed / 2.0)
-        generator.particles.add(soft)
-        generator.particles.add(hard)
-        return Pair(soft, hard)
-    }
-
-    private fun energy(): Double = generator.particles.sumOf { particle ->
-        0.5 * particle.inertialMass() *
-            (particle.dynamics.velocity.x * particle.dynamics.velocity.x +
-                particle.dynamics.velocity.y * particle.dynamics.velocity.y)
-    }
-
     @Test
     fun restingContactNeverFragments() {
         impact(0.0)
@@ -120,6 +96,30 @@ class FragmentationTest {
             generator.particles.size <= countAfterImpact * 2,
             "fragments kept shattering: $countAfterImpact -> ${generator.particles.size}"
         )
+    }
+
+    private fun circle(id: Long, hardness: Int, positionX: Double, velocityX: Double): Particle = Particle(
+        id = id,
+        lifecycle = ParticleLifecycle(lifetime = 10000.0),
+        appearance = ParticleAppearance(color = Color.White),
+        dimensions = CircleDimensions(radius = 12.0, maxRadius = 12.0),
+        transform = ParticleTransform(position = ParticleVector(positionX, 1150.0, 0.0)),
+        material = ParticleMaterial(density = 1.0, restitution = 0.5, hardness = hardness),
+        dynamics = ParticleDynamics(velocity = ParticleVector(velocityX, 0.0, 0.0))
+    )
+
+    private fun impact(closingSpeed: Double): Pair<Particle, Particle> {
+        val soft = circle(0L, 0, 500.0, closingSpeed / 2.0)
+        val hard = circle(1L, 2, 523.0, -closingSpeed / 2.0)
+        generator.particles.add(soft)
+        generator.particles.add(hard)
+        return Pair(soft, hard)
+    }
+
+    private fun energy(): Double = generator.particles.sumOf { particle ->
+        0.5 * particle.inertialMass() *
+            (particle.dynamics.velocity.x * particle.dynamics.velocity.x +
+                particle.dynamics.velocity.y * particle.dynamics.velocity.y)
     }
 
 }

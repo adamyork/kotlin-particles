@@ -23,6 +23,24 @@ class WasmBubbleRenderer : CpuStyleRenderer<Canvas> {
     override val renderStyle: ParticleRenderStyle = EffectStyles.BUBBLE
     override val drawOrder: Int = CpuDrawOrder.COMPLEX_SHAPES
     override val drawFunction: ParticleDrawFunction<Canvas> = ::drawBubbles
+
+    private val bubbleFillPaint = Paint().apply { isAntiAlias = true }
+
+    private val bubbleRimPaint = Paint().apply {
+        isAntiAlias = true
+        mode = PaintMode.STROKE
+        color = CpuRendererConstants.BUBBLE_RIM_COLOR
+        strokeWidth = CpuRendererConstants.BUBBLE_RIM_STROKE_WIDTH
+    }
+
+    private val bubbleHighlightPaint = Paint().apply { isAntiAlias = true }
+
+    private val bubbleBlitPaint = Paint().apply { isAntiAlias = false }
+
+    private val bubbleImages = HashMap<Int, Image>()
+
+    private var nextWarmupRadius = 1
+
     private fun drawBubbles(drawFunctionData: DrawFunctionData<Canvas>) {
         warmUpBubbleImages()
         val viewPort = drawFunctionData.viewPort
@@ -42,23 +60,6 @@ class WasmBubbleRenderer : CpuStyleRenderer<Canvas> {
             }
         }
     }
-
-    private val bubbleFillPaint = Paint().apply { isAntiAlias = true }
-
-    private val bubbleRimPaint = Paint().apply {
-        isAntiAlias = true
-        mode = PaintMode.STROKE
-        color = CpuRendererConstants.BUBBLE_RIM_COLOR
-        strokeWidth = CpuRendererConstants.BUBBLE_RIM_STROKE_WIDTH
-    }
-
-    private val bubbleHighlightPaint = Paint().apply { isAntiAlias = true }
-
-    private val bubbleBlitPaint = Paint().apply { isAntiAlias = false }
-
-    private val bubbleImages = HashMap<Int, Image>()
-
-    private var nextWarmupRadius = 1
 
     private fun warmUpBubbleImages() {
         var createdImageCount = 0

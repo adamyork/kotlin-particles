@@ -114,6 +114,12 @@ public class CommonParticleCollision(
         }
     }
 
+    override fun getAllPlacedParticles(): List<Particle> = spatialGrid.getAllPlacedParticles()
+
+    override fun forEachParticleWithin(centerX: Double, centerY: Double, range: Double, action: (Particle) -> Unit) {
+        spatialGrid.forEachParticleWithin(centerX, centerY, range, action)
+    }
+
     private fun correctPositions(firstParticle: Particle, secondParticle: Particle, planeThickness: Double) {
         if (firstParticle.lifecycle.isExpired() || secondParticle.lifecycle.isExpired()) return
         if (abs(firstParticle.transform.position.z - secondParticle.transform.position.z) >= planeThickness) return
@@ -128,12 +134,6 @@ public class CommonParticleCollision(
         firstParticle.transform.position.y -= contact.normalY * correction * (secondParticleMass / totalMass)
         secondParticle.transform.position.x += contact.normalX * correction * (firstParticleMass / totalMass)
         secondParticle.transform.position.y += contact.normalY * correction * (firstParticleMass / totalMass)
-    }
-
-    override fun getAllPlacedParticles(): List<Particle> = spatialGrid.getAllPlacedParticles()
-
-    override fun forEachParticleWithin(centerX: Double, centerY: Double, range: Double, action: (Particle) -> Unit) {
-        spatialGrid.forEachParticleWithin(centerX, centerY, range, action)
     }
 
     private fun placeParticles(generators: List<ParticleEffectGenerator>, viewPort: ParticleViewPort) {

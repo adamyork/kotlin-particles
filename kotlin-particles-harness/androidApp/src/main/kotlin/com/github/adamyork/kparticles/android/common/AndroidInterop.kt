@@ -34,11 +34,6 @@ class AndroidInterop : PlatformInterop {
     @Volatile
     private var initializedClipboardManager: ClipboardManager? = null
 
-    fun initialize(context: Context) {
-        initializedClipboardManager = context.getSystemService(ClipboardManager::class.java)
-        initializedActivityManager = resolveActivityManager(context)
-    }
-
     override fun onReady(action: () -> Unit) {
         action()
     }
@@ -82,11 +77,6 @@ class AndroidInterop : PlatformInterop {
         } ?: return false
         val glEsVersion = activityManager.deviceConfigurationInfo?.reqGlEsVersion ?: 0
         return glEsVersion >= 0x00030001
-    }
-
-    private fun resolveActivityManager(context: Context): ActivityManager? {
-        return context.getSystemService(ActivityManager::class.java)
-            ?: (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)
     }
 
     override fun <T> addEventListener(type: String, callback: (T) -> Unit) {
@@ -140,6 +130,16 @@ class AndroidInterop : PlatformInterop {
     override fun cancelAnimationFrame(handle: Int) {
         val callback = synchronized(frameCallbacks) { frameCallbacks.remove(handle) } ?: return
         Choreographer.getInstance().removeFrameCallback(callback)
+    }
+
+    fun initialize(context: Context) {
+        initializedClipboardManager = context.getSystemService(ClipboardManager::class.java)
+        initializedActivityManager = resolveActivityManager(context)
+    }
+
+    private fun resolveActivityManager(context: Context): ActivityManager? {
+        return context.getSystemService(ActivityManager::class.java)
+            ?: (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)
     }
 
 }

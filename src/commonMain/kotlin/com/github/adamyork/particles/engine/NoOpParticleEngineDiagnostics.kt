@@ -10,8 +10,6 @@ import com.github.adamyork.particles.engine.data.ParticleRunningStatistic
  */
 public class NoOpParticleEngineDiagnostics : ParticleEngineDiagnostics {
 
-    private val emptyStatistic = ParticleRunningStatistic()
-
     override val isEnabled: Boolean = false
 
     override var engineType: ParticleEngineType
@@ -22,11 +20,11 @@ public class NoOpParticleEngineDiagnostics : ParticleEngineDiagnostics {
         get() = null
         set(value) {}
 
-    override val framerate: ParticleRunningStatistic = emptyStatistic
+    override val framerate: ParticleRunningStatistic = ParticleRunningStatistic()
 
-    override val deltaTime: ParticleRunningStatistic = emptyStatistic
+    override val deltaTime: ParticleRunningStatistic = ParticleRunningStatistic()
 
-    override val engineStep: ParticleRunningStatistic = emptyStatistic
+    override val engineStep: ParticleRunningStatistic = ParticleRunningStatistic()
 
     override val liveParticles: Int = 0
 

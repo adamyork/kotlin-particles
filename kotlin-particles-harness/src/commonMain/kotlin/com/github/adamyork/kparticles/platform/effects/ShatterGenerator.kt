@@ -43,9 +43,7 @@ class ShatterGenerator(
         private val SHATTER_HARDNESS_COLORS = listOf(Color.Cyan, Color.Green, Color.Yellow, Color.White)
     }
 
-    private val shatterGpuSlotGroup: GpuSlotGroup = GpuSlotGroup(SHATTER_MAX_ACTIVE_PARTICLES)
-
-    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(shatterGpuSlotGroup)
+    override val gpuSlotGroups: List<GpuSlotGroup> = listOf(GpuSlotGroup(SHATTER_MAX_ACTIVE_PARTICLES))
 
     override fun create(request: ParticleEffectRequest): MutableList<Particle> {
         val viewPort = request.viewPort
@@ -95,6 +93,22 @@ class ShatterGenerator(
         return particles
     }
 
+    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = gpuSlotGroups.first()
+
+    override fun adopt(particle: Particle) {
+        val particleId = nextParticleId()
+        particles.add(
+            particle.copy(
+                id = particleId,
+                transform = particle.transform.copy(
+                    position = particle.transform.position.copy(z = shatterPlaneZ(particleId))
+                )
+            )
+        )
+    }
+
+    override fun gpuSplitFragmentsUseWallPlane(): Boolean = true
+
     private fun launchSpeedFor(
         dimensions: ParticleDimensions,
         density: Double,
@@ -107,10 +121,6 @@ class ShatterGenerator(
         val flightTicks = travelDistance / impactSpeed
         return impactSpeed * exp(quadraticDragRate * travelDistance + physicsSettingsService.drag * flightTicks)
     }
-
-    override fun gpuSlotGroup(particle: Particle): GpuSlotGroup = shatterGpuSlotGroup
-
-    override fun gpuSplitFragmentsUseWallPlane(): Boolean = true
 
     private fun createShatterParticle(
         dimensions: ParticleDimensions,
@@ -140,18 +150,6 @@ class ShatterGenerator(
                 hardness = hardness
             ),
             id = particleId
-        )
-    }
-
-    override fun adopt(particle: Particle) {
-        val particleId = nextParticleId()
-        particles.add(
-            particle.copy(
-                id = particleId,
-                transform = particle.transform.copy(
-                    position = particle.transform.position.copy(z = shatterPlaneZ(particleId))
-                )
-            )
         )
     }
 
